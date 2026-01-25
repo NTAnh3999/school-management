@@ -21,7 +21,7 @@ const register = async ({ email, password, fullName, roleName }) => {
   const existing = await User.findOne({ where: { email } });
   if (existing) throw new ConflictError("Email already in use");
   const hash = await bcrypt.hash(password, 10);
-  const role = await Role.findOne({ where: { name: roleName || "Student" } });
+  const role = await Role.findOne({ where: { name: roleName || "student" } });
   if (!role) throw new BadRequestError("Invalid role");
   const user = await User.create({
     email,

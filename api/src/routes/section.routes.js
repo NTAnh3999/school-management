@@ -4,40 +4,29 @@ const { validate } = require("../middleware/validation.middleware");
 const router = express.Router();
 const AuthMiddleware = require("../middleware/auth.middleware");
 const RoleMiddleware = require("../middleware/role.middleware");
-const CourseController = require("../controllers/course.controller");
+const SectionController = require("../controllers/section.controller");
 
-// Public routes
-router.get("/", CourseController.list);
-router.get("/:id", validate([param("id").isInt({ min: 1 })]), CourseController.detail);
-
-// Student routes
-router.post(
-  "/:id/enroll",
-  AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["student"]),
-  validate([param("id").isInt({ min: 1 })]),
-  CourseController.enroll
-);
-
+// Get sections for a course (public if course is published)
 router.get(
-  "/my/enrollments",
-  AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["student"]),
-  CourseController.getEnrollments
+  "/course/:courseId",
+  validate([param("courseId").isInt({ min: 1 })]),
+  SectionController.list
 );
+
+router.get("/:id", validate([param("id").isInt({ min: 1 })]), SectionController.detail);
 
 // Instructor/Admin routes
 router.post(
-  "/",
+  "/course/:courseId",
   AuthMiddleware.verifyToken,
   RoleMiddleware.requireRole(["admin", "instructor"]),
   validate([
+    param("courseId").isInt({ min: 1 }),
     body("title").isString().notEmpty(),
     body("description").optional().isString(),
-    body("level").optional().isIn(["beginner", "intermediate", "advanced"]),
-    body("price").optional().isFloat({ min: 0 }),
+    body("orderIndex").optional().isInt({ min: 0 }),
   ]),
-  CourseController.create
+  SectionController.create
 );
 
 router.put(
@@ -48,11 +37,9 @@ router.put(
     param("id").isInt({ min: 1 }),
     body("title").optional().isString().notEmpty(),
     body("description").optional().isString(),
-    body("level").optional().isIn(["beginner", "intermediate", "advanced"]),
-    body("price").optional().isFloat({ min: 0 }),
-    body("status").optional().isIn(["draft", "published", "archived"]),
+    body("orderIndex").optional().isInt({ min: 0 }),
   ]),
-  CourseController.update
+  SectionController.update
 );
 
 router.delete(
@@ -60,9 +47,7 @@ router.delete(
   AuthMiddleware.verifyToken,
   RoleMiddleware.requireRole(["admin", "instructor"]),
   validate([param("id").isInt({ min: 1 })]),
-  CourseController.remove
+  SectionController.remove
 );
-
-module.exports = router;
 
 module.exports = router;
