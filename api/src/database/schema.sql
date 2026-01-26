@@ -24,6 +24,19 @@ CREATE TABLE IF NOT EXISTS users (
   CONSTRAINT fk_users_role FOREIGN KEY (role_id) REFERENCES roles(id)
 ) ENGINE=InnoDB;
 
+-- Refresh tokens table
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  token VARCHAR(500) NOT NULL UNIQUE,
+  user_id INT UNSIGNED NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_refresh_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_token (token),
+  INDEX idx_user_id (user_id)
+) ENGINE=InnoDB;
+
 -- Courses table
 CREATE TABLE IF NOT EXISTS courses (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

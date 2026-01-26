@@ -551,17 +551,17 @@ Use the provided Postman collection in `/docs/postman_collection.json` or test w
 
 ```bash
 # Register a student
-curl -X POST http://localhost:5000/api/v1/auth/register \
+curl -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"student@test.com","password":"test123","fullName":"Test Student","roleName":"student"}'
 
 # Login
-curl -X POST http://localhost:5000/api/v1/auth/login \
+curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"student@test.com","password":"test123"}'
 
 # List courses
-curl http://localhost:5000/api/v1/courses
+curl http://localhost:8080/api/v1/courses
 ```
 
 ## 📄 License

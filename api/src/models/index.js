@@ -3,6 +3,7 @@ const sequelize = require("../database/init.mysql.js");
 // Import all models
 const Role = require("./role.model");
 const User = require("./user.model");
+const RefreshToken = require("./refresh-token.model");
 const Course = require("./course.model");
 const CourseSection = require("./course-section.model");
 const Lesson = require("./lesson.model");
@@ -23,7 +24,11 @@ const Notification = require("./notification.model");
 // Define associations
 // User - Role
 User.belongsTo(Role, { foreignKey: "role_id", as: "role" });
-Role.hasMany(User, { foreignKey: "role_id", as: "users" });
+Role.hasMany(User, { foreignKey: "role_id", as: "role_users" });
+
+// RefreshToken - User
+RefreshToken.belongsTo(User, { foreignKey: "user_id", as: "user" });
+User.hasMany(RefreshToken, { foreignKey: "user_id", as: "refresh_tokens" });
 
 // Course - User (Instructor)
 Course.belongsTo(User, { foreignKey: "instructor_id", as: "instructor" });
@@ -111,6 +116,7 @@ module.exports = {
   sequelize,
   Role,
   User,
+  RefreshToken,
   Course,
   CourseSection,
   Lesson,

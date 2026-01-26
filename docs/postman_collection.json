@@ -894,7 +894,7 @@
     }
   ],
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:5000", "type": "string" },
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
     { "key": "token", "value": "", "type": "string" },
     { "key": "courseId", "value": "1", "type": "string" },
     { "key": "sectionId", "value": "1", "type": "string" },

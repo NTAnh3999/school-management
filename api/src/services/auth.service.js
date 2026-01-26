@@ -1,19 +1,59 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { randomBytes } = require("node:crypto");
+const { Op } = require("sequelize");
 const {
   BadRequestError,
   ConflictError,
   UnauthorizedError,
   InternalServerError,
 } = require("../utils/error-responses");
-const { User } = require("../models");
+const { User, RefreshToken } = require("../models");
 const Role = require("../models/role.model");
 
-const signToken = (user) => {
+const signAccessToken = (user) => {
   const payload = { id: user.id, email: user.email, role: user.role?.name };
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new InternalServerError("JWT configuration missing");
-  return jwt.sign(payload, secret, { expiresIn: process.env.JWT_EXPIRES || "7d" });
+  return jwt.sign(payload, secret, { expiresIn: process.env.JWT_EXPIRES || "15m" });
+};
+
+const formatUser = (userInstance) => {
+  if (!userInstance) return null;
+  const raw =
+    typeof userInstance.get === "function" ? userInstance.get({ plain: true }) : userInstance;
+  return {
+    id: raw.id,
+    email: raw.email,
+    fullName: raw.full_name || raw.fullName,
+    role: raw.role?.name || raw.role,
+    createdAt: raw.createdAt || raw.created_at,
+    updatedAt: raw.updatedAt || raw.updated_at,
+  };
+};
+
+const generateRefreshToken = async (userId) => {
+  const token = randomBytes(64).toString("hex");
+  const expiresAt = new Date();
+  const expiryDays = parseInt(process.env.JWT_REFRESH_EXPIRES?.replace("d", "") || "7");
+  expiresAt.setDate(expiresAt.getDate() + expiryDays);
+
+  await RefreshToken.create({
+    token,
+    user_id: userId,
+    expires_at: expiresAt,
+  });
+
+  return token;
+};
+
+const cleanupExpiredTokens = async (userId) => {
+  await RefreshToken.destroy({
+    where: {
+      user_id: userId,
+      expires_at: { [Op.lt]: new Date() },
+    },
+  });
 };
 
 const register = async ({ email, password, fullName, roleName }) => {
@@ -29,8 +69,14 @@ const register = async ({ email, password, fullName, roleName }) => {
     full_name: fullName,
     role_id: role.id,
   });
-  const token = signToken({ ...user.get(), role });
-  return { token };
+  const freshUser = await User.findByPk(user.id, {
+    include: [{ model: Role, as: "role" }],
+  });
+  await cleanupExpiredTokens(user.id);
+  const accessToken = signAccessToken(freshUser);
+  const refreshToken = await generateRefreshToken(user.id);
+
+  return { accessToken, refreshToken, user: formatUser(freshUser) };
 };
 
 const login = async ({ email, password }) => {
@@ -39,8 +85,44 @@ const login = async ({ email, password }) => {
   if (!user) throw new UnauthorizedError("Invalid credentials");
   const match = await bcrypt.compare(password, user.password_hash);
   if (!match) throw new UnauthorizedError("Invalid credentials");
-  const token = signToken(user);
-  return { token };
+
+  await cleanupExpiredTokens(user.id);
+  const accessToken = signAccessToken(user);
+  const refreshToken = await generateRefreshToken(user.id);
+
+  return { accessToken, refreshToken, user: formatUser(user) };
 };
 
-module.exports = { register, login };
+const refresh = async (token) => {
+  if (!token) throw new BadRequestError("Refresh token is required");
+
+  const refreshTokenRecord = await RefreshToken.findOne({
+    where: { token },
+    include: [{ model: User, as: "user", include: [{ model: Role, as: "role" }] }],
+  });
+
+  if (!refreshTokenRecord) throw new UnauthorizedError("Invalid refresh token");
+
+  if (new Date() > new Date(refreshTokenRecord.expires_at)) {
+    await refreshTokenRecord.destroy();
+    throw new UnauthorizedError("Refresh token expired");
+  }
+
+  // Rotate refresh token for security
+  await refreshTokenRecord.destroy();
+  await cleanupExpiredTokens(refreshTokenRecord.user_id);
+
+  const accessToken = signAccessToken(refreshTokenRecord.user);
+  const newRefreshToken = await generateRefreshToken(refreshTokenRecord.user_id);
+
+  return { accessToken, refreshToken: newRefreshToken, user: formatUser(refreshTokenRecord.user) };
+};
+
+const logout = async (token) => {
+  if (token) {
+    await RefreshToken.destroy({ where: { token } });
+  }
+  return { message: "Logged out successfully" };
+};
+
+module.exports = { register, login, refresh, logout };

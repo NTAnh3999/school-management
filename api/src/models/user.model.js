@@ -1,6 +1,5 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../database/init.mysql.js");
-const Role = require("./role.model");
 
 const User = sequelize.define(
   "User",
@@ -21,8 +20,5 @@ const User = sequelize.define(
     underscored: true,
   }
 );
-
-User.belongsTo(Role, { foreignKey: "role_id", as: "role" });
-Role.hasMany(User, { foreignKey: "role_id", as: "users" });
 
 module.exports = User;

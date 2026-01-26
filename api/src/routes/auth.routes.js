@@ -25,6 +25,13 @@ router.post(
   ]),
   AuthController.login
 );
+
+router.post(
+  "/refresh",
+  validate([body("refreshToken").isString().notEmpty().withMessage("Refresh token is required")]),
+  AuthController.refresh
+);
+
 router.post("/logout", AuthController.logout);
 
 module.exports = router;
