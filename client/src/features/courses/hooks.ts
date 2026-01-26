@@ -2,40 +2,83 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  fetchCourse,
-  fetchCourses,
-  upsertCourse,
-  type CourseFilter,
-  type UpsertCoursePayload,
+  getCourses,
+  getCourse,
+  createCourse,
+  updateCourse,
+  deleteCourse,
+  enrollCourse,
+  getMyEnrollments,
 } from "./api";
 
-export const courseKeys = {
-  all: ["courses"] as const,
-  lists: () => [...courseKeys.all, "list"] as const,
-  list: (filter?: CourseFilter) => [...courseKeys.lists(), filter] as const,
-  detail: (id: string) => [...courseKeys.all, "detail", id] as const,
-};
-
-export const useCourses = (filter?: CourseFilter) =>
-  useQuery({
-    queryKey: courseKeys.list(filter),
-    queryFn: () => fetchCourses(filter),
+export function useCourses(params?: {
+  level?: string;
+  status?: string;
+  instructorId?: number;
+}) {
+  return useQuery({
+    queryKey: ["courses", params],
+    queryFn: () => getCourses(params),
   });
+}
 
-export const useCourse = (courseId: string) =>
-  useQuery({
-    queryKey: courseKeys.detail(courseId),
-    queryFn: () => fetchCourse(courseId),
-    enabled: Boolean(courseId),
+export function useCourse(id: number) {
+  return useQuery({
+    queryKey: ["courses", id],
+    queryFn: () => getCourse(id),
+    enabled: !!id,
   });
+}
 
-export const useUpsertCourse = () => {
+export function useCreateCourse() {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: (payload: UpsertCoursePayload) => upsertCourse(payload),
-    onSuccess: (course) => {
-      queryClient.invalidateQueries({ queryKey: courseKeys.all });
-      queryClient.setQueryData(courseKeys.detail(course.id), course);
+    mutationFn: createCourse,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
     },
   });
-};
+}
+
+export function useUpdateCourse() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) =>
+      updateCourse(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
+    },
+  });
+}
+
+export function useDeleteCourse() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteCourse,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
+    },
+  });
+}
+
+export function useEnrollCourse() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: enrollCourse,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["enrollments"] });
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
+    },
+  });
+}
+
+export function useMyEnrollments() {
+  return useQuery({
+    queryKey: ["enrollments", "my"],
+    queryFn: getMyEnrollments,
+  });
+}

@@ -6,7 +6,6 @@ import { KanbanSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { mockActivities } from "@/data/mocks";
 
 const STATUS_COLUMNS = [
   { id: "scheduled", label: "Scheduled" },
@@ -15,9 +14,12 @@ const STATUS_COLUMNS = [
 ] as const;
 
 export function ActivityBoard() {
+  // TODO: Implement activities API integration
+  const activities: any[] = [];
+  
   const grouped = STATUS_COLUMNS.map((column) => ({
     column,
-    activities: mockActivities.filter((activity) => activity.status === column.id),
+    activities: activities.filter((activity) => activity.status === column.id),
   }));
 
   return (

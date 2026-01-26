@@ -1,33 +1,58 @@
+import { httpClient } from "@/lib/http-client";
 import { API_ROUTES } from "@/config/api";
-import { httpClient } from "@/services/http-client";
-import { type Course } from "@/types/models";
+import { Course } from "@/types/models";
 
-export type CourseFilter = {
-  search?: string;
-  teacherId?: string;
-};
+interface GetCoursesParams {
+  level?: string;
+  status?: string;
+  instructorId?: number;
+}
 
-export type UpsertCoursePayload = Pick<
-  Course,
-  "name" | "description" | "category" | "startDate" | "endDate" | "teacherId"
-> & { id?: string };
+export async function getCourses(params?: GetCoursesParams) {
+  const response = await httpClient.get(API_ROUTES.courses.list, { params });
+  return response.data;
+}
 
-export const fetchCourses = (filter?: CourseFilter) => {
-  const query = new URLSearchParams(filter as Record<string, string>).toString();
-  const url = query ? `${API_ROUTES.courses}?${query}` : API_ROUTES.courses;
-  return httpClient<Course[]>(url);
-};
+export async function getCourse(id: number) {
+  const response = await httpClient.get(API_ROUTES.courses.detail(id));
+  return response.data;
+}
 
-export const fetchCourse = (courseId: string) =>
-  httpClient<Course>(`${API_ROUTES.courses}/${courseId}`);
+export async function createCourse(data: {
+  title: string;
+  description: string;
+  level: string;
+  price: number;
+}) {
+  const response = await httpClient.post(API_ROUTES.courses.create, data);
+  return response.data;
+}
 
-export const upsertCourse = (payload: UpsertCoursePayload) => {
-  const method = payload.id ? "PUT" : "POST";
-  const url = payload.id
-    ? `${API_ROUTES.courses}/${payload.id}`
-    : API_ROUTES.courses;
-  return httpClient<Course, UpsertCoursePayload>(url, {
-    method,
-    body: payload,
-  });
-};
+export async function updateCourse(
+  id: number,
+  data: Partial<{
+    title: string;
+    description: string;
+    level: string;
+    price: number;
+    status: string;
+  }>,
+) {
+  const response = await httpClient.put(API_ROUTES.courses.update(id), data);
+  return response.data;
+}
+
+export async function deleteCourse(id: number) {
+  const response = await httpClient.delete(API_ROUTES.courses.delete(id));
+  return response.data;
+}
+
+export async function enrollCourse(id: number) {
+  const response = await httpClient.post(API_ROUTES.courses.enroll(id));
+  return response.data;
+}
+
+export async function getMyEnrollments() {
+  const response = await httpClient.get(API_ROUTES.courses.myEnrollments);
+  return response.data;
+}

@@ -4,19 +4,13 @@ import { Trophy } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { mockActivities } from "@/data/mocks";
-
-const sampleAttempts = [
-  { quizId: "activity-1", student: "D. Carter", score: 84 },
-  { quizId: "activity-1", student: "B. Holmes", score: 72 },
-  { quizId: "activity-1", student: "M. Patel", score: 96 },
-];
 
 export function QuizPerformance() {
-  const quiz = mockActivities.find((activity) => activity.type === "quiz");
-  const average =
-    sampleAttempts.reduce((total, attempt) => total + attempt.score, 0) /
-    sampleAttempts.length;
+  // TODO: Implement quiz attempts API integration
+  const attempts: any[] = [];
+  const average = attempts.length > 0
+    ? attempts.reduce((total, attempt) => total + (attempt.score || 0), 0) / attempts.length
+    : 0;
 
   return (
     <Card>
@@ -30,29 +24,35 @@ export function QuizPerformance() {
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div>
-          <p className="text-sm font-medium">
-            {quiz?.title ?? "Linear Functions Quiz"}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {sampleAttempts.length} recent attempts
-          </p>
-          <Progress value={average} className="mt-2" />
-          <p className="mt-1 text-sm text-muted-foreground">
-            Avg score {average.toFixed(0)}%
-          </p>
-        </div>
-        <div className="space-y-2">
-          {sampleAttempts.map((attempt) => (
-            <div
-              key={attempt.student}
-              className="flex items-center justify-between text-sm"
-            >
-              <span>{attempt.student}</span>
-              <span className="font-mono">{attempt.score}%</span>
+        {attempts.length > 0 ? (
+          <>
+            <div>
+              <p className="text-sm font-medium">Recent Quiz Attempts</p>
+              <p className="text-xs text-muted-foreground">
+                {attempts.length} attempts
+              </p>
+              <Progress value={average} className="mt-2" />
+              <p className="mt-1 text-sm text-muted-foreground">
+                Avg score {average.toFixed(0)}%
+              </p>
             </div>
-          ))}
-        </div>
+            <div className="space-y-2">
+              {attempts.slice(0, 5).map((attempt: any) => (
+                <div
+                  key={attempt.id}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <span>{attempt.enrollment?.student?.fullName || "Student"}</span>
+                  <span className="font-mono">{attempt.score || 0}%</span>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            No quiz attempts yet
+          </p>
+        )}
       </CardContent>
     </Card>
   );

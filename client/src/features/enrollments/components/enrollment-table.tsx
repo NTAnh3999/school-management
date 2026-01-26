@@ -1,7 +1,7 @@
 "use client";
 
 import { Users } from "lucide-react";
-
+import { useMyEnrollments } from "@/features/courses/hooks";
 import {
   Table,
   TableBody,
@@ -13,9 +13,11 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { mockEnrollments, mockCourses } from "@/data/mocks";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function EnrollmentTable() {
+  const { data: enrollments, isLoading } = useMyEnrollments();
+
   return (
     <Card>
       <CardHeader>
@@ -25,35 +27,53 @@ export function EnrollmentTable() {
         </div>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableCaption>Enrollment syncs automatically against the API.</TableCaption>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Student</TableHead>
-              <TableHead>Course</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Progress</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {mockEnrollments.map((enrollment) => {
-              const course = mockCourses.find((c) => c.id === enrollment.courseId);
-              return (
+        {isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        ) : enrollments && enrollments.length > 0 ? (
+          <Table>
+            <TableCaption>
+              Enrollment syncs automatically against the API.
+            </TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Student</TableHead>
+                <TableHead>Course</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Progress</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {enrollments.map((enrollment: any) => (
                 <TableRow key={enrollment.id}>
-                  <TableCell>Student {enrollment.userId}</TableCell>
-                  <TableCell>{course?.name}</TableCell>
-                  <TableCell className="capitalize">{enrollment.status}</TableCell>
+                  <TableCell>
+                    {enrollment.student?.fullName || "Student"}
+                  </TableCell>
+                  <TableCell>{enrollment.course?.title || "Course"}</TableCell>
+                  <TableCell className="capitalize">
+                    {enrollment.status}
+                  </TableCell>
                   <TableCell className="space-y-1">
-                    <Progress value={enrollment.progress} />
+                    <Progress
+                      value={enrollment.progress?.completion_percentage || 0}
+                    />
                     <span className="text-xs text-muted-foreground">
-                      {enrollment.progress}% complete
+                      {enrollment.progress?.completion_percentage || 0}%
+                      complete
                     </span>
                   </TableCell>
                 </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            No enrollments found
+          </p>
+        )}
       </CardContent>
     </Card>
   );

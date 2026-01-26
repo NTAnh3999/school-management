@@ -7,6 +7,8 @@ import {
   GraduationCap,
   LayoutDashboard,
   Users,
+  Award,
+  Bell,
 } from "lucide-react";
 
 export type AppRoute = {
@@ -21,36 +23,42 @@ export const appRoutes: AppRoute[] = [
     label: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
-    description: "Snapshot of courses, assignments, quizzes and enrollments",
+    description: "Your learning progress and enrolled courses",
   },
   {
     label: "Courses",
     href: "/courses",
     icon: BookOpen,
-    description: "Create, schedule and publish course outlines",
+    description: "Browse and manage courses",
   },
   {
     label: "Modules",
     href: "/modules",
     icon: Blocks,
-    description: "Sequence course modules and attach the right activities",
+    description: "Course modules and lessons",
   },
   {
     label: "Activities",
     href: "/activities",
     icon: ClipboardList,
-    description: "Manage quizzes, assignments, discussions and submissions",
+    description: "Assignments and activities",
   },
   {
     label: "Assessments",
     href: "/assessments",
     icon: GraduationCap,
-    description: "Monitor quiz attempts, grades and rubric performance",
+    description: "Quizzes and assessments",
+  },
+  {
+    label: "Rewards",
+    href: "/rewards",
+    icon: Award,
+    description: "Your achievements and rewards",
   },
   {
     label: "People",
     href: "/people",
     icon: Users,
-    description: "Enroll students, invite teachers and assign roles",
+    description: "Students and instructors",
   },
 ];

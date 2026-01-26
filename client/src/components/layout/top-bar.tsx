@@ -6,6 +6,7 @@ import { ChevronRight, LogOut } from "lucide-react";
 
 import { ThemeToggle } from "./theme-toggle";
 import { MobileNav } from "./sidebar";
+import { NotificationDropdown } from "@/features/notifications/components/notification-dropdown";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +18,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useSessionStore } from "@/stores/session-store";
+import { useLogout } from "@/features/auth/hooks";
 
 function buildBreadcrumbs(pathname: string) {
   const segments = pathname.split("/").filter(Boolean);
@@ -31,7 +33,7 @@ export function TopBar() {
   const pathname = usePathname();
   const crumbs = buildBreadcrumbs(pathname);
   const user = useSessionStore((state) => state.user);
-  const clearSession = useSessionStore((state) => state.clearSession);
+  const logout = useLogout();
 
   return (
     <header className="flex flex-col gap-3 border-b bg-background/95 p-4 lg:px-8">
@@ -40,11 +42,16 @@ export function TopBar() {
           <MobileNav />
           <nav className="flex items-center gap-2 text-sm text-muted-foreground">
             {crumbs.map((crumb, index) => (
-              <span key={crumb.href} className="flex items-center gap-2">
+              <span
+                key={crumb.href + index}
+                className="flex items-center gap-2"
+              >
                 {index > 0 && <ChevronRight className="h-3 w-3" />}
                 <Link
                   href={crumb.href}
-                  className={index === crumbs.length - 1 ? "text-foreground" : ""}
+                  className={
+                    index === crumbs.length - 1 ? "text-foreground" : ""
+                  }
                 >
                   {crumb.label}
                 </Link>
@@ -52,7 +59,10 @@ export function TopBar() {
             ))}
           </nav>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-2">
+          <NotificationDropdown />
+          <ThemeToggle />
+        </div>
       </div>
       <div className="flex items-center justify-between">
         <div>
@@ -81,11 +91,19 @@ export function TopBar() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>{user?.email ?? "admin@schoolhub.io"}</DropdownMenuLabel>
+            <DropdownMenuLabel>
+              {user?.email ?? "admin@schoolhub.io"}
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={clearSession}>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                logout.mutate();
+              }}
+              disabled={logout.isPending}
+            >
               <LogOut className="mr-2 h-4 w-4" />
-              Sign out
+              {logout.isPending ? "Signing out..." : "Sign out"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

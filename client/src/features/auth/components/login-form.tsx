@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export function LoginForm() {
+  const router = useRouter();
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -29,7 +31,10 @@ export function LoginForm() {
 
   const onSubmit = (values: FormValues) => {
     login.mutate(values, {
-      onSuccess: () => toast.success("Welcome back!"),
+      onSuccess: () => {
+        toast.success("Welcome back!");
+        router.push("/dashboard");
+      },
       onError: () => toast.error("Unable to login. Please try again."),
     });
   };
