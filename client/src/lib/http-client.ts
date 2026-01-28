@@ -6,6 +6,7 @@ import axios, {
 import { API_BASE_URL, API_ROUTES, API_TIMEOUT } from "@/config/api";
 import { useSessionStore } from "@/stores/session-store";
 import { getAccessTokenFromCookie } from "@/lib/token-storage";
+import { IErrorResponse } from "@/types/api";
 
 type RetriableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
@@ -82,7 +83,7 @@ httpClient.interceptors.response.use(
     }
     return response;
   },
-  async (error: AxiosError) => {
+  async (error: AxiosError<IErrorResponse>) => {
     if (!error.response) {
       console.error("API Error:", error.message);
       return Promise.reject(error);
@@ -117,7 +118,6 @@ httpClient.interceptors.response.use(
                 reject(error);
                 return;
               }
-              if (!originalRequest.headers) originalRequest.headers = {};
               originalRequest.headers.Authorization = `Bearer ${token}`;
               resolve(httpClient(originalRequest));
             },
@@ -135,7 +135,6 @@ httpClient.interceptors.response.use(
           useSessionStore.getState().clearSession();
           return Promise.reject(error);
         }
-        if (!originalRequest.headers) originalRequest.headers = {};
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return httpClient(originalRequest);
       } catch (refreshError) {
