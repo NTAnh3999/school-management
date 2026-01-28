@@ -19,11 +19,12 @@ import { Bell, Check, X } from "lucide-react";
 import { toast } from "sonner";
 
 export function NotificationDropdown() {
-  const { data: notifications } = useNotifications();
+  const { data } = useNotifications();
   const markReadMutation = useMarkNotificationRead();
   const deleteMutation = useDeleteNotification();
 
-  const unreadCount = notifications?.filter((n: any) => !n.is_read).length || 0;
+  const unreadCount =
+    data.notifications?.filter((n: any) => !n.is_read).length || 0;
 
   const handleMarkRead = async (id: number, e: React.MouseEvent) => {
     e.stopPropagation();

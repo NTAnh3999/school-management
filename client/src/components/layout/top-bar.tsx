@@ -60,7 +60,7 @@ export function TopBar() {
           </nav>
         </div>
         <div className="flex items-center gap-2">
-          <NotificationDropdown />
+          {/* <NotificationDropdown /> */}
           <ThemeToggle />
         </div>
       </div>
