@@ -1,5 +1,6 @@
--- Migration: Add refresh_tokens table
--- Run this script if you have an existing database
+-- Migration: Add refresh tokens
+-- Created: 2025-11-23
+-- Description: Add refresh_tokens table for authentication
 
 USE school_mgmt;
 
@@ -14,4 +15,3 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   INDEX idx_token (token),
   INDEX idx_user_id (user_id)
 ) ENGINE=InnoDB;
- 
