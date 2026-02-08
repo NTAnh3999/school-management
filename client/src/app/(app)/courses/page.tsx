@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useCourses } from "@/features/courses/hooks";
 import { CourseCard } from "@/features/courses/components/course-card";
 import { CreateCourseDialog } from "@/features/courses/components/create-course-dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -23,7 +22,6 @@ export default function CoursesPage() {
   });
 
   const { data: courses, isLoading, error } = useCourses(filters);
-
   if (error) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -59,7 +57,7 @@ export default function CoursesPage() {
             <SelectValue placeholder="All Levels" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Levels</SelectItem>
+            <SelectItem value="all">All Levels</SelectItem>
             <SelectItem value="beginner">Beginner</SelectItem>
             <SelectItem value="intermediate">Intermediate</SelectItem>
             <SelectItem value="advanced">Advanced</SelectItem>
@@ -73,7 +71,7 @@ export default function CoursesPage() {
             <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Status</SelectItem>
+            <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="draft">Draft</SelectItem>
             <SelectItem value="published">Published</SelectItem>
             <SelectItem value="archived">Archived</SelectItem>

@@ -1,6 +1,5 @@
 import { httpClient } from "@/lib/http-client";
 import { API_ROUTES } from "@/config/api";
-import { Course } from "@/types/models";
 
 interface GetCoursesParams {
   level?: string;

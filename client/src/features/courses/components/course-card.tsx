@@ -9,28 +9,40 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Clock, DollarSign } from "lucide-react";
+import { BookOpen, DollarSign } from "lucide-react";
 import Link from "next/link";
 
 interface CourseCardProps {
   course: Course;
 }
 
-export function CourseCard({ course }: CourseCardProps) {
-  const levelColors = {
-    beginner:
-      "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-    intermediate:
-      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-    advanced: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-  };
+const getLevelVariant = (level: string) => {
+  switch (level) {
+    case "beginner":
+      return "default";
+    case "intermediate":
+      return "secondary";
+    case "advanced":
+      return "destructive";
+    default:
+      return "default";
+  }
+};
 
-  const statusColors = {
-    draft: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300",
-    published: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-    archived:
-      "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
-  };
+const getStatusVariant = (status: string) => {
+  switch (status) {
+    case "published":
+      return "default";
+    case "draft":
+      return "secondary";
+    case "archived":
+      return "outline";
+    default:
+      return "secondary";
+  }
+};
+
+export function CourseCard({ course }: CourseCardProps) {
 
   return (
     <Card className="hover:shadow-lg transition-shadow">
@@ -44,8 +56,8 @@ export function CourseCard({ course }: CourseCardProps) {
           </div>
         </div>
         <div className="flex gap-2 mt-3">
-          <Badge className={levelColors[course.level]}>{course.level}</Badge>
-          <Badge className={statusColors[course.status]}>{course.status}</Badge>
+          <Badge variant={getLevelVariant(course.level)}>{course.level}</Badge>
+          <Badge variant={getStatusVariant(course.status)}>{course.status}</Badge>
         </div>
       </CardHeader>
       <CardContent>
