@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button";
 
 export default function DashboardPage() {
   const { data: enrollments, isLoading } = useMyEnrollments();
-
   if (isLoading) {
     return (
       <div className="space-y-6">
