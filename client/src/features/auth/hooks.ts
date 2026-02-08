@@ -1,7 +1,15 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { getProfile, login, logout, register, type LoginPayload, type RegisterPayload } from "./api";
+import { useRouter } from "next/navigation";
+import {
+  getProfile,
+  login,
+  logout,
+  register,
+  type LoginPayload,
+  type RegisterPayload,
+} from "./api";
 import { useSessionStore } from "@/stores/session-store";
 
 export const useLogin = () => {
@@ -39,11 +47,15 @@ export const useProfile = () => {
 };
 
 export const useLogout = () => {
+  const router = useRouter();
   const refreshToken = useSessionStore((state) => state.refreshToken);
   const clearSession = useSessionStore((state) => state.clearSession);
 
   return useMutation({
     mutationFn: () => logout(refreshToken),
-    onSettled: () => clearSession(),
+    onSettled: () => {
+      clearSession();
+      router.push("/login");
+    },
   });
 };
