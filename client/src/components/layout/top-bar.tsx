@@ -6,7 +6,6 @@ import { ChevronRight, LogOut } from "lucide-react";
 
 import { ThemeToggle } from "./theme-toggle";
 import { MobileNav } from "./sidebar";
-import { NotificationDropdown } from "@/features/notifications/components/notification-dropdown";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,51 +61,41 @@ export function TopBar() {
         <div className="flex items-center gap-2">
           {/* <NotificationDropdown /> */}
           <ThemeToggle />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="flex items-center gap-2">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback>
+                    {user?.fullName
+                      ?.split(" ")
+                      .map((part) => part[0])
+                      .join("")
+                      .toUpperCase() ?? "AD"}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="hidden text-sm font-medium sm:inline">
+                  {user?.fullName ?? "Admin User"}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>
+                {user?.email ?? "admin@schoolhub.io"}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  logout.mutate();
+                }}
+                disabled={logout.isPending}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                {logout.isPending ? "Signing out..." : "Sign out"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">
-            {crumbs[crumbs.length - 1]?.label ?? "Overview"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Stay ahead of enrollments, assessments and learning progress.
-          </p>
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback>
-                  {user?.fullName
-                    ?.split(" ")
-                    .map((part) => part[0])
-                    .join("")
-                    .toUpperCase() ?? "AD"}
-                </AvatarFallback>
-              </Avatar>
-              <span className="hidden text-sm font-medium sm:inline">
-                {user?.fullName ?? "Admin User"}
-              </span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>
-              {user?.email ?? "admin@schoolhub.io"}
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={(event) => {
-                event.preventDefault();
-                logout.mutate();
-              }}
-              disabled={logout.isPending}
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              {logout.isPending ? "Signing out..." : "Sign out"}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </header>
   );
