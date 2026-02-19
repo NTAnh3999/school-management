@@ -1,6 +1,6 @@
 "use client";
 
-import { useCourse, useEnrollCourse } from "@/features/courses/hooks";
+import { useCourse, useEnrollCourse } from "../_feature/hooks";
 import { Button } from "@/components/ui/button";
 import {
   Card,

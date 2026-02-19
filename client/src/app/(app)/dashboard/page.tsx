@@ -1,6 +1,6 @@
 "use client";
 
-import { useMyEnrollments } from "@/features/courses/hooks";
+import { useMyEnrollments } from "@/app/(app)/courses/_feature/hooks";
 import {
   Card,
   CardContent,

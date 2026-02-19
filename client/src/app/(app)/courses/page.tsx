@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useCourses } from "@/features/courses/hooks";
-import { CourseCard } from "@/features/courses/components/course-card";
-import { CreateCourseDialog } from "@/features/courses/components/create-course-dialog";
+import { useCourses } from "./_feature/hooks";
+import { CourseCard } from "./_feature/components/course-card";
+import { CreateCourseDialog } from "./_feature/components/create-course-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
