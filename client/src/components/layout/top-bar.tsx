@@ -17,7 +17,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useSessionStore } from "@/stores/session-store";
-import { useLogout } from "@/features/auth/hooks";
+import { useLogout } from "@/app/(auth)/_feature/hooks";
 
 function buildBreadcrumbs(pathname: string) {
   const segments = pathname.split("/").filter(Boolean);

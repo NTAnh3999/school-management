@@ -4,7 +4,7 @@ import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { LoginForm } from "@/features/auth/components/login-form";
+import { LoginForm } from "../_feature/components/login-form";
 
 export default function LoginPage() {
   return (
