@@ -19,7 +19,8 @@ export default function LoginPage() {
             Welcome to SchoolHub
           </h1>
           <p className="text-lg text-muted-foreground">
-            Sign in to access your dashboard and manage enrollments, courses, quizzes and assignments.
+            Sign in to access your dashboard and manage enrollments, courses,
+            quizzes and assignments.
           </p>
           <div className="flex flex-wrap gap-3">
             <Button variant="outline" asChild>

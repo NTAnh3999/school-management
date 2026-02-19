@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function ModuleRoadmap() {
   const { data: courses, isLoading } = useCourses();
-  
+
   // Get sections from first available course
   const sections = courses?.[0]?.sections || [];
 
@@ -35,10 +35,14 @@ export function ModuleRoadmap() {
             <div key={section.id} className="rounded-lg border bg-muted/20 p-3">
               <div className="flex items-center justify-between">
                 <p className="font-medium">{section.title}</p>
-                <Badge variant="outline">{section.lessons?.length || 0} lessons</Badge>
+                <Badge variant="outline">
+                  {section.lessons?.length || 0} lessons
+                </Badge>
               </div>
               {section.description && (
-                <p className="text-sm text-muted-foreground">{section.description}</p>
+                <p className="text-sm text-muted-foreground">
+                  {section.description}
+                </p>
               )}
             </div>
           ))
