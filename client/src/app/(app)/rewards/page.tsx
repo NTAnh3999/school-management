@@ -1,6 +1,6 @@
 "use client";
 
-import { useMyRewards } from "@/features/rewards/hooks";
+import { useMyRewards } from "./_feature/hooks";
 import {
   Card,
   CardContent,
