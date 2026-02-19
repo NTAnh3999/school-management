@@ -1,7 +1,7 @@
 "use client";
 
 import { Users } from "lucide-react";
-import { useMyEnrollments } from "@/features/courses/hooks";
+import { useMyEnrollments } from "@/app/(app)/courses/_feature/hooks";
 import {
   Table,
   TableBody,

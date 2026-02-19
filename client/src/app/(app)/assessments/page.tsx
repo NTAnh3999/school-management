@@ -1,7 +1,7 @@
 "use client";
 
-import { QuizPerformance } from "@/features/assessments/components/quiz-performance";
-import { EnrollmentTable } from "@/features/enrollments/components/enrollment-table";
+import { QuizPerformance } from "./_feature/components/quiz-performance";
+import { EnrollmentTable } from "@/_shared/enrollments/components/enrollment-table";
 
 export default function AssessmentsPage() {
   return (

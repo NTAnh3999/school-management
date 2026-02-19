@@ -1,7 +1,7 @@
 "use client";
 
 import { ListTree } from "lucide-react";
-import { useCourses } from "@/features/courses/hooks";
+import { useCourses } from "@/app/(app)/courses/_feature/hooks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";

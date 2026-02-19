@@ -1,7 +1,7 @@
 "use client";
 
-import { ActivityBoard } from "@/features/activities/components/activity-board";
-import { QuizPerformance } from "@/features/assessments/components/quiz-performance";
+import { ActivityBoard } from "./_feature/components/activity-board";
+import { QuizPerformance } from "@/app/(app)/assessments/_feature/components/quiz-performance";
 
 export default function ActivitiesPage() {
   return (

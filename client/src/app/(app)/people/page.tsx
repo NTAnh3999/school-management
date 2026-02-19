@@ -1,6 +1,6 @@
 "use client";
 
-import { EnrollmentTable } from "@/features/enrollments/components/enrollment-table";
+import { EnrollmentTable } from "@/_shared/enrollments/components/enrollment-table";
 
 export default function PeoplePage() {
   return (

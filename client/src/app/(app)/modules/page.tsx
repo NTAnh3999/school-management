@@ -1,7 +1,7 @@
 "use client";
 
-import { ModuleRoadmap } from "@/features/modules/components/module-roadmap";
-import { ActivityBoard } from "@/features/activities/components/activity-board";
+import { ModuleRoadmap } from "./_feature/components/module-roadmap";
+import { ActivityBoard } from "@/app/(app)/activities/_feature/components/activity-board";
 
 export default function ModulesPage() {
   return (

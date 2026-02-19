@@ -4,7 +4,7 @@ import {
   useNotifications,
   useMarkNotificationRead,
   useDeleteNotification,
-} from "@/features/notifications/hooks";
+} from "@/_shared/notifications/hooks";
 import {
   DropdownMenu,
   DropdownMenuContent,
