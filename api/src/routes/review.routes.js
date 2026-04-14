@@ -5,6 +5,7 @@ const router = express.Router();
 const AuthMiddleware = require("../middleware/auth.middleware");
 const RoleMiddleware = require("../middleware/role.middleware");
 const ReviewController = require("../controllers/review.controller");
+const { ROLES } = require("../constants/roles");
 
 // Get reviews for a course (public)
 router.get(
@@ -17,7 +18,7 @@ router.get(
 router.post(
   "/course/:courseId",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["student"]),
+  RoleMiddleware.requireRole([ROLES.STUDENT]),
   validate([
     param("courseId").isInt({ min: 1 }),
     body("rating").isInt({ min: 1, max: 5 }),
@@ -29,7 +30,7 @@ router.post(
 router.put(
   "/:id",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["student"]),
+  RoleMiddleware.requireRole([ROLES.STUDENT]),
   validate([
     param("id").isInt({ min: 1 }),
     body("rating").optional().isInt({ min: 1, max: 5 }),

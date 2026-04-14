@@ -5,6 +5,7 @@ const router = express.Router();
 const AuthMiddleware = require("../middleware/auth.middleware");
 const RoleMiddleware = require("../middleware/role.middleware");
 const LessonController = require("../controllers/lesson.controller");
+const { STAFF_ROLES } = require("../constants/roles");
 
 // Get lessons for a section
 router.get(
@@ -24,7 +25,7 @@ router.get(
 router.post(
   "/section/:sectionId",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["admin", "instructor"]),
+  RoleMiddleware.requireRole(STAFF_ROLES),
   validate([
     param("sectionId").isInt({ min: 1 }),
     body("title").isString().notEmpty(),
@@ -40,7 +41,7 @@ router.post(
 router.put(
   "/:id",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["admin", "instructor"]),
+  RoleMiddleware.requireRole(STAFF_ROLES),
   validate([
     param("id").isInt({ min: 1 }),
     body("title").optional().isString().notEmpty(),
@@ -56,7 +57,7 @@ router.put(
 router.delete(
   "/:id",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["admin", "instructor"]),
+  RoleMiddleware.requireRole(STAFF_ROLES),
   validate([param("id").isInt({ min: 1 })]),
   LessonController.remove
 );

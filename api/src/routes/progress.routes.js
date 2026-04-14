@@ -5,12 +5,13 @@ const router = express.Router();
 const AuthMiddleware = require("../middleware/auth.middleware");
 const RoleMiddleware = require("../middleware/role.middleware");
 const ProgressController = require("../controllers/progress.controller");
+const { ROLES, STAFF_ROLES } = require("../constants/roles");
 
 // Student routes
 router.post(
   "/update",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["student"]),
+  RoleMiddleware.requireRole([ROLES.STUDENT]),
   validate([
     body("enrollmentId").isInt({ min: 1 }),
     body("lessonId").isInt({ min: 1 }),
@@ -31,7 +32,7 @@ router.get(
 router.get(
   "/course/:courseId",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["admin", "instructor"]),
+  RoleMiddleware.requireRole(STAFF_ROLES),
   validate([param("courseId").isInt({ min: 1 })]),
   ProgressController.getInstructorCourseProgress
 );

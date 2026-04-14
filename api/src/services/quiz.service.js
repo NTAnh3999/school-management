@@ -10,6 +10,7 @@ const {
   CourseSection,
   Course,
 } = require("../models");
+const { ROLES, isRole } = require("../constants/roles");
 
 const createQuiz = async (lessonId, payload, userId, userRole) => {
   const { title, description, passingScore, timeLimitMinutes, maxAttempts } = payload;
@@ -27,7 +28,7 @@ const createQuiz = async (lessonId, payload, userId, userRole) => {
   if (!lesson) throw new NotFoundError("Lesson not found");
 
   // Check authorization
-  if (userRole !== "admin" && lesson.section.course.instructor_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN) && lesson.section.course.instructor_id !== userId) {
     throw new ForbiddenError("Not authorized to create quiz for this lesson");
   }
 
@@ -65,7 +66,7 @@ const addQuestion = async (quizId, payload, userId, userRole) => {
   if (!quiz) throw new NotFoundError("Quiz not found");
 
   // Check authorization
-  if (userRole !== "admin" && quiz.lesson.section.course.instructor_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN) && quiz.lesson.section.course.instructor_id !== userId) {
     throw new ForbiddenError("Not authorized to add questions to this quiz");
   }
 

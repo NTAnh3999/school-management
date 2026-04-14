@@ -5,6 +5,7 @@ const router = express.Router();
 const AuthMiddleware = require("../middleware/auth.middleware");
 const RoleMiddleware = require("../middleware/role.middleware");
 const QuizController = require("../controllers/quiz.controller");
+const { ROLES, STAFF_ROLES } = require("../constants/roles");
 
 // Get quiz (students see quiz without correct answers)
 router.get(
@@ -18,7 +19,7 @@ router.get(
 router.post(
   "/:quizId/attempts",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["student"]),
+  RoleMiddleware.requireRole([ROLES.STUDENT]),
   validate([param("quizId").isInt({ min: 1 }), body("enrollmentId").isInt({ min: 1 })]),
   QuizController.startAttempt
 );
@@ -26,7 +27,7 @@ router.post(
 router.post(
   "/attempts/:attemptId/submit",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["student"]),
+  RoleMiddleware.requireRole([ROLES.STUDENT]),
   validate([param("attemptId").isInt({ min: 1 }), body("answers").isArray()]),
   QuizController.submitAttempt
 );
@@ -34,7 +35,7 @@ router.post(
 router.get(
   "/:quizId/attempts",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["student"]),
+  RoleMiddleware.requireRole([ROLES.STUDENT]),
   validate([param("quizId").isInt({ min: 1 })]),
   QuizController.getAttempts
 );
@@ -43,7 +44,7 @@ router.get(
 router.post(
   "/lesson/:lessonId",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["admin", "instructor"]),
+  RoleMiddleware.requireRole(STAFF_ROLES),
   validate([
     param("lessonId").isInt({ min: 1 }),
     body("title").isString().notEmpty(),
@@ -58,7 +59,7 @@ router.post(
 router.post(
   "/:quizId/questions",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["admin", "instructor"]),
+  RoleMiddleware.requireRole(STAFF_ROLES),
   validate([
     param("quizId").isInt({ min: 1 }),
     body("questionText").isString().notEmpty(),

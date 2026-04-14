@@ -3,6 +3,7 @@ const { body } = require("express-validator");
 const { validate } = require("../middleware/validation.middleware");
 const router = express.Router();
 const AuthController = require("../controllers/auth.controller");
+const { ROLE_NAMES, normalizeRole } = require("../constants/roles");
 
 router.post(
   "/register",
@@ -12,8 +13,9 @@ router.post(
     body("fullName").isString().notEmpty().withMessage("Full name is required"),
     body("roleName")
       .optional()
-      .isIn(["Student", "Teacher", "Admin"])
-      .withMessage("roleName must be one of Student, Teacher, Admin"),
+      .customSanitizer((value) => normalizeRole(value))
+      .isIn(ROLE_NAMES)
+      .withMessage(`roleName must be one of ${ROLE_NAMES.join(", ")}`),
   ]),
   AuthController.register
 );

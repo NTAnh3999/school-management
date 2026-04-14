@@ -5,6 +5,7 @@ const router = express.Router();
 const AuthMiddleware = require("../middleware/auth.middleware");
 const RoleMiddleware = require("../middleware/role.middleware");
 const SectionController = require("../controllers/section.controller");
+const { STAFF_ROLES } = require("../constants/roles");
 
 // Get sections for a course (public if course is published)
 router.get(
@@ -19,7 +20,7 @@ router.get("/:id", validate([param("id").isInt({ min: 1 })]), SectionController.
 router.post(
   "/course/:courseId",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["admin", "instructor"]),
+  RoleMiddleware.requireRole(STAFF_ROLES),
   validate([
     param("courseId").isInt({ min: 1 }),
     body("title").isString().notEmpty(),
@@ -32,7 +33,7 @@ router.post(
 router.put(
   "/:id",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["admin", "instructor"]),
+  RoleMiddleware.requireRole(STAFF_ROLES),
   validate([
     param("id").isInt({ min: 1 }),
     body("title").optional().isString().notEmpty(),
@@ -45,7 +46,7 @@ router.put(
 router.delete(
   "/:id",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["admin", "instructor"]),
+  RoleMiddleware.requireRole(STAFF_ROLES),
   validate([param("id").isInt({ min: 1 })]),
   SectionController.remove
 );

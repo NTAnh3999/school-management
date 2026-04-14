@@ -5,6 +5,7 @@ const router = express.Router();
 const AuthMiddleware = require("../middleware/auth.middleware");
 const RoleMiddleware = require("../middleware/role.middleware");
 const CourseController = require("../controllers/course.controller");
+const { ROLES, STAFF_ROLES } = require("../constants/roles");
 
 // Public routes
 router.get("/", CourseController.list);
@@ -14,7 +15,7 @@ router.get("/:id", validate([param("id").isInt({ min: 1 })]), CourseController.d
 router.post(
   "/:id/enroll",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["student"]),
+  RoleMiddleware.requireRole([ROLES.STUDENT]),
   validate([param("id").isInt({ min: 1 })]),
   CourseController.enroll
 );
@@ -22,7 +23,7 @@ router.post(
 router.get(
   "/my/enrollments",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["student"]),
+  RoleMiddleware.requireRole([ROLES.STUDENT]),
   CourseController.getEnrollments
 );
 
@@ -30,7 +31,7 @@ router.get(
 router.post(
   "/",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["admin", "instructor"]),
+  RoleMiddleware.requireRole(STAFF_ROLES),
   validate([
     body("title").isString().notEmpty(),
     body("description").optional().isString(),
@@ -43,7 +44,7 @@ router.post(
 router.put(
   "/:id",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["admin", "instructor"]),
+  RoleMiddleware.requireRole(STAFF_ROLES),
   validate([
     param("id").isInt({ min: 1 }),
     body("title").optional().isString().notEmpty(),
@@ -58,7 +59,7 @@ router.put(
 router.delete(
   "/:id",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["admin", "instructor"]),
+  RoleMiddleware.requireRole(STAFF_ROLES),
   validate([param("id").isInt({ min: 1 })]),
   CourseController.remove
 );

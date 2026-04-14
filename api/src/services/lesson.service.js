@@ -1,5 +1,6 @@
 const { BadRequestError, NotFoundError, ForbiddenError } = require("../utils/error-responses");
 const { Lesson, CourseSection, Course, Quiz, LessonFeedback } = require("../models");
+const { ROLES, isRole } = require("../constants/roles");
 
 const create = async (sectionId, payload, userId, userRole) => {
   const { title, content, lessonType, videoUrl, durationMinutes, orderIndex } = payload;
@@ -11,7 +12,7 @@ const create = async (sectionId, payload, userId, userRole) => {
   if (!section) throw new NotFoundError("Section not found");
 
   // Check authorization
-  if (userRole !== "admin" && section.course.instructor_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN) && section.course.instructor_id !== userId) {
     throw new ForbiddenError("Not authorized to add lessons to this section");
   }
 
@@ -55,7 +56,7 @@ const update = async (id, payload, userId, userRole) => {
   if (!lesson) throw new NotFoundError("Lesson not found");
 
   // Check authorization
-  if (userRole !== "admin" && lesson.section.course.instructor_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN) && lesson.section.course.instructor_id !== userId) {
     throw new ForbiddenError("Not authorized to update this lesson");
   }
 
@@ -78,7 +79,7 @@ const remove = async (id, userId, userRole) => {
   if (!lesson) throw new NotFoundError("Lesson not found");
 
   // Check authorization
-  if (userRole !== "admin" && lesson.section.course.instructor_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN) && lesson.section.course.instructor_id !== userId) {
     throw new ForbiddenError("Not authorized to delete this lesson");
   }
 

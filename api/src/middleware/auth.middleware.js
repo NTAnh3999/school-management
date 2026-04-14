@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const { UnauthorizedError } = require("../utils/error-responses");
+const { normalizeRole } = require("../constants/roles");
 
 const getTokenFromHeader = (req) => {
   const authHeader = req.headers.authorization || "";
@@ -13,7 +14,15 @@ const verifyToken = (req, res, next) => {
     const token = getTokenFromHeader(req);
     if (!token) throw new UnauthorizedError("Missing Bearer token");
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = payload;
+    const normalizedRole =
+      normalizeRole(payload?.role) ||
+      normalizeRole(payload?.roleName) ||
+      normalizeRole(payload?.role_name);
+
+    req.user = {
+      ...payload,
+      role: normalizedRole || payload?.role || payload?.roleName || payload?.role_name,
+    };
     return next();
   } catch (err) {
     if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") {

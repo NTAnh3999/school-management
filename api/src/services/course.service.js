@@ -9,12 +9,13 @@ const {
   StudentCourseProgress,
 } = require("../models");
 const Role = require("../models/role.model");
+const { ROLES, STAFF_ROLES, hasRole, isRole } = require("../constants/roles");
 
 const create = async ({ title, description, level, price, instructorId }) => {
   if (!title || !instructorId) throw new BadRequestError("Missing title or instructorId");
   const instructor = await User.findByPk(instructorId, { include: [{ model: Role, as: "role" }] });
   if (!instructor) throw new BadRequestError("Instructor not found");
-  if (instructor.role?.name !== "instructor" && instructor.role?.name !== "admin") {
+  if (!hasRole(instructor.role?.name, STAFF_ROLES)) {
     throw new BadRequestError("Assigned user must be an instructor or admin");
   }
   const course = await Course.create({
@@ -64,7 +65,7 @@ const update = async (id, payload, userId, userRole) => {
   if (!course) throw new NotFoundError("Course not found");
 
   // Check authorization
-  if (userRole !== "admin" && course.instructor_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN) && course.instructor_id !== userId) {
     throw new ForbiddenError("Not authorized to update this course");
   }
 
@@ -84,7 +85,7 @@ const remove = async (id, userId, userRole) => {
   if (!course) throw new NotFoundError("Course not found");
 
   // Check authorization
-  if (userRole !== "admin" && course.instructor_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN) && course.instructor_id !== userId) {
     throw new ForbiddenError("Not authorized to delete this course");
   }
 

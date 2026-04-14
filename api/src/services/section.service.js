@@ -1,5 +1,6 @@
 const { BadRequestError, NotFoundError, ForbiddenError } = require("../utils/error-responses");
 const { CourseSection, Course, Lesson } = require("../models");
+const { ROLES, isRole } = require("../constants/roles");
 
 const create = async (courseId, { title, description, orderIndex }, userId, userRole) => {
   if (!title) throw new BadRequestError("Missing title");
@@ -8,7 +9,7 @@ const create = async (courseId, { title, description, orderIndex }, userId, user
   if (!course) throw new NotFoundError("Course not found");
 
   // Check authorization
-  if (userRole !== "admin" && course.instructor_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN) && course.instructor_id !== userId) {
     throw new ForbiddenError("Not authorized to add sections to this course");
   }
 
@@ -51,7 +52,7 @@ const update = async (id, payload, userId, userRole) => {
   if (!section) throw new NotFoundError("Section not found");
 
   // Check authorization
-  if (userRole !== "admin" && section.course.instructor_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN) && section.course.instructor_id !== userId) {
     throw new ForbiddenError("Not authorized to update this section");
   }
 
@@ -71,7 +72,7 @@ const remove = async (id, userId, userRole) => {
   if (!section) throw new NotFoundError("Section not found");
 
   // Check authorization
-  if (userRole !== "admin" && section.course.instructor_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN) && section.course.instructor_id !== userId) {
     throw new ForbiddenError("Not authorized to delete this section");
   }
 

@@ -10,9 +10,14 @@ const {
 } = require("../utils/error-responses");
 const { User, RefreshToken } = require("../models");
 const Role = require("../models/role.model");
+const { ROLES, getRoleLookupValues, normalizeRole } = require("../constants/roles");
 
 const signAccessToken = (user) => {
-  const payload = { id: user.id, email: user.email, role: user.role?.name };
+  const payload = {
+    id: user.id,
+    email: user.email,
+    role: normalizeRole(user.role?.name || user.role) || user.role?.name || user.role,
+  };
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new InternalServerError("JWT configuration missing");
   return jwt.sign(payload, secret, { expiresIn: process.env.JWT_EXPIRES || "15m" });
@@ -26,7 +31,7 @@ const formatUser = (userInstance) => {
     id: raw.id,
     email: raw.email,
     fullName: raw.full_name || raw.fullName,
-    role: raw.role?.name || raw.role,
+    role: normalizeRole(raw.role?.name || raw.role) || raw.role?.name || raw.role,
     createdAt: raw.createdAt || raw.created_at,
     updatedAt: raw.updatedAt || raw.updated_at,
   };
@@ -61,7 +66,10 @@ const register = async ({ email, password, fullName, roleName }) => {
   const existing = await User.findOne({ where: { email } });
   if (existing) throw new ConflictError("Email already in use");
   const hash = await bcrypt.hash(password, 10);
-  const role = await Role.findOne({ where: { name: roleName || "student" } });
+  const normalizedRoleName = normalizeRole(roleName) || ROLES.STUDENT;
+  const role = await Role.findOne({
+    where: { name: { [Op.in]: getRoleLookupValues(normalizedRoleName) } },
+  });
   if (!role) throw new BadRequestError("Invalid role");
   const user = await User.create({
     email,

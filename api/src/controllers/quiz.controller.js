@@ -1,6 +1,7 @@
 const { OKResponse, CreatedResponse } = require("../utils/success-responses");
 const QuizService = require("../services/quiz.service");
 const asyncHandler = require("../utils/async-handler");
+const { STAFF_ROLES, hasRole } = require("../constants/roles");
 
 const createQuiz = asyncHandler(async (req, res) => {
   const quiz = await QuizService.createQuiz(
@@ -23,7 +24,7 @@ const addQuestion = asyncHandler(async (req, res) => {
 });
 
 const getQuiz = asyncHandler(async (req, res) => {
-  const includeAnswers = req.user.role === "admin" || req.user.role === "instructor";
+  const includeAnswers = hasRole(req.user.role, STAFF_ROLES);
   const quiz = await QuizService.getQuiz(req.params.id, includeAnswers);
   return new OKResponse({ metadata: { quiz } }).send(res);
 });

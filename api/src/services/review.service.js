@@ -1,5 +1,6 @@
 const { BadRequestError, NotFoundError, ForbiddenError } = require("../utils/error-responses");
 const { CourseReview, Course, User, Enrollment } = require("../models");
+const { ROLES, isRole } = require("../constants/roles");
 
 const createReview = async (courseId, studentId, { rating, reviewText }) => {
   if (!rating || rating < 1 || rating > 5) {
@@ -61,7 +62,7 @@ const deleteReview = async (reviewId, studentId, userRole) => {
   const review = await CourseReview.findByPk(reviewId);
   if (!review) throw new NotFoundError("Review not found");
 
-  if (userRole !== "admin" && review.student_id !== studentId) {
+  if (!isRole(userRole, ROLES.ADMIN) && review.student_id !== studentId) {
     throw new ForbiddenError("Not authorized to delete this review");
   }
 

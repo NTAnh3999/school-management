@@ -5,6 +5,7 @@ const router = express.Router();
 const AuthMiddleware = require("../middleware/auth.middleware");
 const RoleMiddleware = require("../middleware/role.middleware");
 const RewardController = require("../controllers/reward.controller");
+const { ROLES, STAFF_ROLES } = require("../constants/roles");
 
 // Get all available rewards
 router.get("/", AuthMiddleware.verifyToken, RewardController.getAllRewards);
@@ -13,14 +14,14 @@ router.get("/", AuthMiddleware.verifyToken, RewardController.getAllRewards);
 router.get(
   "/my",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["student"]),
+  RoleMiddleware.requireRole([ROLES.STUDENT]),
   RewardController.getStudentRewards
 );
 
 router.get(
   "/student/:studentId",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["admin", "instructor"]),
+  RoleMiddleware.requireRole(STAFF_ROLES),
   validate([param("studentId").isInt({ min: 1 })]),
   RewardController.getStudentRewards
 );
@@ -29,7 +30,7 @@ router.get(
 router.post(
   "/",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["admin"]),
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
   validate([
     body("title").isString().notEmpty(),
     body("description").optional().isString(),
@@ -43,7 +44,7 @@ router.post(
 router.post(
   "/award",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(["admin", "instructor"]),
+  RoleMiddleware.requireRole(STAFF_ROLES),
   validate([
     body("studentId").isInt({ min: 1 }),
     body("rewardId").isInt({ min: 1 }),

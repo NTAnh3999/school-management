@@ -1,21 +1,22 @@
 const bcrypt = require("bcryptjs");
 const { Role, User } = require("../models");
+const { ROLES } = require("../constants/roles");
 
 const DEFAULT_ACCOUNTS = [
   {
-    roleName: "Admin",
+    roleName: ROLES.ADMIN,
     email: process.env.ADMIN_EMAIL || "admin@schoolhub.io",
     password: process.env.ADMIN_PASSWORD || "Admin@123",
     fullName: "System Administrator",
   },
   {
-    roleName: "Teacher",
+    roleName: ROLES.INSTRUCTOR,
     email: process.env.TEACHER_EMAIL || "teacher@schoolhub.io",
     password: process.env.TEACHER_PASSWORD || "Teacher@123",
     fullName: "Lead Teacher",
   },
   {
-    roleName: "Student",
+    roleName: ROLES.STUDENT,
     email: process.env.STUDENT_EMAIL || "student@schoolhub.io",
     password: process.env.STUDENT_PASSWORD || "Student@123",
     fullName: "Demo Student",
