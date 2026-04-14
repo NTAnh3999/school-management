@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 require("dotenv").config();
+const { toSnakeCaseKeys } = require("./utils/case-converter");
 
 const app = express();
 
@@ -32,7 +33,7 @@ app.use("/api/v1", routes);
 
 // Global 404 fallback
 app.use((req, res) => {
-  res.status(404).json({ message: "Route not found" });
+  res.status(404).json(toSnakeCaseKeys({ message: "Route not found" }));
 });
 
 // Error handler

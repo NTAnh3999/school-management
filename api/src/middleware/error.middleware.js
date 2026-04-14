@@ -1,4 +1,5 @@
 const { ErrorResponse } = require("../utils/error-responses");
+const { toSnakeCaseKeys } = require("../utils/case-converter");
 
 const buildPayload = (message, details = null) => ({
   error: true,
@@ -9,17 +10,17 @@ const buildPayload = (message, details = null) => ({
 const errorHandler = (err, req, res, next) => {
   void next;
   if (err instanceof ErrorResponse) {
-    const payload = buildPayload(err.message, err.details || null);
+    const payload = toSnakeCaseKeys(buildPayload(err.message, err.details || null));
     return res.status(err.statusCode).json(payload);
   }
   if (err instanceof SyntaxError && "body" in err) {
-    return res.status(400).json(buildPayload("Invalid JSON payload"));
+    return res.status(400).json(toSnakeCaseKeys(buildPayload("Invalid JSON payload")));
   }
 
   console.error("Unhandled error:", err);
 
   const details = process.env.NODE_ENV === "production" ? null : err.message;
-  return res.status(500).json(buildPayload("Internal Server Error", details));
+  return res.status(500).json(toSnakeCaseKeys(buildPayload("Internal Server Error", details)));
 };
 
 module.exports = { errorHandler };

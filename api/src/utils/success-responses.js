@@ -1,4 +1,5 @@
 const { SUCCESS } = require("../constants/http-status-codes");
+const { toSnakeCaseKeys } = require("./case-converter");
 class SuccessResponse {
   constructor({
     message,
@@ -11,7 +12,12 @@ class SuccessResponse {
     this.metadata = metadata;
   }
   send(res, headers = {}) {
-    return res.status(this.code).set(headers).json(this);
+    const payload = toSnakeCaseKeys({
+      message: this.message,
+      code: this.code,
+      metadata: this.metadata,
+    });
+    return res.status(this.code).set(headers).json(payload);
   }
 }
 
