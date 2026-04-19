@@ -28,13 +28,13 @@ router.get(
   ProgressController.getStudentProgress
 );
 
-// Instructor routes
+// Teacher routes
 router.get(
   "/course/:courseId",
   AuthMiddleware.verifyToken,
   RoleMiddleware.requireRole(STAFF_ROLES),
   validate([param("courseId").isInt({ min: 1 })]),
-  ProgressController.getInstructorCourseProgress
+  ProgressController.getTeacherCourseProgress
 );
 
 module.exports = router;

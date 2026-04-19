@@ -1,6 +1,6 @@
 const ROLES = Object.freeze({
   ADMIN: "admin",
-  INSTRUCTOR: "instructor",
+  TEACHER: "teacher",
   STUDENT: "student",
 });
 
@@ -8,13 +8,13 @@ const ROLE_NAMES = Object.freeze(Object.values(ROLES));
 
 const ROLE_LOOKUP_VALUES = Object.freeze({
   [ROLES.ADMIN]: Object.freeze([ROLES.ADMIN, "Admin", "ADMIN"]),
-  [ROLES.INSTRUCTOR]: Object.freeze([
-    ROLES.INSTRUCTOR,
-    "Instructor",
-    "INSTRUCTOR",
-    "teacher",
+  [ROLES.TEACHER]: Object.freeze([
+    ROLES.TEACHER,
     "Teacher",
     "TEACHER",
+    "instructor",
+    "Instructor",
+    "INSTRUCTOR",
   ]),
   [ROLES.STUDENT]: Object.freeze([ROLES.STUDENT, "Student", "STUDENT"]),
 });
@@ -28,7 +28,7 @@ const ROLE_ALIASES = Object.freeze(
   }, {})
 );
 
-const STAFF_ROLES = Object.freeze([ROLES.ADMIN, ROLES.INSTRUCTOR]);
+const STAFF_ROLES = Object.freeze([ROLES.ADMIN, ROLES.TEACHER]);
 
 const normalizeRole = (role) => {
   if (typeof role !== "string") return null;

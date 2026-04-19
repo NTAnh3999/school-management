@@ -10,7 +10,7 @@ const DEFAULT_ACCOUNTS = [
     fullName: "System Administrator",
   },
   {
-    roleName: ROLES.INSTRUCTOR,
+    roleName: ROLES.TEACHER,
     email: process.env.TEACHER_EMAIL || "teacher@schoolhub.io",
     password: process.env.TEACHER_PASSWORD || "Teacher@123",
     fullName: "Lead Teacher",

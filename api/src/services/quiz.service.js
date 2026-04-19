@@ -28,7 +28,7 @@ const createQuiz = async (lessonId, payload, userId, userRole) => {
   if (!lesson) throw new NotFoundError("Lesson not found");
 
   // Check authorization
-  if (!isRole(userRole, ROLES.ADMIN) && lesson.section.course.instructor_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN) && lesson.section.course.teacher_id !== userId) {
     throw new ForbiddenError("Not authorized to create quiz for this lesson");
   }
 
@@ -66,7 +66,7 @@ const addQuestion = async (quizId, payload, userId, userRole) => {
   if (!quiz) throw new NotFoundError("Quiz not found");
 
   // Check authorization
-  if (!isRole(userRole, ROLES.ADMIN) && quiz.lesson.section.course.instructor_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN) && quiz.lesson.section.course.teacher_id !== userId) {
     throw new ForbiddenError("Not authorized to add questions to this quiz");
   }
 

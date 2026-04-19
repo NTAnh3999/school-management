@@ -13,9 +13,9 @@ const getStudentProgress = asyncHandler(async (req, res) => {
   return new OKResponse({ metadata: { progress } }).send(res);
 });
 
-const getInstructorCourseProgress = asyncHandler(async (req, res) => {
-  const enrollments = await ProgressService.getInstructorCourseProgress(req.params.courseId);
+const getTeacherCourseProgress = asyncHandler(async (req, res) => {
+  const enrollments = await ProgressService.getTeacherCourseProgress(req.params.courseId);
   return new OKResponse({ metadata: { enrollments } }).send(res);
 });
 
-module.exports = { updateProgress, getStudentProgress, getInstructorCourseProgress };
+module.exports = { updateProgress, getStudentProgress, getTeacherCourseProgress };

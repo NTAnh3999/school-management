@@ -256,4 +256,4 @@ CREATE TABLE IF NOT EXISTS notifications (
 ) ENGINE=InnoDB;
 
 -- Seed default roles
-INSERT IGNORE INTO roles (name) VALUES ('admin'), ('instructor'), ('student');
+INSERT IGNORE INTO roles (name) VALUES ('admin'), ('teacher'), ('student');

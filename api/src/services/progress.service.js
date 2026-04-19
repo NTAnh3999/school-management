@@ -111,7 +111,7 @@ const getStudentProgress = async (enrollmentId) => {
   return enrollment;
 };
 
-const getInstructorCourseProgress = async (courseId) => {
+const getTeacherCourseProgress = async (courseId) => {
   const enrollments = await Enrollment.findAll({
     where: { course_id: courseId },
     include: [
@@ -126,6 +126,6 @@ const getInstructorCourseProgress = async (courseId) => {
 module.exports = {
   updateProgress,
   getStudentProgress,
-  getInstructorCourseProgress,
+  getTeacherCourseProgress,
   updateCourseProgress,
 };
