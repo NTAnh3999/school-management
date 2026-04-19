@@ -4,8 +4,11 @@ A complete Learning Management System (LMS) API built with Node.js, Express, and
 
 ## 🌟 Features
 
-- 🔐 **User Authentication & Authorization** (Admin, Instructor, Student roles)
-- 📚 **Course Management** (Create, publish, enroll with multiple levels)
+- 🔐 **User Authentication & Authorization** (Admin, Teacher, Student roles)
+- 📚 **Course Management** (Create, publish, manage lifecycle with status state machine)
+- 🏫 **Department Management** (Courses grouped by departments)
+- 🔗 **Prerequisite Management** (Define course prerequisites with cycle detection)
+- 📋 **Audit Logging** (Full history of Create/Update/Delete/ChangeStatus actions)
 - 📖 **Content Management** (Sections, Lessons with videos/text/quizzes)
 - 📊 **Progress Tracking** (Student progress, completion rates, time tracking)
 - ✅ **Quiz & Assessment System** (Multiple question types, auto-grading, attempt limits)
@@ -18,8 +21,11 @@ A complete Learning Management System (LMS) API built with Node.js, Express, and
 ### Core Tables
 
 - **users** - User accounts with roles
-- **roles** - Admin, Instructor, Student
-- **courses** - Course information with levels and status
+- **roles** - Admin, Teacher, Student
+- **departments** - Academic departments that own courses
+- **courses** - Course catalog with `course_code`, `department_id`, `course_type`, `credit`, `duration_hours`, status lifecycle (draft → active → inactive → archived), soft delete
+- **course_prerequisites** - Many-to-many prerequisite relationships between courses
+- **audit_logs** - Full change history for course operations
 - **course_sections** - Course modules/sections
 - **lessons** - Individual lessons (video, text, quiz, assignment)
 - **enrollments** - Student course enrollments
@@ -54,7 +60,7 @@ POST /api/v1/auth/register
   "email": "user@example.com",
   "password": "password123",
   "fullName": "John Doe",
-  "roleName": "student" // or "instructor", "admin"
+  "roleName": "student" // or "teacher", "admin"
 }
 ```
 
@@ -74,7 +80,7 @@ Response: { "token": "jwt_token" }
 #### List Courses (Public)
 
 ```http
-GET /api/v1/courses?level=beginner&status=published&instructorId=1
+GET /api/v1/courses?level=beginner&status=active&teacherId=1
 ```
 
 #### Get Course Details (Public)
@@ -83,36 +89,134 @@ GET /api/v1/courses?level=beginner&status=published&instructorId=1
 GET /api/v1/courses/:id
 ```
 
-#### Create Course (Instructor/Admin)
+### Courses
+
+#### List Courses (Public / Optional Auth)
+
+```http
+GET /api/v1/courses?keyword=python&status=active&level=beginner&departmentId=1&courseType=core&page=1&page_size=20
+```
+
+> Admin sees all statuses. Non-authenticated users and regular users only see `active` courses.
+
+**Response**
+
+```json
+{
+  "total": 50,
+  "page": 1,
+  "page_size": 20,
+  "courses": [...]
+}
+```
+
+#### Get Course Details (Public / Optional Auth)
+
+```http
+GET /api/v1/courses/:id
+```
+
+> Non-admin users receive 404 for courses that are not `active`.
+
+#### Create Course (Admin only) — COURSE-01
 
 ```http
 POST /api/v1/courses
 Authorization: Bearer {token}
 {
-  "title": "Introduction to JavaScript",
-  "description": "Learn JavaScript fundamentals",
+  "course_code": "CS101",
+  "title": "Introduction to Programming",
+  "department_id": 1,
+  "description": "Learn programming fundamentals",
+  "course_type": "core",
+  "credit": 3,
+  "duration_hours": 45,
   "level": "beginner",
-  "price": 49.99
+  "price": 0,
+  "status": "draft",
+  "effective_from": "2026-01-01",
+  "effective_to": "2026-12-31"
 }
 ```
 
-#### Update Course (Owner/Admin)
+**Business rules:**
+
+- `course_code` must be unique across the system
+- `status` defaults to `draft`
+- `credit` and `duration_hours` must be > 0 if provided
+- `effective_to` must be ≥ `effective_from`
+
+#### Update Course (Admin only) — COURSE-02
 
 ```http
 PUT /api/v1/courses/:id
 Authorization: Bearer {token}
 {
   "title": "Updated title",
-  "status": "published"
+  "credit": 4,
+  "duration_hours": 60
 }
 ```
 
-#### Delete Course (Owner/Admin)
+**Business rules:**
+
+- `course_code`, `department_id`, and `course_type` are locked once enrollments exist
+- Cannot change `status` via this endpoint — use the dedicated status endpoint
+
+#### Change Course Status (Admin only) — COURSE-03
+
+```http
+PATCH /api/v1/courses/:id/status
+Authorization: Bearer {token}
+{
+  "status": "active"
+}
+```
+
+**Valid status transitions:**
+
+| From     | To                         |
+| -------- | -------------------------- |
+| draft    | active, inactive           |
+| active   | inactive, archived         |
+| inactive | active, archived           |
+| archived | _(no transitions allowed)_ |
+
+**Business rules:**
+
+- Cannot transition to `inactive` or `archived` while active enrollments exist
+
+#### Manage Prerequisites (Admin only) — COURSE-04
+
+```http
+PUT /api/v1/courses/:id/prerequisites
+Authorization: Bearer {token}
+{
+  "prerequisites": [
+    { "prerequisite_course_id": 2, "prerequisite_type": "ALL" },
+    { "prerequisite_course_id": 3, "prerequisite_type": "ALL" }
+  ]
+}
+```
+
+**Business rules:**
+
+- A course cannot be a prerequisite of itself
+- Circular dependencies are detected and rejected
+- Duplicate entries within the same request are rejected
+- This operation **replaces** all existing prerequisites
+
+#### Delete Course (Admin only) — COURSE-07
 
 ```http
 DELETE /api/v1/courses/:id
 Authorization: Bearer {token}
 ```
+
+**Business rules:**
+
+- Course is **soft-deleted** (`is_deleted = true`), not physically removed
+- Cannot delete if enrollment data exists — change status to `inactive` or `archived` instead
 
 #### Enroll in Course (Student)
 
@@ -120,6 +224,8 @@ Authorization: Bearer {token}
 POST /api/v1/courses/:id/enroll
 Authorization: Bearer {token}
 ```
+
+> Course must be `active` to allow enrollment.
 
 #### Get My Enrollments (Student)
 
@@ -130,7 +236,7 @@ Authorization: Bearer {token}
 
 ### Course Sections
 
-#### Create Section (Instructor/Admin)
+#### Create Section (Teacher/Admin)
 
 ```http
 POST /api/v1/sections/course/:courseId
@@ -164,7 +270,7 @@ Authorization: Bearer {token}
 
 ### Lessons
 
-#### Create Lesson (Instructor/Admin)
+#### Create Lesson (Teacher/Admin)
 
 ```http
 POST /api/v1/lessons/section/:sectionId
@@ -214,7 +320,7 @@ GET /api/v1/progress/enrollment/:enrollmentId
 Authorization: Bearer {token}
 ```
 
-#### Get Course Progress (Instructor)
+#### Get Course Progress (Teacher)
 
 ```http
 GET /api/v1/progress/course/:courseId
@@ -223,7 +329,7 @@ Authorization: Bearer {token}
 
 ### Quizzes
 
-#### Create Quiz (Instructor/Admin)
+#### Create Quiz (Teacher/Admin)
 
 ```http
 POST /api/v1/quizzes/lesson/:lessonId
@@ -237,7 +343,7 @@ Authorization: Bearer {token}
 }
 ```
 
-#### Add Question (Instructor/Admin)
+#### Add Question (Teacher/Admin)
 
 ```http
 POST /api/v1/quizzes/:quizId/questions
@@ -260,7 +366,7 @@ Authorization: Bearer {token}
 GET /api/v1/quizzes/:id
 Authorization: Bearer {token}
 # Students see questions without correct answers
-# Instructors/Admins see full quiz data
+# Teachers/Admins see full quiz data
 ```
 
 #### Start Quiz Attempt (Student)
@@ -375,7 +481,7 @@ Authorization: Bearer {token}
 }
 ```
 
-#### Award Reward (Admin/Instructor)
+#### Award Reward (Admin/Teacher)
 
 ```http
 POST /api/v1/rewards/award
@@ -410,13 +516,13 @@ Authorization: Bearer {token}
 - View all statistics and progress
 - Delete any content
 
-### Instructor
+### Teacher
 
 - Create and manage own courses
 - Add sections, lessons, quizzes to own courses
 - View student progress in own courses
 - Award rewards to students in own courses
-- Cannot modify other instructors' content
+- Cannot modify other teachers' content
 
 ### Student
 
@@ -440,7 +546,7 @@ Authorization: Bearer {token}
    - Total time spent
    - Automatic enrollment status update to "completed"
 
-3. **Instructor Dashboard**
+3. **Teacher Dashboard**
    - View all enrolled students
    - Track individual student progress
    - Identify struggling students
@@ -476,7 +582,7 @@ Authorization: Bearer {token}
    - Course completion
    - Quiz performance
    - Milestone achievements
-   - Manual awards by instructors/admins
+   - Manual awards by teachers/admins
 
 3. **Notifications**
    - Automatic notification on reward earning
