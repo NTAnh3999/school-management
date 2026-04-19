@@ -12,6 +12,15 @@ CREATE TABLE IF NOT EXISTS roles (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
+-- Departments table
+CREATE TABLE IF NOT EXISTS departments (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  department_code VARCHAR(50) NOT NULL UNIQUE,
+  department_name VARCHAR(255) NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -40,15 +49,56 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 -- Courses table
 CREATE TABLE IF NOT EXISTS courses (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  course_code VARCHAR(50) NOT NULL UNIQUE,
+  department_id INT UNSIGNED NULL,
   title VARCHAR(150) NOT NULL,
   description TEXT,
+  course_type VARCHAR(50) NOT NULL DEFAULT 'general',
+  credit DECIMAL(5, 2) NULL,
+  duration_hours DECIMAL(6, 2) NULL,
   level ENUM('beginner', 'intermediate', 'advanced') DEFAULT 'beginner',
   price DECIMAL(10, 2) DEFAULT 0.00,
-  status ENUM('draft', 'published', 'archived') DEFAULT 'draft',
-  instructor_id INT UNSIGNED NOT NULL,
+  status ENUM('draft', 'active', 'inactive', 'archived') DEFAULT 'draft',
+  effective_from DATE NULL,
+  effective_to DATE NULL,
+  teacher_id INT UNSIGNED NOT NULL,
+  is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+  created_by INT UNSIGNED NULL,
+  updated_by INT UNSIGNED NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_courses_instructor FOREIGN KEY (instructor_id) REFERENCES users(id) ON DELETE CASCADE
+  CONSTRAINT fk_courses_department FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
+  CONSTRAINT fk_courses_teacher FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Course prerequisites table
+CREATE TABLE IF NOT EXISTS course_prerequisites (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  course_id INT UNSIGNED NOT NULL,
+  prerequisite_course_id INT UNSIGNED NOT NULL,
+  prerequisite_type ENUM('ALL', 'ANY') NOT NULL DEFAULT 'ALL',
+  created_by INT UNSIGNED NULL,
+  updated_by INT UNSIGNED NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_prereq_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+  CONSTRAINT fk_prereq_course_ref FOREIGN KEY (prerequisite_course_id) REFERENCES courses(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_course_prerequisite (course_id, prerequisite_course_id)
+) ENGINE=InnoDB;
+
+-- Audit logs table
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  entity_name VARCHAR(100) NOT NULL,
+  entity_id INT UNSIGNED NOT NULL,
+  action ENUM('CREATE', 'UPDATE', 'DELETE', 'CHANGE_STATUS', 'IMPORT', 'EXPORT') NOT NULL,
+  old_values JSON NULL,
+  new_values JSON NULL,
+  changed_by INT UNSIGNED NULL,
+  changed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_entity (entity_name, entity_id),
+  INDEX idx_changed_by (changed_by),
+  CONSTRAINT fk_audit_user FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- Course sections/modules table
@@ -257,3 +307,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 -- Seed default roles
 INSERT IGNORE INTO roles (name) VALUES ('admin'), ('teacher'), ('student');
+
+-- Seed default department
+INSERT IGNORE INTO departments (department_code, department_name)
+VALUES ('GENERAL', 'General');
