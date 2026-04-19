@@ -32,4 +32,24 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-module.exports = { verifyToken };
+// Attach user if token is present, but do not reject if missing
+const optionalToken = (req, res, next) => {
+  try {
+    const token = getTokenFromHeader(req);
+    if (!token) return next();
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const normalizedRole =
+      normalizeRole(payload?.role) ||
+      normalizeRole(payload?.roleName) ||
+      normalizeRole(payload?.role_name);
+    req.user = {
+      ...payload,
+      role: normalizedRole || payload?.role || payload?.roleName || payload?.role_name,
+    };
+  } catch {
+    // Silently ignore invalid tokens for optional routes
+  }
+  return next();
+};
+
+module.exports = { verifyToken, optionalToken };

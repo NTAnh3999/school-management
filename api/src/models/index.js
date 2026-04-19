@@ -2,6 +2,9 @@ const sequelize = require("../database/init.mysql.js");
 
 // Import all models
 const Role = require("./role.model");
+const Department = require("./department.model");
+const CoursePrerequisite = require("./course-prerequisite.model");
+const AuditLog = require("./audit-log.model");
 const User = require("./user.model");
 const RefreshToken = require("./refresh-token.model");
 const Course = require("./course.model");
@@ -30,9 +33,9 @@ Role.hasMany(User, { foreignKey: "role_id", as: "role_users" });
 RefreshToken.belongsTo(User, { foreignKey: "user_id", as: "user" });
 User.hasMany(RefreshToken, { foreignKey: "user_id", as: "refresh_tokens" });
 
-// Course - User (Instructor)
-Course.belongsTo(User, { foreignKey: "instructor_id", as: "instructor" });
-User.hasMany(Course, { foreignKey: "instructor_id", as: "courses_teaching" });
+// Course - User (Teacher)
+Course.belongsTo(User, { foreignKey: "teacher_id", as: "teacher" });
+User.hasMany(Course, { foreignKey: "teacher_id", as: "courses_teaching" });
 
 // CourseSection - Course
 CourseSection.belongsTo(Course, { foreignKey: "course_id", as: "course" });
@@ -108,6 +111,21 @@ User.hasMany(LessonFeedback, { foreignKey: "student_id", as: "feedback_given" })
 Notification.belongsTo(User, { foreignKey: "user_id", as: "user" });
 User.hasMany(Notification, { foreignKey: "user_id", as: "notifications" });
 
+// Department - Course
+Department.hasMany(Course, { foreignKey: "department_id", as: "courses" });
+Course.belongsTo(Department, { foreignKey: "department_id", as: "department" });
+
+// CoursePrerequisite - Course (main course)
+Course.hasMany(CoursePrerequisite, { foreignKey: "course_id", as: "prerequisites" });
+CoursePrerequisite.belongsTo(Course, { foreignKey: "course_id", as: "course" });
+CoursePrerequisite.belongsTo(Course, {
+  foreignKey: "prerequisite_course_id",
+  as: "prerequisite_course",
+});
+
+// AuditLog - User
+AuditLog.belongsTo(User, { foreignKey: "changed_by", as: "changed_by_user" });
+
 const sync = async () => {
   await sequelize.sync();
 };
@@ -133,5 +151,8 @@ module.exports = {
   CourseReview,
   LessonFeedback,
   Notification,
+  Department,
+  CoursePrerequisite,
+  AuditLog,
   sync,
 };
