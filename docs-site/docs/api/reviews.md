@@ -72,7 +72,7 @@ Submit a review for a course.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/reviews/course/1 \
+curl -X POST http://localhost:8080/api/v1/reviews/course/1 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -126,7 +126,7 @@ All fields are optional.
 **Example:**
 
 ```bash
-curl -X PUT http://localhost:3000/api/v1/reviews/1 \
+curl -X PUT http://localhost:8080/api/v1/reviews/1 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -201,7 +201,7 @@ Get all reviews for a course.
 **Example:**
 
 ```bash
-curl -X GET "http://localhost:3000/api/v1/reviews/course/1?page=1&limit=10"
+curl -X GET "http://localhost:8080/api/v1/reviews/course/1?page=1&limit=10"
 ```
 
 ---
@@ -235,7 +235,7 @@ Delete a review.
 **Example:**
 
 ```bash
-curl -X DELETE http://localhost:3000/api/v1/reviews/1 \
+curl -X DELETE http://localhost:8080/api/v1/reviews/1 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -282,7 +282,7 @@ Get feedback for a specific lesson.
 **Example:**
 
 ```bash
-curl -X GET http://localhost:3000/api/v1/reviews/lesson/1/feedback \
+curl -X GET http://localhost:8080/api/v1/reviews/lesson/1/feedback \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 

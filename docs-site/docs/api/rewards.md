@@ -66,7 +66,7 @@ Get all available rewards in the system.
 **Example:**
 
 ```bash
-curl -X GET http://localhost:3000/api/v1/rewards \
+curl -X GET http://localhost:8080/api/v1/rewards \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -128,7 +128,7 @@ Get all rewards earned by the authenticated student.
 **Example:**
 
 ```bash
-curl -X GET http://localhost:3000/api/v1/rewards/my \
+curl -X GET http://localhost:8080/api/v1/rewards/my \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -183,7 +183,7 @@ Create a new reward (admin only).
 **Example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/rewards \
+curl -X POST http://localhost:8080/api/v1/rewards \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -202,7 +202,7 @@ Award a reward to a student.
 
 **Endpoint:** `POST /api/v1/rewards/award`
 
-**Access:** Admin, Instructor
+**Access:** Admin, Teacher
 
 **Authentication:** Required
 
@@ -255,7 +255,7 @@ Award a reward to a student.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/rewards/award \
+curl -X POST http://localhost:8080/api/v1/rewards/award \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -310,7 +310,7 @@ All fields are optional.
 **Example:**
 
 ```bash
-curl -X PUT http://localhost:3000/api/v1/rewards/1 \
+curl -X PUT http://localhost:8080/api/v1/rewards/1 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -349,7 +349,7 @@ Delete a reward (admin only).
 **Example:**
 
 ```bash
-curl -X DELETE http://localhost:3000/api/v1/rewards/1 \
+curl -X DELETE http://localhost:8080/api/v1/rewards/1 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 

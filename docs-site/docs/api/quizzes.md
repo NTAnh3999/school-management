@@ -76,7 +76,7 @@ Create a new quiz for a lesson.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/quizzes/lesson/5 \
+curl -X POST http://localhost:8080/api/v1/quizzes/lesson/5 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -168,7 +168,7 @@ Add a question to a quiz.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/quizzes/1/questions \
+curl -X POST http://localhost:8080/api/v1/quizzes/1/questions \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -246,7 +246,7 @@ For students, correct answers are hidden:
 **Example:**
 
 ```bash
-curl -X GET http://localhost:3000/api/v1/quizzes/1 \
+curl -X GET http://localhost:8080/api/v1/quizzes/1 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -298,7 +298,7 @@ Start a new quiz attempt.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/quizzes/1/attempts \
+curl -X POST http://localhost:8080/api/v1/quizzes/1/attempts \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -374,7 +374,7 @@ Submit answers for a quiz attempt.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/quizzes/attempts/1/submit \
+curl -X POST http://localhost:8080/api/v1/quizzes/attempts/1/submit \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -393,7 +393,7 @@ Get all attempts for a quiz.
 
 **Endpoint:** `GET /api/v1/quizzes/:quizId/attempts`
 
-**Access:** Student (own), Instructor (own courses), Admin
+**Access:** Student (own), Teacher (own courses), Admin
 
 **Authentication:** Required
 
@@ -422,7 +422,7 @@ Get all attempts for a quiz.
 **Example:**
 
 ```bash
-curl -X GET http://localhost:3000/api/v1/quizzes/1/attempts \
+curl -X GET http://localhost:8080/api/v1/quizzes/1/attempts \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 

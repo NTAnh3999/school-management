@@ -78,7 +78,7 @@ Get all notifications for the authenticated user.
 **Example:**
 
 ```bash
-curl -X GET "http://localhost:3000/api/v1/notifications?unread=true&page=1" \
+curl -X GET "http://localhost:8080/api/v1/notifications?unread=true&page=1" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -115,7 +115,7 @@ Mark a notification as read.
 **Example:**
 
 ```bash
-curl -X PUT http://localhost:3000/api/v1/notifications/1/read \
+curl -X PUT http://localhost:8080/api/v1/notifications/1/read \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -145,7 +145,7 @@ Mark all notifications as read for the authenticated user.
 **Example:**
 
 ```bash
-curl -X PUT http://localhost:3000/api/v1/notifications/read-all \
+curl -X PUT http://localhost:8080/api/v1/notifications/read-all \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -180,19 +180,19 @@ Delete a specific notification.
 **Example:**
 
 ```bash
-curl -X DELETE http://localhost:3000/api/v1/notifications/1 \
+curl -X DELETE http://localhost:8080/api/v1/notifications/1 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 ---
 
-### Create Notification (Admin/Instructor)
+### Create Notification (Admin/Teacher)
 
 Create a notification for users.
 
 **Endpoint:** `POST /api/v1/notifications`
 
-**Access:** Admin, Instructor
+**Access:** Admin, Teacher
 
 **Authentication:** Required
 
@@ -233,7 +233,7 @@ Create a notification for users.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/notifications \
+curl -X POST http://localhost:8080/api/v1/notifications \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

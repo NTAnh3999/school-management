@@ -52,7 +52,7 @@ Get the authenticated user's profile information.
 **Example:**
 
 ```bash
-curl -X GET http://localhost:3000/api/v1/users/me \
+curl -X GET http://localhost:8080/api/v1/users/me \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -99,7 +99,7 @@ Update the authenticated user's profile.
 **Example:**
 
 ```bash
-curl -X PUT http://localhost:3000/api/v1/users/me \
+curl -X PUT http://localhost:8080/api/v1/users/me \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -151,7 +151,7 @@ Change the authenticated user's password.
 **Example:**
 
 ```bash
-curl -X PUT http://localhost:3000/api/v1/users/me/password \
+curl -X PUT http://localhost:8080/api/v1/users/me/password \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -226,7 +226,7 @@ Admin view (with authentication):
 **Example:**
 
 ```bash
-curl -X GET http://localhost:3000/api/v1/users/5 \
+curl -X GET http://localhost:8080/api/v1/users/5 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -282,7 +282,7 @@ Get a list of all users (admin only).
 **Example:**
 
 ```bash
-curl -X GET "http://localhost:3000/api/v1/users?roleName=student&page=1" \
+curl -X GET "http://localhost:8080/api/v1/users?roleName=student&page=1" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -316,7 +316,7 @@ Update any user's information (admin only).
 | Field          | Type    | Required | Description                                |
 | -------------- | ------- | -------- | ------------------------------------------ |
 | fullName       | string  | No       | User's full name                           |
-| roleId         | integer | No       | Role ID (1=admin, 2=instructor, 3=student) |
+| roleId         | integer | No       | Role ID (1=admin, 2=teacher, 3=student) |
 | profilePicture | string  | No       | Profile picture URL                        |
 
 **Success Response (200):**
@@ -336,7 +336,7 @@ Update any user's information (admin only).
 **Example:**
 
 ```bash
-curl -X PUT http://localhost:3000/api/v1/users/5 \
+curl -X PUT http://localhost:8080/api/v1/users/5 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -383,7 +383,7 @@ Delete a user account (admin only).
 **Example:**
 
 ```bash
-curl -X DELETE http://localhost:3000/api/v1/users/5 \
+curl -X DELETE http://localhost:8080/api/v1/users/5 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -402,13 +402,13 @@ The system has three user roles:
 - Leave reviews
 - Earn rewards
 
-### Instructor (Role ID: 2)
+### Teacher (Role ID: 2)
 
 - All student permissions
 - Create and manage courses
 - View student progress
 - Award rewards
-- Cannot access other instructors' courses
+- Cannot access other teachers' courses
 
 ### Admin (Role ID: 1)
 

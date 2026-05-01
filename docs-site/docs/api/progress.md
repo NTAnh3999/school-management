@@ -67,7 +67,7 @@ Record student progress on a lesson.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/progress/update \
+curl -X POST http://localhost:8080/api/v1/progress/update \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -86,7 +86,7 @@ Get progress for a specific enrollment.
 
 **Endpoint:** `GET /api/v1/progress/enrollment/:enrollmentId`
 
-**Access:** Student (own), Instructor (own courses), Admin
+**Access:** Student (own), Teacher (own courses), Admin
 
 **Authentication:** Required
 
@@ -143,7 +143,7 @@ Get progress for a specific enrollment.
 **Example:**
 
 ```bash
-curl -X GET http://localhost:3000/api/v1/progress/enrollment/1 \
+curl -X GET http://localhost:8080/api/v1/progress/enrollment/1 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -151,7 +151,7 @@ curl -X GET http://localhost:3000/api/v1/progress/enrollment/1 \
 
 ### Get Course Progress
 
-Get progress for all students in a course (instructor/admin only).
+Get progress for all students in a course (teacher/admin only).
 
 **Endpoint:** `GET /api/v1/progress/course/:courseId`
 
@@ -209,7 +209,7 @@ Get progress for all students in a course (instructor/admin only).
 **Example:**
 
 ```bash
-curl -X GET "http://localhost:3000/api/v1/progress/course/1?status=active&minProgress=30" \
+curl -X GET "http://localhost:8080/api/v1/progress/course/1?status=active&minProgress=30" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -235,5 +235,5 @@ Course completion percentage is calculated based on:
 - **Real-time Updates:** Progress updates immediately
 - **Time Tracking:** Tracks time spent on each lesson
 - **Completion Tracking:** Monitors lesson and course completion
-- **Instructor Dashboard:** Instructors can monitor all student progress
+- **Teacher Dashboard:** Teachers can monitor all student progress
 - **Student Dashboard:** Students can view their own progress
