@@ -16,14 +16,14 @@ router.get(
   "/",
   AuthMiddleware.optionalToken,
   validate([
-    query("keyword").optional().isString(),
-    query("status").optional().isIn(VALID_STATUSES),
-    query("level").optional().isIn(["beginner", "intermediate", "advanced"]),
-    query("departmentId").optional().isInt({ min: 1 }),
-    query("teacherId").optional().isInt({ min: 1 }),
-    query("courseType").optional().isString(),
-    query("page").optional().isInt({ min: 1 }),
-    query("page_size").optional().isInt({ min: 1, max: 100 }),
+    query("keyword").optional({ values: "falsy" }).isString(),
+    query("status").optional({ values: "falsy" }).isIn(VALID_STATUSES),
+    query("level").optional({ values: "falsy" }).isIn(["beginner", "intermediate", "advanced"]),
+    query("departmentId").optional({ values: "falsy" }).isInt({ min: 1 }),
+    query("teacherId").optional({ values: "falsy" }).isInt({ min: 1 }),
+    query("courseType").optional({ values: "falsy" }).isString(),
+    query("page").optional({ values: "falsy" }).isInt({ min: 1 }),
+    query("page_size").optional({ values: "falsy" }).isInt({ min: 1, max: 100 }),
   ]),
   CourseController.list
 );

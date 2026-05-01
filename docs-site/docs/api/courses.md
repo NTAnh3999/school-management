@@ -16,7 +16,7 @@ Manage courses including creation, updates, enrollment, and listing.
 
 ### List Courses
 
-Get a list of all published courses (public) or all courses (admin/instructor).
+Get a list of all active courses (public) or all courses (admin/teacher).
 
 **Endpoint:** `GET /api/v1/courses`
 
@@ -24,42 +24,46 @@ Get a list of all published courses (public) or all courses (admin/instructor).
 
 **Query Parameters:**
 
-| Parameter    | Type    | Description                                             |
-| ------------ | ------- | ------------------------------------------------------- |
-| level        | string  | Filter by level: `beginner`, `intermediate`, `advanced` |
-| status       | string  | Filter by status: `draft`, `published`, `archived`      |
-| instructorId | integer | Filter by instructor ID                                 |
-| page         | integer | Page number (default: 1)                                |
-| limit        | integer | Items per page (default: 10)                            |
+| Parameter    | Type    | Description                                                 |
+| ------------ | ------- | ----------------------------------------------------------- |
+| keyword      | string  | Search by title or description                              |
+| level        | string  | Filter by level: `beginner`, `intermediate`, `advanced`     |
+| status       | string  | Filter by status: `draft`, `active`, `inactive`, `archived` |
+| teacherId    | integer | Filter by teacher ID                                        |
+| departmentId | integer | Filter by department ID                                     |
+| courseType   | string  | Filter by course type                                       |
+| page         | integer | Page number (default: 1)                                    |
+| page_size    | integer | Items per page (default: 10, max: 100)                      |
 
 **Success Response (200):**
 
 ```json
 {
-  "data": {
+  "message": "OK",
+  "code": 200,
+  "metadata": {
     "courses": [
       {
         "id": 1,
+        "course_code": "CS-101",
         "title": "Introduction to JavaScript",
         "description": "Learn JavaScript fundamentals",
+        "course_type": "general",
         "level": "beginner",
-        "price": 49.99,
+        "price": "49.99",
         "thumbnail_url": "https://example.com/thumb.jpg",
-        "status": "published",
-        "instructor": {
+        "status": "active",
+        "teacher": {
           "id": 2,
           "full_name": "Jane Smith",
-          "email": "instructor@example.com"
+          "email": "teacher@schoolhub.io"
         },
         "created_at": "2026-03-01T10:00:00.000Z"
       }
     ],
-    "pagination": {
-      "page": 1,
-      "limit": 10,
-      "total": 25,
-      "total_pages": 3
-    }
+    "total": 25,
+    "page": 1,
+    "page_size": 10
   }
 }
 ```
@@ -67,7 +71,7 @@ Get a list of all published courses (public) or all courses (admin/instructor).
 **Example:**
 
 ```bash
-curl -X GET "http://localhost:3000/api/v1/courses?level=beginner&page=1&limit=10"
+curl -X GET "http://localhost:8080/api/v1/courses?level=beginner&page=1&page_size=10"
 ```
 
 ---
@@ -98,7 +102,7 @@ Get detailed information about a specific course.
     "price": 49.99,
     "thumbnail_url": "https://example.com/thumb.jpg",
     "status": "published",
-    "instructor": {
+    "teacher": {
       "id": 2,
       "full_name": "Jane Smith",
       "profile_picture": "https://example.com/profile.jpg"
@@ -136,18 +140,18 @@ Get detailed information about a specific course.
 **Example:**
 
 ```bash
-curl -X GET http://localhost:3000/api/v1/courses/1
+curl -X GET http://localhost:8080/api/v1/courses/1
 ```
 
 ---
 
 ### Create Course
 
-Create a new course (instructor or admin only).
+Create a new course (Admin only).
 
 **Endpoint:** `POST /api/v1/courses`
 
-**Access:** Instructor, Admin
+**Access:** Admin
 
 **Authentication:** Required
 
@@ -155,54 +159,65 @@ Create a new course (instructor or admin only).
 
 ```json
 {
+  "course_code": "CS-101",
   "title": "Introduction to JavaScript",
   "description": "Learn JavaScript fundamentals",
   "level": "beginner",
   "price": 49.99,
-  "thumbnailUrl": "https://example.com/thumb.jpg"
+  "course_type": "general",
+  "department_id": 1,
+  "credit": 3.0,
+  "duration_hours": 20.0
 }
 ```
 
-| Field        | Type    | Required | Description                               |
-| ------------ | ------- | -------- | ----------------------------------------- |
-| title        | string  | Yes      | Course title                              |
-| description  | string  | Yes      | Course description                        |
-| level        | string  | Yes      | `beginner`, `intermediate`, or `advanced` |
-| price        | decimal | Yes      | Course price (0 for free)                 |
-| thumbnailUrl | string  | No       | Course thumbnail image URL                |
+| Field          | Type    | Required | Description                               |
+| -------------- | ------- | -------- | ----------------------------------------- |
+| course_code    | string  | Yes      | Unique course code (e.g. `CS-101`)        |
+| title          | string  | Yes      | Course title                              |
+| description    | string  | No       | Course description                        |
+| level          | string  | No       | `beginner`, `intermediate`, or `advanced` |
+| price          | decimal | No       | Course price (default: 0)                 |
+| course_type    | string  | No       | Course type (default: `general`)          |
+| department_id  | integer | No       | Department ID                             |
+| credit         | decimal | No       | Credit hours                              |
+| duration_hours | decimal | No       | Total duration in hours                   |
+| effective_from | date    | No       | Start date (`YYYY-MM-DD`)                 |
+| effective_to   | date    | No       | End date (`YYYY-MM-DD`)                   |
 
 **Success Response (201):**
 
 ```json
 {
-  "data": {
-    "id": 10,
-    "title": "Introduction to JavaScript",
-    "description": "Learn JavaScript fundamentals",
-    "level": "beginner",
-    "price": 49.99,
-    "thumbnail_url": "https://example.com/thumb.jpg",
-    "status": "draft",
-    "instructor_id": 2,
-    "created_at": "2026-03-22T10:00:00.000Z"
+  "message": "Course created",
+  "code": 201,
+  "metadata": {
+    "course": {
+      "id": 10,
+      "course_code": "CS-101",
+      "title": "Introduction to JavaScript",
+      "status": "draft",
+      "teacher_id": 2,
+      "created_at": "2026-03-22T10:00:00.000Z"
+    }
   }
 }
 ```
 
 **Error Responses:**
 
-- `400 Bad Request` - Validation error
+- `400 Bad Request` - Validation error or duplicate `course_code`
 - `401 Unauthorized` - Not authenticated
 - `403 Forbidden` - Insufficient permissions
-- `500 Internal Server Error` - Server error
 
 **Example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/courses \
+curl -X POST http://localhost:8080/api/v1/courses \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
+    "course_code": "CS-101",
     "title": "Introduction to JavaScript",
     "description": "Learn JavaScript fundamentals",
     "level": "beginner",
@@ -267,11 +282,10 @@ All fields are optional. Only provided fields will be updated.
 **Example:**
 
 ```bash
-curl -X PUT http://localhost:3000/api/v1/courses/1 \
+curl -X PUT http://localhost:8080/api/v1/courses/1 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "status": "published",
     "price": 59.99
   }'
 ```
@@ -314,7 +328,7 @@ Delete a course (owner or admin only).
 **Example:**
 
 ```bash
-curl -X DELETE http://localhost:3000/api/v1/courses/1 \
+curl -X DELETE http://localhost:8080/api/v1/courses/1 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -366,7 +380,7 @@ Enroll a student in a course.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/courses/1/enroll \
+curl -X POST http://localhost:8080/api/v1/courses/1/enroll \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -403,7 +417,7 @@ Get all courses the authenticated student is enrolled in.
         "title": "Introduction to JavaScript",
         "level": "beginner",
         "thumbnail_url": "https://example.com/thumb.jpg",
-        "instructor": {
+        "teacher": {
           "full_name": "Jane Smith"
         }
       },
@@ -425,7 +439,7 @@ Get all courses the authenticated student is enrolled in.
 **Example:**
 
 ```bash
-curl -X GET http://localhost:3000/api/v1/courses/my/enrollments \
+curl -X GET http://localhost:8080/api/v1/courses/my/enrollments \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 

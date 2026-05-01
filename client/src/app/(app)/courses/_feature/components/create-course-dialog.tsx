@@ -28,6 +28,7 @@ import { toast } from "sonner";
 export function CreateCourseDialog() {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
+    course_code: "",
     title: "",
     description: "",
     level: "beginner",
@@ -42,7 +43,13 @@ export function CreateCourseDialog() {
       await createMutation.mutateAsync(formData);
       toast.success("Course created successfully!");
       setOpen(false);
-      setFormData({ title: "", description: "", level: "beginner", price: 0 });
+      setFormData({
+        course_code: "",
+        title: "",
+        description: "",
+        level: "beginner",
+        price: 0,
+      });
     } catch (error) {
       toast.error("Failed to create course");
     }
@@ -65,6 +72,18 @@ export function CreateCourseDialog() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="course_code">Course Code</Label>
+              <Input
+                id="course_code"
+                placeholder="e.g. CS-101"
+                value={formData.course_code}
+                onChange={(e) =>
+                  setFormData({ ...formData, course_code: e.target.value })
+                }
+                required
+              />
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="title">Title</Label>
               <Input
