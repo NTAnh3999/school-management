@@ -91,6 +91,9 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   entity_name VARCHAR(100) NOT NULL,
   entity_id INT UNSIGNED NOT NULL,
+  course_id INT UNSIGNED NULL,
+  source VARCHAR(100) NULL,
+  version_ref INT UNSIGNED NULL,
   action ENUM('CREATE', 'UPDATE', 'DELETE', 'CHANGE_STATUS', 'IMPORT', 'EXPORT') NOT NULL,
   old_values JSON NULL,
   new_values JSON NULL,
@@ -108,9 +111,14 @@ CREATE TABLE IF NOT EXISTS course_sections (
   title VARCHAR(150) NOT NULL,
   description TEXT,
   order_index INT DEFAULT 0,
+  status ENUM('draft', 'archived') NOT NULL DEFAULT 'draft',
+  created_by INT UNSIGNED NULL,
+  updated_by INT UNSIGNED NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_sections_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+  CONSTRAINT fk_sections_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+  CONSTRAINT fk_sections_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_sections_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- Lessons table
@@ -123,9 +131,15 @@ CREATE TABLE IF NOT EXISTS lessons (
   video_url VARCHAR(255),
   duration_minutes INT DEFAULT 0,
   order_index INT DEFAULT 0,
+  status ENUM('draft', 'archived') NOT NULL DEFAULT 'draft',
+  estimated_duration DECIMAL(6,2) NULL,
+  created_by INT UNSIGNED NULL,
+  updated_by INT UNSIGNED NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_lessons_section FOREIGN KEY (section_id) REFERENCES course_sections(id) ON DELETE CASCADE
+  CONSTRAINT fk_lessons_section FOREIGN KEY (section_id) REFERENCES course_sections(id) ON DELETE CASCADE,
+  CONSTRAINT fk_lessons_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_lessons_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- Enrollments table
@@ -303,6 +317,68 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Content assets table (CCA-06)
+CREATE TABLE IF NOT EXISTS content_assets (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  filename VARCHAR(255) NOT NULL,
+  media_type VARCHAR(50) NOT NULL COMMENT 'video | image | document | audio',
+  mime_type VARCHAR(100) NOT NULL,
+  size_bytes BIGINT NULL,
+  duration_seconds INT NULL,
+  storage_key VARCHAR(500) NOT NULL,
+  thumbnail_url VARCHAR(500) NULL,
+  uploaded_by INT UNSIGNED NOT NULL,
+  uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_assets_uploaded_by FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_assets_uploaded_by (uploaded_by)
+) ENGINE=InnoDB;
+
+-- Learning items table (CCA-05)
+CREATE TABLE IF NOT EXISTS learning_items (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  lesson_id INT UNSIGNED NOT NULL,
+  item_type ENUM('VIDEO', 'QUIZ', 'INFOGRAPHIC', 'DOCUMENT', 'TEXT') NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  content_payload JSON NULL COMMENT 'Type-specific config: {video_url, quiz_id, body, etc.}',
+  asset_id INT UNSIGNED NULL,
+  display_order INT NOT NULL DEFAULT 0,
+  estimated_duration DECIMAL(6,2) NULL,
+  is_required BOOLEAN NOT NULL DEFAULT FALSE,
+  status ENUM('draft', 'archived') NOT NULL DEFAULT 'draft',
+  created_by INT UNSIGNED NULL,
+  updated_by INT UNSIGNED NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_items_lesson FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
+  CONSTRAINT fk_items_asset FOREIGN KEY (asset_id) REFERENCES content_assets(id) ON DELETE SET NULL,
+  CONSTRAINT fk_items_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_items_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_items_lesson (lesson_id),
+  INDEX idx_items_order (lesson_id, display_order)
+) ENGINE=InnoDB;
+
+-- Content versions table (CCA-08, CCA-09, CCA-10)
+CREATE TABLE IF NOT EXISTS content_versions (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  course_id INT UNSIGNED NOT NULL,
+  version_label VARCHAR(100) NOT NULL,
+  version_no INT NOT NULL DEFAULT 1,
+  status ENUM('DRAFT', 'REVIEW', 'PUBLISHED', 'ARCHIVED') NOT NULL DEFAULT 'DRAFT',
+  changelog TEXT NULL,
+  snapshot_ref JSON NULL COMMENT 'Frozen structure snapshot at publish time',
+  published_at DATETIME NULL,
+  published_by INT UNSIGNED NULL,
+  created_by INT UNSIGNED NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_versions_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+  CONSTRAINT fk_versions_published_by FOREIGN KEY (published_by) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_versions_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_course_versions (course_id, status)
 ) ENGINE=InnoDB;
 
 -- Seed default roles

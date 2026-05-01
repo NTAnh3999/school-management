@@ -23,6 +23,9 @@ const StudentCourseProgress = require("./student-course-progress.model");
 const CourseReview = require("./course-review.model");
 const LessonFeedback = require("./lesson-feedback.model");
 const Notification = require("./notification.model");
+const ContentAsset = require("./content-asset.model");
+const LearningItem = require("./learning-item.model");
+const ContentVersion = require("./content-version.model");
 
 // Define associations
 // User - Role
@@ -126,6 +129,22 @@ CoursePrerequisite.belongsTo(Course, {
 // AuditLog - User
 AuditLog.belongsTo(User, { foreignKey: "changed_by", as: "changed_by_user" });
 
+// ContentAsset - User (uploader)
+ContentAsset.belongsTo(User, { foreignKey: "uploaded_by", as: "uploader" });
+User.hasMany(ContentAsset, { foreignKey: "uploaded_by", as: "uploaded_assets" });
+
+// LearningItem - Lesson, ContentAsset
+LearningItem.belongsTo(Lesson, { foreignKey: "lesson_id", as: "lesson" });
+LearningItem.belongsTo(ContentAsset, { foreignKey: "asset_id", as: "asset" });
+Lesson.hasMany(LearningItem, { foreignKey: "lesson_id", as: "learning_items" });
+ContentAsset.hasMany(LearningItem, { foreignKey: "asset_id", as: "learning_items" });
+
+// ContentVersion - Course
+ContentVersion.belongsTo(Course, { foreignKey: "course_id", as: "course" });
+ContentVersion.belongsTo(User, { foreignKey: "published_by", as: "publisher" });
+ContentVersion.belongsTo(User, { foreignKey: "created_by", as: "creator" });
+Course.hasMany(ContentVersion, { foreignKey: "course_id", as: "content_versions" });
+
 const sync = async () => {
   await sequelize.sync();
 };
@@ -154,5 +173,8 @@ module.exports = {
   Department,
   CoursePrerequisite,
   AuditLog,
+  ContentAsset,
+  LearningItem,
+  ContentVersion,
   sync,
 };

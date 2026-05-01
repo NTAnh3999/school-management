@@ -35,6 +35,9 @@ export interface CourseSection {
   title: string;
   description?: string;
   order_index: number;
+  status: "draft" | "archived";
+  created_by?: number;
+  updated_by?: number;
   lessons?: Lesson[];
   createdAt: string;
   updatedAt: string;
@@ -51,7 +54,12 @@ export interface Lesson {
   video_url?: string;
   duration_minutes: number;
   order_index: number;
+  status: "draft" | "archived";
+  estimated_duration?: number;
+  created_by?: number;
+  updated_by?: number;
   quiz?: Quiz;
+  learning_items?: LearningItem[];
   feedback?: LessonFeedback[];
   createdAt: string;
   updatedAt: string;
@@ -226,4 +234,82 @@ export interface Notification {
   is_read: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+// -------------------------------------------------------
+// Course Content Authoring types
+// -------------------------------------------------------
+
+export type LearningItemType =
+  | "VIDEO"
+  | "QUIZ"
+  | "INFOGRAPHIC"
+  | "DOCUMENT"
+  | "TEXT";
+export type LearningItemStatus = "draft" | "archived";
+
+export interface LearningItem {
+  id: number;
+  lesson_id: number;
+  item_type: LearningItemType;
+  title: string;
+  content_payload?: Record<string, unknown>;
+  asset_id?: number;
+  display_order: number;
+  estimated_duration?: number;
+  is_required: boolean;
+  status: LearningItemStatus;
+  created_by?: number;
+  updated_by?: number;
+  asset?: ContentAsset;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ContentAssetMediaType = "video" | "image" | "document" | "audio";
+
+export interface ContentAsset {
+  id: number;
+  filename: string;
+  media_type: ContentAssetMediaType;
+  mime_type: string;
+  size_bytes?: number;
+  duration_seconds?: number;
+  storage_key: string;
+  thumbnail_url?: string;
+  uploaded_by: number;
+  uploaded_at: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ContentVersionStatus =
+  | "DRAFT"
+  | "REVIEW"
+  | "PUBLISHED"
+  | "ARCHIVED";
+
+export interface ContentVersion {
+  id: number;
+  course_id: number;
+  version_label: string;
+  version_no: number;
+  status: ContentVersionStatus;
+  changelog?: string;
+  snapshot_ref?: unknown;
+  published_at?: string;
+  published_by?: number;
+  created_by?: number;
+  course?: Course;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PublishedContentStructure {
+  course_id: number;
+  version_id: number;
+  version_label: string;
+  version_no: number;
+  published_at: string;
+  structure: CourseSection[];
 }

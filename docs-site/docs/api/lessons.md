@@ -80,7 +80,7 @@ Create a new lesson within a section.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/lessons/section/1 \
+curl -X POST http://localhost:8080/api/v1/lessons/section/1 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -129,7 +129,7 @@ Get all lessons in a section.
 **Example:**
 
 ```bash
-curl -X GET http://localhost:3000/api/v1/lessons/section/1
+curl -X GET http://localhost:8080/api/v1/lessons/section/1
 ```
 
 ---
@@ -187,7 +187,7 @@ Get detailed information about a lesson.
 **Example:**
 
 ```bash
-curl -X GET http://localhost:3000/api/v1/lessons/1 \
+curl -X GET http://localhost:8080/api/v1/lessons/1 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -238,7 +238,7 @@ All fields are optional.
 **Example:**
 
 ```bash
-curl -X PUT http://localhost:3000/api/v1/lessons/1 \
+curl -X PUT http://localhost:8080/api/v1/lessons/1 \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -278,7 +278,45 @@ Delete a lesson.
 **Example:**
 
 ```bash
-curl -X DELETE http://localhost:3000/api/v1/lessons/1 \
+curl -X DELETE http://localhost:8080/api/v1/lessons/1 \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+---
+
+### Archive Lesson
+
+Soft-archive a lesson without deleting it. Sets `status = 'archived'`. Archived lessons are excluded from published content structures.
+
+**Endpoint:** `PATCH /api/v1/lessons/:id/archive`
+
+**Access:** Course Owner, Admin
+
+**Authentication:** Required
+
+**URL Parameters:**
+
+| Parameter | Type    | Description |
+| --------- | ------- | ----------- |
+| id        | integer | Lesson ID   |
+
+**Success Response (200):**
+
+```json
+{
+  "data": {
+    "id": 1,
+    "title": "Variables and Data Types",
+    "status": "archived",
+    "updated_at": "2026-04-27T10:00:00.000Z"
+  }
+}
+```
+
+**Example:**
+
+```bash
+curl -X PATCH http://localhost:8080/api/v1/lessons/1/archive \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -332,7 +370,7 @@ Students can provide feedback on lessons.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/lessons/1/feedback \
+curl -X POST http://localhost:8080/api/v1/lessons/1/feedback \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

@@ -1,5 +1,5 @@
 const { BadRequestError, NotFoundError, ForbiddenError } = require("../utils/error-responses");
-const { Lesson, CourseSection, Course, Quiz, LessonFeedback } = require("../models");
+const { Lesson, CourseSection, Course, Quiz, LessonFeedback, AuditLog } = require("../models");
 const { ROLES, isRole } = require("../constants/roles");
 
 const create = async (sectionId, payload, userId, userRole) => {
@@ -24,6 +24,19 @@ const create = async (sectionId, payload, userId, userRole) => {
     video_url: videoUrl,
     duration_minutes: durationMinutes || 0,
     order_index: orderIndex || 0,
+    status: "draft",
+    created_by: userId,
+    updated_by: userId,
+  });
+
+  await AuditLog.create({
+    entity_name: "Lesson",
+    entity_id: lesson.id,
+    course_id: section.course_id,
+    action: "CREATE",
+    new_values: { title, lessonType },
+    changed_by: userId,
+    source: "api",
   });
 
   return lesson;
@@ -67,6 +80,7 @@ const update = async (id, payload, userId, userRole) => {
   lesson.video_url = videoUrl ?? lesson.video_url;
   lesson.duration_minutes = durationMinutes ?? lesson.duration_minutes;
   lesson.order_index = orderIndex ?? lesson.order_index;
+  lesson.updated_by = userId;
 
   await lesson.save();
   return lesson;
@@ -87,4 +101,32 @@ const remove = async (id, userId, userRole) => {
   return true;
 };
 
-module.exports = { create, list, detail, update, remove };
+const archive = async (id, userId, userRole) => {
+  const lesson = await Lesson.findByPk(id, {
+    include: [{ model: CourseSection, as: "section", include: [{ model: Course, as: "course" }] }],
+  });
+  if (!lesson) throw new NotFoundError("Lesson not found");
+  if (lesson.status === "archived") throw new BadRequestError("Lesson is already archived");
+
+  if (!isRole(userRole, ROLES.ADMIN) && lesson.section.course.teacher_id !== userId) {
+    throw new ForbiddenError("Not authorized to archive this lesson");
+  }
+
+  lesson.status = "archived";
+  lesson.updated_by = userId;
+  await lesson.save();
+
+  await AuditLog.create({
+    entity_name: "Lesson",
+    entity_id: lesson.id,
+    course_id: lesson.section.course_id,
+    action: "CHANGE_STATUS",
+    new_values: { status: "archived" },
+    changed_by: userId,
+    source: "api",
+  });
+
+  return lesson;
+};
+
+module.exports = { create, list, detail, update, remove, archive };

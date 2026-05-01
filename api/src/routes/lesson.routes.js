@@ -62,4 +62,12 @@ router.delete(
   LessonController.remove
 );
 
+router.patch(
+  "/:id/archive",
+  AuthMiddleware.verifyToken,
+  RoleMiddleware.requireRole(STAFF_ROLES),
+  validate([param("id").isInt({ min: 1 })]),
+  LessonController.archive
+);
+
 module.exports = router;

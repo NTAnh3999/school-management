@@ -32,4 +32,9 @@ const remove = asyncHandler(async (req, res) => {
   return new OKResponse({ message: "Lesson deleted" }).send(res);
 });
 
-module.exports = { create, list, detail, update, remove };
+const archive = asyncHandler(async (req, res) => {
+  const lesson = await LessonService.archive(req.params.id, req.user.id, req.user.role);
+  return new OKResponse({ message: "Lesson archived", metadata: { lesson } }).send(res);
+});
+
+module.exports = { create, list, detail, update, remove, archive };

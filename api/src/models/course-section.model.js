@@ -13,6 +13,13 @@ const CourseSection = sequelize.define(
     title: { type: DataTypes.STRING(150), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: true },
     order_index: { type: DataTypes.INTEGER, defaultValue: 0 },
+    status: {
+      type: DataTypes.ENUM("draft", "archived"),
+      allowNull: false,
+      defaultValue: "draft",
+    },
+    created_by: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
+    updated_by: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
   },
   {
     tableName: "course_sections",

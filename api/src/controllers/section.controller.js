@@ -32,4 +32,19 @@ const remove = asyncHandler(async (req, res) => {
   return new OKResponse({ message: "Section deleted" }).send(res);
 });
 
-module.exports = { create, list, detail, update, remove };
+const archive = asyncHandler(async (req, res) => {
+  const section = await SectionService.archive(req.params.id, req.user.id, req.user.role);
+  return new OKResponse({ message: "Section archived", metadata: { section } }).send(res);
+});
+
+const reorder = asyncHandler(async (req, res) => {
+  const sections = await SectionService.reorder(
+    req.params.courseId,
+    req.body.orderedIds,
+    req.user.id,
+    req.user.role
+  );
+  return new OKResponse({ message: "Sections reordered", metadata: { sections } }).send(res);
+});
+
+module.exports = { create, list, detail, update, remove, archive, reorder };

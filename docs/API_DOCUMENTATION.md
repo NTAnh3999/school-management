@@ -10,7 +10,8 @@ A complete Learning Management System (LMS) API built with Node.js, Express, and
 - 🔗 **Prerequisite Management** (Define course prerequisites with cycle detection)
 - 📋 **Audit Logging** (Full history of Create/Update/Delete/ChangeStatus actions)
 - 📖 **Content Management** (Sections, Lessons with videos/text/quizzes)
-- 📊 **Progress Tracking** (Student progress, completion rates, time tracking)
+- �️ **Course Content Authoring** (Learning Items, Content Assets, versioned publishing workflow)
+- �📊 **Progress Tracking** (Student progress, completion rates, time tracking)
 - ✅ **Quiz & Assessment System** (Multiple question types, auto-grading, attempt limits)
 - 🏆 **Rewards & Achievements** (Certificates, badges, points)
 - ⭐ **Reviews & Feedback** (Course ratings, lesson feedback)
@@ -25,12 +26,18 @@ A complete Learning Management System (LMS) API built with Node.js, Express, and
 - **departments** - Academic departments that own courses
 - **courses** - Course catalog with `course_code`, `department_id`, `course_type`, `credit`, `duration_hours`, status lifecycle (draft → active → inactive → archived), soft delete
 - **course_prerequisites** - Many-to-many prerequisite relationships between courses
-- **audit_logs** - Full change history for course operations
-- **course_sections** - Course modules/sections
-- **lessons** - Individual lessons (video, text, quiz, assignment)
+- **audit_logs** - Full change history for course operations (enhanced with `course_id`, `source`, `version_ref`)
+- **course_sections** - Course modules/sections (with `status`, `created_by`, `updated_by`)
+- **lessons** - Individual lessons (video, text, quiz, assignment) (with `status`, `estimated_duration`, `created_by`, `updated_by`)
 - **enrollments** - Student course enrollments
 - **lesson_progress** - Student progress per lesson
 - **student_course_progress** - Overall course completion tracking
+
+### Course Content Authoring Tables
+
+- **content_assets** - Uploaded file metadata (video, image, document, audio) with storage references
+- **learning_items** - Granular content within a lesson: VIDEO, QUIZ, INFOGRAPHIC, DOCUMENT, TEXT; supports `content_payload` JSON
+- **content_versions** - Versioned snapshots of published course content (DRAFT → REVIEW → PUBLISHED → ARCHIVED)
 
 ### Assessment Tables
 
@@ -261,6 +268,27 @@ PUT /api/v1/sections/:id
 Authorization: Bearer {token}
 ```
 
+#### Archive Section (Owner/Admin) — CCA-API-03-ARC
+
+```http
+PATCH /api/v1/sections/:id/archive
+Authorization: Bearer {token}
+```
+
+Soft-archives a section (sets `status = 'archived'`). Does not delete.
+
+#### Reorder Sections (Owner/Admin) — CCA-API-09
+
+```http
+PATCH /api/v1/sections/course/:courseId/reorder
+Authorization: Bearer {token}
+{
+  "orderedIds": [3, 1, 2]
+}
+```
+
+Updates `order_index` for all sections of a course to match the provided array order.
+
 #### Delete Section (Owner/Admin)
 
 ```http
@@ -297,6 +325,238 @@ GET /api/v1/lessons/section/:sectionId
 GET /api/v1/lessons/:id
 Authorization: Bearer {token}
 ```
+
+#### Update Lesson (Owner/Admin)
+
+```http
+PUT /api/v1/lessons/:id
+Authorization: Bearer {token}
+```
+
+#### Archive Lesson (Owner/Admin) — CCA-API-05-ARC
+
+```http
+PATCH /api/v1/lessons/:id/archive
+Authorization: Bearer {token}
+```
+
+Soft-archives a lesson (sets `status = 'archived'`). Does not delete.
+
+### Learning Items (Course Content Authoring)
+
+Learning items are granular content units within a lesson. Each lesson can contain multiple items of different types.
+
+**Types:** `VIDEO`, `QUIZ`, `INFOGRAPHIC`, `DOCUMENT`, `TEXT`
+
+#### List Learning Items — CCA-API-06-LIST
+
+```http
+GET /api/v1/learning-items/lesson/:lessonId
+Authorization: Bearer {token}
+```
+
+Access: Teacher/Admin only.
+
+#### Get Learning Item Detail
+
+```http
+GET /api/v1/learning-items/:id
+Authorization: Bearer {token}
+```
+
+#### Create Learning Item — CCA-API-06
+
+```http
+POST /api/v1/learning-items/lesson/:lessonId
+Authorization: Bearer {token}
+{
+  "itemType": "VIDEO",
+  "title": "Intro Video",
+  "contentPayload": { "url": "https://cdn.example.com/v1.mp4" },
+  "assetId": 3,
+  "displayOrder": 0,
+  "estimatedDuration": 8.5,
+  "isRequired": true
+}
+```
+
+| Field             | Type    | Required | Description                                        |
+| ----------------- | ------- | -------- | -------------------------------------------------- |
+| itemType          | string  | Yes      | `VIDEO`, `QUIZ`, `INFOGRAPHIC`, `DOCUMENT`, `TEXT` |
+| title             | string  | Yes      | Item title                                         |
+| contentPayload    | object  | No       | Type-specific JSON payload                         |
+| assetId           | integer | No       | FK to `content_assets`                             |
+| displayOrder      | integer | No       | Display order (default 0)                          |
+| estimatedDuration | decimal | No       | Duration in minutes                                |
+| isRequired        | boolean | No       | Whether item is required (default true)            |
+
+**Success Response (201):** returns created learning item.
+
+#### Update Learning Item — CCA-API-07
+
+```http
+PATCH /api/v1/learning-items/:id
+Authorization: Bearer {token}
+{
+  "title": "Updated Title",
+  "contentPayload": { "url": "https://cdn.example.com/v2.mp4" }
+}
+```
+
+All fields optional. Same field list as create.
+
+#### Archive Learning Item
+
+```http
+PATCH /api/v1/learning-items/:id/archive
+Authorization: Bearer {token}
+```
+
+#### Reorder Learning Items — CCA-API-09
+
+```http
+PATCH /api/v1/learning-items/lesson/:lessonId/reorder
+Authorization: Bearer {token}
+{
+  "orderedIds": [5, 3, 4]
+}
+```
+
+Updates `display_order` for all items in the lesson to match the provided array order.
+
+### Content Assets
+
+File/media metadata registry. Assets are registered here after upload to cloud storage.
+
+#### List Content Assets — CCA-API-08-LIST
+
+```http
+GET /api/v1/content-assets?mediaType=video&uploadedBy=2
+Authorization: Bearer {token}
+```
+
+Query parameters: `mediaType` (video/image/document/audio), `uploadedBy` (user ID).
+
+Access: Teacher/Admin only.
+
+#### Get Content Asset Detail
+
+```http
+GET /api/v1/content-assets/:id
+Authorization: Bearer {token}
+```
+
+#### Register Content Asset — CCA-API-08
+
+```http
+POST /api/v1/content-assets
+Authorization: Bearer {token}
+{
+  "filename": "lecture-01.mp4",
+  "mediaType": "video",
+  "mimeType": "video/mp4",
+  "sizeBytes": 104857600,
+  "durationSeconds": 510,
+  "storageKey": "courses/cs101/lecture-01.mp4",
+  "thumbnailUrl": "https://cdn.example.com/thumb/lecture-01.jpg"
+}
+```
+
+| Field           | Type    | Required | Description                           |
+| --------------- | ------- | -------- | ------------------------------------- |
+| filename        | string  | Yes      | Original filename                     |
+| mediaType       | string  | Yes      | `video`, `image`, `document`, `audio` |
+| mimeType        | string  | Yes      | MIME type (e.g. `video/mp4`)          |
+| sizeBytes       | integer | No       | File size in bytes                    |
+| durationSeconds | integer | No       | Duration (for audio/video)            |
+| storageKey      | string  | Yes      | Storage path/key in cloud storage     |
+| thumbnailUrl    | string  | No       | Thumbnail URL                         |
+
+#### Update Content Asset Metadata
+
+```http
+PATCH /api/v1/content-assets/:id
+Authorization: Bearer {token}
+{
+  "thumbnailUrl": "https://cdn.example.com/thumb/updated.jpg"
+}
+```
+
+### Content Versions
+
+Versioned snapshots of a course's content, supporting a Draft → Review → Published → Archived workflow.
+
+#### List Versions — CCA-API-12-LIST
+
+```http
+GET /api/v1/content/courses/:courseId/versions
+Authorization: Bearer {token}
+```
+
+Access: Teacher/Admin only.
+
+#### Create Version — CCA-API-10
+
+```http
+POST /api/v1/content/courses/:courseId/versions
+Authorization: Bearer {token}
+{
+  "versionLabel": "v1.0 - Initial Release",
+  "changelog": "First stable version of the course content."
+}
+```
+
+Creates a new DRAFT version with a snapshot of the current course structure.
+
+#### Get Version Detail — CCA-API-12
+
+```http
+GET /api/v1/content/versions/:id
+Authorization: Bearer {token}
+```
+
+#### Publish Version — CCA-API-11
+
+```http
+POST /api/v1/content/versions/:id/publish
+Authorization: Bearer {token}
+```
+
+Sets this version to PUBLISHED. Any previously PUBLISHED version is automatically archived. Rebuilds the snapshot from current draft structure.
+
+**Business rules:**
+
+- Course must have at least 1 module with at least 1 lesson
+- Only one PUBLISHED version allowed at a time
+
+#### Archive Version (Admin only)
+
+```http
+PATCH /api/v1/content/versions/:id/archive
+Authorization: Bearer {token}
+```
+
+#### Get Published Structure — CCA-API-13
+
+```http
+GET /api/v1/content/courses/:courseId/published
+Authorization: Bearer {token}
+```
+
+Returns the `snapshot_ref` JSON of the currently published version. Used by Assessment, Progress, and Portal modules.
+
+**Access:** Any authenticated user.
+
+#### Preview Draft
+
+```http
+GET /api/v1/content/courses/:courseId/preview
+Authorization: Bearer {token}
+```
+
+Returns a real-time draft structure (sections → lessons → learning items with `status = 'draft'`). Does not create a version or affect progress records.
+
+**Access:** Teacher/Admin only.
 
 ### Progress Tracking
 

@@ -71,4 +71,28 @@ export const API_ROUTES = {
     create: "/rewards",
     award: "/rewards/award",
   },
+  learningItems: {
+    list: (lessonId: number) => `/learning-items/lesson/${lessonId}`,
+    detail: (id: number) => `/learning-items/${id}`,
+    create: (lessonId: number) => `/learning-items/lesson/${lessonId}`,
+    update: (id: number) => `/learning-items/${id}`,
+    archive: (id: number) => `/learning-items/${id}/archive`,
+    reorder: (lessonId: number) => `/learning-items/lesson/${lessonId}/reorder`,
+  },
+  contentAssets: {
+    list: "/content-assets",
+    detail: (id: number) => `/content-assets/${id}`,
+    create: "/content-assets",
+    update: (id: number) => `/content-assets/${id}`,
+  },
+  contentVersions: {
+    list: (courseId: number) => `/content/courses/${courseId}/versions`,
+    create: (courseId: number) => `/content/courses/${courseId}/versions`,
+    detail: (id: number) => `/content/versions/${id}`,
+    publish: (id: number) => `/content/versions/${id}/publish`,
+    archive: (id: number) => `/content/versions/${id}/archive`,
+    publishedStructure: (courseId: number) =>
+      `/content/courses/${courseId}/published`,
+    previewDraft: (courseId: number) => `/content/courses/${courseId}/preview`,
+  },
 } as const;

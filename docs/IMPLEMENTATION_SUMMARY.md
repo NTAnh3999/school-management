@@ -6,13 +6,13 @@ A comprehensive Learning Management System API has been successfully implemented
 
 ## 📊 Database Schema (schema.sql)
 
-### Updated Tables (20 total):
+### Updated Tables (23 total):
 
 1. **roles** - User roles (admin, instructor, student)
 2. **users** - User accounts
 3. **courses** - Course information with levels (beginner/intermediate/advanced)
-4. **course_sections** - Course modules/chapters
-5. **lessons** - Individual lessons (video/text/quiz/assignment)
+4. **course_sections** - Course modules/chapters (+ `status`, `created_by`, `updated_by`)
+5. **lessons** - Individual lessons (video/text/quiz/assignment) (+ `status`, `estimated_duration`, `created_by`, `updated_by`)
 6. **enrollments** - Student course enrollments
 7. **lesson_progress** - Lesson completion tracking
 8. **student_course_progress** - Overall course progress
@@ -26,62 +26,80 @@ A comprehensive Learning Management System API has been successfully implemented
 16. **course_reviews** - Course ratings and reviews
 17. **lesson_feedback** - Lesson-specific feedback
 18. **notifications** - User notifications
-19. Plus proper indexes and foreign keys with CASCADE deletes
+19. **audit_logs** - Change history (+ `course_id`, `source`, `version_ref`)
+20. **content_assets** - Uploaded file metadata (video/image/document/audio)
+21. **learning_items** - Granular content within a lesson (VIDEO/QUIZ/INFOGRAPHIC/DOCUMENT/TEXT)
+22. **content_versions** - Versioned course content snapshots (DRAFT → REVIEW → PUBLISHED → ARCHIVED)
+23. Plus proper indexes and foreign keys with CASCADE deletes
 
-## 🏗️ Models Created (16 total)
+## 🏗️ Models Created (19 total)
 
 All Sequelize models with proper associations:
 
-- User, Role, Course, CourseSection
-- Lesson, Enrollment, LessonProgress
+- User, Role, Course, CourseSection (updated)
+- Lesson (updated), Enrollment, LessonProgress
 - Quiz, QuizQuestion, QuizOption
 - QuizAttempt, QuizAttemptAnswer
 - Reward, StudentReward, StudentCourseProgress
 - CourseReview, LessonFeedback, Notification
+- AuditLog (updated), **ContentAsset**, **LearningItem**, **ContentVersion**
 
-## 🔧 Services Implemented (8 total)
+## 🔧 Services Implemented (11 total)
 
 Business logic for all features:
 
 1. **auth.service.js** - Authentication (register, login)
 2. **course.service.js** - Course CRUD, enrollment, filtering
-3. **section.service.js** - Section management
-4. **lesson.service.js** - Lesson management
+3. **section.service.js** - Section management (+ archive, reorder, audit logging)
+4. **lesson.service.js** - Lesson management (+ archive, audit logging)
 5. **progress.service.js** - Progress tracking with auto-updates
 6. **quiz.service.js** - Quiz creation, attempts, auto-grading
 7. **review.service.js** - Course reviews and ratings
 8. **notification.service.js** - Notification management
 9. **reward.service.js** - Reward creation and awarding
+10. **learning-item.service.js** - Learning item CRUD, archive, reorder (NEW)
+11. **content-asset.service.js** - Content asset metadata management (NEW)
+12. **content-version.service.js** - Versioned content publishing workflow (NEW)
 
-## 🎮 Controllers Created (9 total)
+## 🎮 Controllers Created (12 total)
 
 API endpoint handlers:
 
 1. **auth.controller.js** - Registration, login
 2. **user.controller.js** - User profile
 3. **course.controller.js** - Course management
-4. **section.controller.js** - Section management
-5. **lesson.controller.js** - Lesson management
+4. **section.controller.js** - Section management (+ archive, reorder)
+5. **lesson.controller.js** - Lesson management (+ archive)
 6. **progress.controller.js** - Progress tracking
 7. **quiz.controller.js** - Quiz and assessment
 8. **review.controller.js** - Reviews and feedback
 9. **notification.controller.js** - Notifications
 10. **reward.controller.js** - Rewards and achievements
+11. **learning-item.controller.js** - Learning item management (NEW)
+12. **content-asset.controller.js** - Content asset management (NEW)
+13. **content-version.controller.js** - Content version management (NEW)
 
-## 🛣️ Routes Implemented (10 total)
+## 🛣️ Routes Implemented (13 total)
 
 RESTful API routes with validation:
 
 1. **/auth** - Authentication routes
 2. **/users** - User profile routes
 3. **/courses** - Course CRUD + enrollment
-4. **/sections** - Section management
-5. **/lessons** - Lesson management
+4. **/sections** - Section management (+ archive, reorder)
+5. **/lessons** - Lesson management (+ archive)
 6. **/progress** - Progress tracking
 7. **/quizzes** - Quiz and assessment system
 8. **/reviews** - Reviews and feedback
 9. **/notifications** - Notification management
 10. **/rewards** - Reward system
+11. **/learning-items** - Learning item management (NEW)
+12. **/content-assets** - Content asset metadata (NEW)
+13. **/content** - Content version publishing workflow (NEW)
+14. **/quizzes** - Quiz and assessment system
+15. **/reviews** - Reviews and feedback
+16. **/notifications** - Notification management
+17. **/rewards** - Reward system
 
 ## 🔐 Authorization & Security
 
@@ -148,6 +166,19 @@ RESTful API routes with validation:
 - Course reviews with 1-5 star ratings
 - Review text with updates
 - Lesson-specific feedback
+
+### 8️⃣ Course Content Authoring ✅
+
+- **Learning Items** — granular content units (VIDEO, QUIZ, INFOGRAPHIC, DOCUMENT, TEXT) within lessons
+- **Content Assets** — file metadata registry linking upload storage keys to course content
+- **Content Versions** — full publish workflow: create draft snapshot → review → publish (one active at a time) → archive
+- **Section archive** — soft-archive modules without hard-delete
+- **Lesson archive** — soft-archive lessons without hard-delete
+- **Section reorder** — bulk reorder sections by providing ordered ID array
+- **Learning item reorder** — bulk reorder items within a lesson
+- Audit trail written on every create/update/archive action
+- `getPublishedStructure` endpoint consumed by Assessment, Progress, and Portal modules
+- `previewDraft` endpoint for teacher preview without affecting student progress
 - Enrollment requirement for reviews
 - One review per student per course
 

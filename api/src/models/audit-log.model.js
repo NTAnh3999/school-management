@@ -7,6 +7,9 @@ const AuditLog = sequelize.define(
     id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
     entity_name: { type: DataTypes.STRING(100), allowNull: false },
     entity_id: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
+    course_id: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
+    source: { type: DataTypes.STRING(100), allowNull: true },
+    version_ref: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
     action: {
       type: DataTypes.ENUM("CREATE", "UPDATE", "DELETE", "CHANGE_STATUS", "IMPORT", "EXPORT"),
       allowNull: false,
