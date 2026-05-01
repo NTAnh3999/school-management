@@ -50,15 +50,18 @@ const refreshAccessToken = async (): Promise<string | null> => {
     },
   );
 
+  // Backend uses toSnakeCaseKeys — tokens come as access_token / refresh_token
   const payload = response.data?.metadata ?? response.data;
-  if (!payload?.accessToken) return null;
+  const newAccessToken = payload?.access_token ?? payload?.accessToken;
+  const newRefreshToken = payload?.refresh_token ?? payload?.refreshToken;
+  if (!newAccessToken) return null;
 
   useSessionStore.getState().updateTokens({
-    accessToken: payload.accessToken,
-    refreshToken: payload.refreshToken,
+    accessToken: newAccessToken,
+    refreshToken: newRefreshToken,
   });
 
-  return payload.accessToken as string;
+  return newAccessToken;
 };
 
 // Request interceptor to add auth token
@@ -105,6 +108,7 @@ httpClient.interceptors.response.use(
     ) {
       if (!useSessionStore.getState().refreshToken) {
         useSessionStore.getState().clearSession();
+        if (typeof window !== "undefined") window.location.href = "/login";
         return Promise.reject(error);
       }
 
@@ -133,6 +137,7 @@ httpClient.interceptors.response.use(
         processQueue(newToken);
         if (!newToken) {
           useSessionStore.getState().clearSession();
+          if (typeof window !== "undefined") window.location.href = "/login";
           return Promise.reject(error);
         }
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
@@ -140,6 +145,7 @@ httpClient.interceptors.response.use(
       } catch (refreshError) {
         processQueue(null, refreshError);
         useSessionStore.getState().clearSession();
+        if (typeof window !== "undefined") window.location.href = "/login";
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

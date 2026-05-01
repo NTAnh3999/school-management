@@ -35,29 +35,29 @@ Create a new user account.
 }
 ```
 
-| Field    | Type   | Required | Description                              |
-| -------- | ------ | -------- | ---------------------------------------- |
-| email    | string | Yes      | Valid email address                      |
-| password | string | Yes      | Minimum 6 characters                     |
-| fullName | string | Yes      | User's full name                         |
-| roleName | string | Yes      | One of: `student`, `instructor`, `admin` |
+| Field    | Type   | Required | Description                                                |
+| -------- | ------ | -------- | ---------------------------------------------------------- |
+| email    | string | Yes      | Valid email address                                        |
+| password | string | Yes      | Minimum 6 characters                                       |
+| fullName | string | Yes      | User's full name                                           |
+| roleName | string | No       | One of: `student`, `teacher`, `admin` (default: `student`) |
 
 **Success Response (201):**
 
 ```json
 {
-  "data": {
+  "message": "Registered",
+  "code": 201,
+  "metadata": {
     "user": {
       "id": 1,
       "email": "user@example.com",
-      "full_name": "John Doe",
-      "role": {
-        "id": 3,
-        "name": "student"
-      },
-      "created_at": "2026-03-22T10:00:00.000Z"
+      "fullName": "John Doe",
+      "role": "student",
+      "createdAt": "2026-03-22T10:00:00.000Z"
     },
-    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "a3f8e1..."
   }
 }
 ```
@@ -70,7 +70,7 @@ Create a new user account.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/auth/register \
+curl -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "student@example.com",
@@ -108,18 +108,17 @@ Authenticate and receive a JWT token.
 
 ```json
 {
-  "data": {
+  "message": "Logged in",
+  "code": 200,
+  "metadata": {
     "user": {
       "id": 1,
       "email": "user@example.com",
-      "full_name": "John Doe",
-      "role": {
-        "id": 3,
-        "name": "student"
-      }
+      "fullName": "John Doe",
+      "role": "student"
     },
     "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refresh_token": "refresh_token_here"
+    "refresh_token": "a3f8e1..."
   }
 }
 ```
@@ -133,11 +132,11 @@ Authenticate and receive a JWT token.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/auth/login \
+curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "student@example.com",
-    "password": "password123"
+    "email": "admin@schoolhub.io",
+    "password": "Admin@123"
   }'
 ```
 
@@ -147,7 +146,7 @@ curl -X POST http://localhost:3000/api/v1/auth/login \
 
 Get a new access token using a refresh token.
 
-**Endpoint:** `POST /api/v1/auth/refresh-token`
+**Endpoint:** `POST /api/v1/auth/refresh`
 
 **Access:** Public
 
@@ -167,8 +166,10 @@ Get a new access token using a refresh token.
 
 ```json
 {
-  "data": {
-    "access_token": "new_jwt_token_here",
+  "message": "Token refreshed",
+  "code": 200,
+  "metadata": {
+    "access_token": "new_access_token_here",
     "refresh_token": "new_refresh_token_here"
   }
 }
@@ -178,12 +179,11 @@ Get a new access token using a refresh token.
 
 - `400 Bad Request` - Missing refresh token
 - `401 Unauthorized` - Invalid or expired refresh token
-- `500 Internal Server Error` - Server error
 
 **Example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/auth/refresh-token \
+curl -X POST http://localhost:8080/api/v1/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{
     "refreshToken": "your_refresh_token"
@@ -216,16 +216,15 @@ Invalidate the current refresh token.
 
 ```json
 {
-  "data": {
-    "message": "Logged out successfully"
-  }
+  "message": "Logged out",
+  "code": 200
 }
 ```
 
 **Example:**
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/auth/logout \
+curl -X POST http://localhost:8080/api/v1/auth/logout \
   -H "Content-Type: application/json" \
   -d '{
     "refreshToken": "your_refresh_token"
@@ -245,13 +244,13 @@ Authorization: Bearer YOUR_JWT_TOKEN
 Example:
 
 ```bash
-curl -X GET http://localhost:3000/api/v1/courses \
+curl -X GET http://localhost:8080/api/v1/courses \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 ```
 
 ## Token Expiration
 
-- **Access Token:** Expires in 24 hours
-- **Refresh Token:** Expires in 30 days
+- **Access Token:** Expires in 15 minutes (configurable via `JWT_EXPIRES`)
+- **Refresh Token:** Expires in 7 days (configurable via `JWT_REFRESH_EXPIRES`)
 
-Use the refresh token endpoint to get new tokens before they expire.
+Use the `/api/v1/auth/refresh` endpoint to get a new access token using the refresh token.

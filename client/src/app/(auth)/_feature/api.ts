@@ -28,14 +28,9 @@ type RawUser = {
   avatarUrl?: string;
 };
 
-type AuthResponse = {
-  accessToken: string;
-  refreshToken: string;
-  user: RawUser;
-};
-
 const transformUser = (payload: RawUser): User => {
-  const roleSource = typeof payload.role === "string" ? payload.role : payload.role?.name;
+  const roleSource =
+    typeof payload.role === "string" ? payload.role : payload.role?.name;
   const normalizedRole = roleSource?.toLowerCase();
   return {
     id: payload.id,
@@ -48,20 +43,37 @@ const transformUser = (payload: RawUser): User => {
   };
 };
 
+// Backend uses toSnakeCaseKeys so tokens come as access_token / refresh_token
+type RawAuthResponse = {
+  access_token?: string;
+  accessToken?: string;
+  refresh_token?: string;
+  refreshToken?: string;
+  user: RawUser;
+};
+
 export async function login(data: LoginPayload) {
-  const response = await httpClient.post<AuthResponse>(API_ROUTES.auth.login, data);
+  const response = await httpClient.post<RawAuthResponse>(
+    API_ROUTES.auth.login,
+    data,
+  );
   return {
-    accessToken: response.data.accessToken,
-    refreshToken: response.data.refreshToken,
+    accessToken: response.data.access_token ?? response.data.accessToken ?? "",
+    refreshToken:
+      response.data.refresh_token ?? response.data.refreshToken ?? "",
     user: transformUser(response.data.user),
   };
 }
 
 export async function register(data: RegisterPayload) {
-  const response = await httpClient.post<AuthResponse>(API_ROUTES.auth.register, data);
+  const response = await httpClient.post<RawAuthResponse>(
+    API_ROUTES.auth.register,
+    data,
+  );
   return {
-    accessToken: response.data.accessToken,
-    refreshToken: response.data.refreshToken,
+    accessToken: response.data.access_token ?? response.data.accessToken ?? "",
+    refreshToken:
+      response.data.refresh_token ?? response.data.refreshToken ?? "",
     user: transformUser(response.data.user),
   };
 }
@@ -72,7 +84,10 @@ export async function getProfile() {
 }
 
 export async function updateProfile(data: { fullName: string }) {
-  const response = await httpClient.put<{ user: RawUser }>(API_ROUTES.users.update, data);
+  const response = await httpClient.put<{ user: RawUser }>(
+    API_ROUTES.users.update,
+    data,
+  );
   return transformUser(response.data.user);
 }
 
