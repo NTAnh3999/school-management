@@ -26,6 +26,9 @@ const Notification = require("./notification.model");
 const ContentAsset = require("./content-asset.model");
 const LearningItem = require("./learning-item.model");
 const ContentVersion = require("./content-version.model");
+const EnrollmentHistory = require("./enrollment-history.model");
+const EligibilityResult = require("./eligibility-result.model");
+const PaymentReference = require("./payment-reference.model");
 
 // Define associations
 // User - Role
@@ -145,6 +148,23 @@ ContentVersion.belongsTo(User, { foreignKey: "published_by", as: "publisher" });
 ContentVersion.belongsTo(User, { foreignKey: "created_by", as: "creator" });
 Course.hasMany(ContentVersion, { foreignKey: "course_id", as: "content_versions" });
 
+// EnrollmentHistory - Enrollment & User
+Enrollment.hasMany(EnrollmentHistory, { foreignKey: "enrollment_id", as: "history" });
+EnrollmentHistory.belongsTo(Enrollment, { foreignKey: "enrollment_id", as: "enrollment" });
+EnrollmentHistory.belongsTo(User, { foreignKey: "changed_by", as: "changed_by_user" });
+
+// EligibilityResult - Enrollment, User (learner), Course
+EligibilityResult.belongsTo(User, { foreignKey: "learner_id", as: "learner" });
+EligibilityResult.belongsTo(Course, { foreignKey: "course_id", as: "course" });
+EligibilityResult.belongsTo(User, { foreignKey: "checked_by", as: "checker" });
+Enrollment.hasMany(EligibilityResult, { foreignKey: "enrollment_id", as: "eligibility_results" });
+EligibilityResult.belongsTo(Enrollment, { foreignKey: "enrollment_id", as: "enrollment" });
+
+// PaymentReference - Enrollment
+PaymentReference.belongsTo(Enrollment, { foreignKey: "enrollment_id", as: "enrollment" });
+Enrollment.hasMany(PaymentReference, { foreignKey: "enrollment_id", as: "payment_references" });
+
+
 const sync = async () => {
   await sequelize.sync();
 };
@@ -176,5 +196,8 @@ module.exports = {
   ContentAsset,
   LearningItem,
   ContentVersion,
+  EnrollmentHistory,
+  EligibilityResult,
+  PaymentReference,
   sync,
 };

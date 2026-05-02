@@ -16,11 +16,30 @@ const Enrollment = sequelize.define(
       references: { model: "courses", key: "id" },
     },
     status: {
-      type: DataTypes.ENUM("active", "completed", "dropped"),
-      defaultValue: "active",
+      type: DataTypes.ENUM(
+        "pending",
+        "active",
+        "suspended",
+        "cancelled",
+        "completed",
+        "rejected",
+        "waitlisted"
+      ),
+      defaultValue: "pending",
     },
-    enrolled_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+    request_source: {
+      type: DataTypes.ENUM("student", "parent", "admin", "system", "import"),
+      defaultValue: "student",
+    },
+    payment_reference: { type: DataTypes.STRING(100), allowNull: true },
+    eligibility_result_id: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
+    requested_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+    activated_at: { type: DataTypes.DATE, allowNull: true },
     completed_at: { type: DataTypes.DATE, allowNull: true },
+    cancelled_at: { type: DataTypes.DATE, allowNull: true },
+    enrolled_at: { type: DataTypes.DATE, allowNull: true },
+    created_by: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
+    updated_by: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
   },
   {
     tableName: "enrollments",

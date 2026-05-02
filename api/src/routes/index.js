@@ -8,6 +8,7 @@ router.get("/health", (req, res) => res.json({ status: "ok" }));
 router.use("/auth", require("./auth.routes"));
 router.use("/users", require("./user.routes"));
 router.use("/courses", require("./course.routes"));
+router.use("/enrollments", require("./enrollment.routes"));
 router.use("/sections", require("./section.routes"));
 router.use("/lessons", require("./lesson.routes"));
 router.use("/progress", require("./progress.routes"));
