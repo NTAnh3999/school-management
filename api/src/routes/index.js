@@ -25,4 +25,7 @@ router.use("/content", require("./content-version.routes"));
 // Classroom module
 router.use("/classrooms", require("./classroom.routes"));
 
+// Profile module
+router.use("/profiles", require("./profile.routes"));
+
 module.exports = router;

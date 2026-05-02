@@ -3,6 +3,12 @@ const sequelize = require("../database/init.mysql.js");
 // Import all models
 const Role = require("./role.model");
 const Department = require("./department.model");
+const Tenant = require("./tenant.model");
+const Profile = require("./profile.model");
+const StudentProfile = require("./student-profile.model");
+const ParentProfile = require("./parent-profile.model");
+const TeacherProfile = require("./teacher-profile.model");
+const ParentStudentRelationship = require("./parent-student-relationship.model");
 const CoursePrerequisite = require("./course-prerequisite.model");
 const AuditLog = require("./audit-log.model");
 const User = require("./user.model");
@@ -207,6 +213,61 @@ ClassroomEnrollment.belongsTo(Classroom, {
 Classroom.hasMany(ClassroomEnrollment, { foreignKey: "classroom_id", as: "enrollments" });
 User.hasMany(ClassroomEnrollment, { foreignKey: "student_id", as: "classroom_enrollments" });
 
+// ---------------------------------------------------------------------------
+// Profile module associations
+// ---------------------------------------------------------------------------
+
+// Tenant - Profile
+Tenant.hasMany(Profile, { foreignKey: "tenant_id", as: "profiles" });
+Profile.belongsTo(Tenant, { foreignKey: "tenant_id", as: "tenant" });
+
+// User - Profile (identity reference)
+User.hasMany(Profile, { foreignKey: "user_id", as: "profiles" });
+Profile.belongsTo(User, { foreignKey: "user_id", as: "user" });
+
+// Profile creator/updater
+Profile.belongsTo(User, { foreignKey: "created_by", as: "profile_creator" });
+Profile.belongsTo(User, { foreignKey: "updated_by", as: "profile_updater" });
+
+// Profile - StudentProfile (1:0..1)
+Profile.hasOne(StudentProfile, { foreignKey: "profile_id", as: "student_profile" });
+StudentProfile.belongsTo(Profile, { foreignKey: "profile_id", as: "profile" });
+
+// Profile - ParentProfile (1:0..1)
+Profile.hasOne(ParentProfile, { foreignKey: "profile_id", as: "parent_profile" });
+ParentProfile.belongsTo(Profile, { foreignKey: "profile_id", as: "profile" });
+
+// Profile - TeacherProfile (1:0..1)
+Profile.hasOne(TeacherProfile, { foreignKey: "profile_id", as: "teacher_profile" });
+TeacherProfile.belongsTo(Profile, { foreignKey: "profile_id", as: "profile" });
+
+// ParentProfile - ParentStudentRelationship
+ParentProfile.hasMany(ParentStudentRelationship, {
+  foreignKey: "parent_profile_id",
+  as: "student_relationships",
+});
+ParentStudentRelationship.belongsTo(ParentProfile, {
+  foreignKey: "parent_profile_id",
+  as: "parent_profile",
+});
+
+// StudentProfile - ParentStudentRelationship
+StudentProfile.hasMany(ParentStudentRelationship, {
+  foreignKey: "student_profile_id",
+  as: "parent_relationships",
+});
+ParentStudentRelationship.belongsTo(StudentProfile, {
+  foreignKey: "student_profile_id",
+  as: "student_profile",
+});
+
+// ParentStudentRelationship - Tenant
+ParentStudentRelationship.belongsTo(Tenant, { foreignKey: "tenant_id", as: "tenant" });
+
+// ParentStudentRelationship creator/updater
+ParentStudentRelationship.belongsTo(User, { foreignKey: "created_by", as: "relationship_creator" });
+ParentStudentRelationship.belongsTo(User, { foreignKey: "updated_by", as: "relationship_updater" });
+
 
 const sync = async () => {
   await sequelize.sync();
@@ -215,6 +276,12 @@ const sync = async () => {
 module.exports = {
   sequelize,
   Role,
+  Tenant,
+  Profile,
+  StudentProfile,
+  ParentProfile,
+  TeacherProfile,
+  ParentStudentRelationship,
   User,
   RefreshToken,
   Course,

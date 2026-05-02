@@ -2,6 +2,7 @@ const ROLES = Object.freeze({
   ADMIN: "admin",
   TEACHER: "teacher",
   STUDENT: "student",
+  PARENT: "parent",
 });
 
 const ROLE_NAMES = Object.freeze(Object.values(ROLES));
@@ -17,6 +18,7 @@ const ROLE_LOOKUP_VALUES = Object.freeze({
     "INSTRUCTOR",
   ]),
   [ROLES.STUDENT]: Object.freeze([ROLES.STUDENT, "Student", "STUDENT"]),
+  [ROLES.PARENT]: Object.freeze([ROLES.PARENT, "Parent", "PARENT", "guardian", "Guardian"]),
 });
 
 const ROLE_ALIASES = Object.freeze(

@@ -1,5 +1,5 @@
 const bcrypt = require("bcryptjs");
-const { Role, User } = require("../models");
+const { Role, User, Tenant } = require("../models");
 const { ROLES } = require("../constants/roles");
 
 const DEFAULT_ACCOUNTS = [
@@ -20,6 +20,12 @@ const DEFAULT_ACCOUNTS = [
     email: process.env.STUDENT_EMAIL || "student@schoolhub.io",
     password: process.env.STUDENT_PASSWORD || "Student@123",
     fullName: "Demo Student",
+  },
+  {
+    roleName: ROLES.PARENT,
+    email: process.env.PARENT_EMAIL || "parent@schoolhub.io",
+    password: process.env.PARENT_PASSWORD || "Parent@123",
+    fullName: "Demo Parent",
   },
 ];
 
@@ -51,9 +57,21 @@ const ensureDefaultAccounts = async () => {
   }
 };
 
+const ensureDefaultTenant = async () => {
+  const existing = await Tenant.findOne({ where: { tenant_code: "DEFAULT" } });
+  if (!existing) {
+    await Tenant.create({
+      tenant_code: "DEFAULT",
+      tenant_name: "Default School",
+      status: "active",
+    });
+  }
+};
+
 const ensureSeedData = async () => {
   await ensureRoles();
   await ensureDefaultAccounts();
+  await ensureDefaultTenant();
 };
 
-module.exports = { ensureRoles, ensureDefaultAccounts, ensureSeedData };
+module.exports = { ensureRoles, ensureDefaultAccounts, ensureDefaultTenant, ensureSeedData };

@@ -11,7 +11,16 @@ const AuditLog = sequelize.define(
     source: { type: DataTypes.STRING(100), allowNull: true },
     version_ref: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
     action: {
-      type: DataTypes.ENUM("CREATE", "UPDATE", "DELETE", "CHANGE_STATUS", "IMPORT", "EXPORT"),
+      type: DataTypes.ENUM(
+        "CREATE",
+        "UPDATE",
+        "DELETE",
+        "CHANGE_STATUS",
+        "IMPORT",
+        "EXPORT",
+        "LINK",
+        "UNLINK"
+      ),
       allowNull: false,
     },
     old_values: { type: DataTypes.JSON, allowNull: true },
