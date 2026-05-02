@@ -21,7 +21,9 @@ const sidebars: SidebarsConfig = {
       label: "API Reference",
       items: [
         "api/authentication",
+        "api/profiles",
         "api/courses",
+        "api/classrooms",
         "api/sections",
         "api/lessons",
         "api/learning-items",

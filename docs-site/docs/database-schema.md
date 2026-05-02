@@ -23,11 +23,11 @@ Stores user account information and authentication data.
 
 Defines user roles and permissions.
 
-| Column      | Type        | Description                               |
-| ----------- | ----------- | ----------------------------------------- |
-| id          | INT         | Primary key                               |
-| name        | VARCHAR(50) | Role name (`admin`, `teacher`, `student`) |
-| description | TEXT        | Role description                          |
+| Column      | Type        | Description                                           |
+| ----------- | ----------- | ----------------------------------------------------- |
+| id          | INT         | Primary key                                           |
+| name        | VARCHAR(50) | Role name (`admin`, `teacher`, `student`, `parent`)   |
+| description | TEXT        | Role description                                      |
 
 ### Courses
 
@@ -386,11 +386,243 @@ Versioned snapshots of a course's published content. Supports the DRAFT → REVI
 - Enrollments → Course Progress
 - Users → Notifications
 - Users → Rewards (through Student Rewards)
+- Classrooms → Classroom Enrollments
+- Classrooms → Classroom Sessions
+- Classrooms → Classroom Teachers
 
 ### Many-to-Many
 
 - Users ↔ Courses (through Enrollments)
 - Students ↔ Rewards (through Student Rewards)
+- Users ↔ Classrooms (through Classroom Teachers)
+- Students ↔ Classrooms (through Classroom Enrollments)
+- Parents ↔ Students (through Parent–Student Relationships)
+
+---
+
+## Profile Module Tables
+
+The Profile module stores **business profile data** separately from IAM user accounts. It is the canonical source of educational identity used by portals and downstream modules.
+
+:::info
+Profile answers "who is this person in the educational context?"  
+The `users` table (IAM) answers "how does this person log in and what are their permissions?"
+:::
+
+### Tenants
+
+Represents a school or training center. All profile data is scoped to a tenant.
+
+| Column      | Type         | Description                          |
+| ----------- | ------------ | ------------------------------------ |
+| id          | INT          | Primary key                          |
+| tenant_code | VARCHAR(50)  | Unique tenant code (e.g. `DEFAULT`)  |
+| tenant_name | VARCHAR(255) | Display name                         |
+| status      | ENUM         | `active`, `inactive`                 |
+| created_at  | DATETIME     | Creation timestamp                   |
+| updated_at  | DATETIME     | Last update timestamp                |
+
+### Profiles
+
+Core profile entity. Links an IAM user identity to their business profile data.
+
+| Column        | Type         | Description                                          |
+| ------------- | ------------ | ---------------------------------------------------- |
+| id            | INT          | Primary key                                          |
+| tenant_id     | INT          | FK to tenants                                        |
+| user_id       | INT          | FK to users (IAM reference — not auth ownership)     |
+| profile_type  | ENUM         | `student`, `parent`, `teacher`, `staff`, `admin`     |
+| full_name     | VARCHAR(120) | Full name (required, 2–120 chars)                    |
+| display_name  | VARCHAR(120) | Display name (nullable; defaults to full_name)       |
+| avatar_url    | VARCHAR(500) | Avatar image URL (nullable)                          |
+| contact_email | VARCHAR(120) | Contact email (may differ from login email)          |
+| phone_number  | VARCHAR(30)  | Phone number (nullable)                              |
+| address       | TEXT         | Address (nullable)                                   |
+| status        | ENUM         | `draft`, `active`, `inactive`, `archived`            |
+| visibility    | ENUM         | `internal`, `public`, `private`                      |
+| created_by    | INT          | FK to users (creator)                                |
+| updated_by    | INT          | FK to users (last editor)                            |
+| created_at    | DATETIME     | Creation timestamp                                   |
+| updated_at    | DATETIME     | Last update timestamp                                |
+
+### Student Profiles
+
+One-to-one extension of `profiles` for learners.
+
+| Column         | Type         | Description                                    |
+| -------------- | ------------ | ---------------------------------------------- |
+| id             | INT          | Primary key                                    |
+| profile_id     | INT          | FK to profiles (unique)                        |
+| student_code   | VARCHAR(50)  | Unique student code within tenant (nullable)   |
+| date_of_birth  | DATE         | Date of birth (nullable)                       |
+| gender         | ENUM         | `male`, `female`, `other`, `unspecified`        |
+| current_level  | VARCHAR(100) | Current academic level (nullable)              |
+| learning_goal  | TEXT         | Personal learning goal (nullable)              |
+| student_status | ENUM         | `active`, `inactive`, `graduated`, `suspended` |
+| created_at     | DATETIME     | Creation timestamp                             |
+| updated_at     | DATETIME     | Last update timestamp                          |
+
+### Parent Profiles
+
+One-to-one extension of `profiles` for guardians/parents.
+
+| Column                | Type        | Description                              |
+| --------------------- | ----------- | ---------------------------------------- |
+| id                    | INT         | Primary key                              |
+| profile_id            | INT         | FK to profiles (unique)                  |
+| parent_code           | VARCHAR(50) | Unique parent code within tenant         |
+| occupation            | VARCHAR(150)| Occupation (nullable)                    |
+| contact_priority      | INT         | Contact priority order (default: 1)      |
+| emergency_contact_flag| BOOLEAN     | Is emergency contact (default: false)    |
+| created_at            | DATETIME    | Creation timestamp                       |
+| updated_at            | DATETIME    | Last update timestamp                    |
+
+### Teacher Profiles
+
+One-to-one extension of `profiles` for instructors.
+
+| Column                 | Type        | Description                                      |
+| ---------------------- | ----------- | ------------------------------------------------ |
+| id                     | INT         | Primary key                                      |
+| profile_id             | INT         | FK to profiles (unique)                          |
+| teacher_code           | VARCHAR(50) | Unique teacher code within tenant                |
+| bio                    | TEXT        | Short biography (nullable)                       |
+| expertise              | JSON        | Array of expertise areas (nullable)              |
+| qualification          | TEXT        | Qualifications and certifications (nullable)     |
+| years_of_experience    | INT         | Years of experience (default: 0)                 |
+| public_profile_enabled | BOOLEAN     | Show on public-facing pages (default: false)     |
+| created_at             | DATETIME    | Creation timestamp                               |
+| updated_at             | DATETIME    | Last update timestamp                            |
+
+### Parent–Student Relationships
+
+Maps parent profiles to student profiles. Controls parent portal access scope.
+
+| Column             | Type     | Description                                           |
+| ------------------ | -------- | ----------------------------------------------------- |
+| id                 | INT      | Primary key                                           |
+| tenant_id          | INT      | FK to tenants (parent and student must share tenant)  |
+| parent_profile_id  | INT      | FK to parent_profiles                                 |
+| student_profile_id | INT      | FK to student_profiles                                |
+| relationship_type  | ENUM     | `father`, `mother`, `guardian`, `other`               |
+| status             | ENUM     | `pending`, `active`, `suspended`, `revoked`           |
+| start_date         | DATETIME | Relationship start date (nullable)                    |
+| end_date           | DATETIME | Relationship end date (nullable)                      |
+| reason             | TEXT     | Reason for status change (nullable)                   |
+| created_by         | INT      | FK to users (creator)                                 |
+| updated_by         | INT      | FK to users (last editor)                             |
+| created_at         | DATETIME | Creation timestamp                                    |
+| updated_at         | DATETIME | Last update timestamp                                 |
+
+**Relationship Status Rules:**
+
+| Status | Parent can access student data? |
+| --- | --- |
+| `pending` | No |
+| `active` | Yes |
+| `suspended` | No |
+| `revoked` | No |
+
+---
+
+## Classroom Module Tables
+
+### Classrooms
+
+Operational instances of a course with assigned teachers, schedule, and enrollment rules.
+
+| Column                | Type         | Description                                                                  |
+| --------------------- | ------------ | ---------------------------------------------------------------------------- |
+| id                    | INT          | Primary key                                                                  |
+| classroom_code        | VARCHAR(100) | Unique code (auto-generated: `CLS-{COURSE_CODE}-{YYYYMM}-{SEQ}`)             |
+| classroom_name        | VARCHAR(255) | Display name                                                                 |
+| description           | TEXT         | Classroom description                                                        |
+| course_id             | INT          | FK to courses                                                                |
+| course_version_id     | INT          | FK to content_versions (nullable)                                            |
+| status                | ENUM         | `draft`, `open`, `full`, `in_progress`, `completed`, `cancelled`, `archived` |
+| delivery_method       | ENUM         | `online`, `offline`, `hybrid`                                                |
+| location              | VARCHAR(255) | Physical location (nullable)                                                 |
+| online_meeting_link   | VARCHAR(500) | Online meeting URL (nullable)                                                |
+| academic_year         | VARCHAR(20)  | Academic year label (nullable)                                               |
+| term                  | VARCHAR(100) | Term/semester label (nullable)                                               |
+| language              | VARCHAR(50)  | Instruction language                                                         |
+| start_date            | DATE         | First day of classes                                                         |
+| end_date              | DATE         | Last day of classes                                                          |
+| enrollment_mode       | ENUM         | `manual`, `self_enrollment`, `invitation_only`                               |
+| enrollment_start_date | DATE         | Enrollment opens (nullable)                                                  |
+| enrollment_end_date   | DATE         | Enrollment closes (nullable)                                                 |
+| min_capacity          | INT          | Minimum students required                                                    |
+| max_capacity          | INT          | Maximum students allowed                                                     |
+| enrolled_count        | INT          | Cached count of active enrollments                                           |
+| waitlist_enabled      | BOOLEAN      | Allow waitlist when full                                                     |
+| approval_required     | BOOLEAN      | Require admin approval for enrollment                                        |
+| visibility            | ENUM         | `public`, `private`, `internal`                                              |
+| cancel_reason         | TEXT         | Reason if cancelled (nullable)                                               |
+| created_by            | INT          | FK to users                                                                  |
+| updated_by            | INT          | FK to users                                                                  |
+| is_deleted            | BOOLEAN      | Soft-delete flag                                                             |
+| created_at            | DATETIME     | Creation timestamp                                                           |
+| updated_at            | DATETIME     | Last update timestamp                                                        |
+
+### Classroom Teachers
+
+Maps teachers and TAs to a classroom.
+
+| Column            | Type     | Description                                        |
+| ----------------- | -------- | -------------------------------------------------- |
+| id                | INT      | Primary key                                        |
+| classroom_id      | INT      | FK to classrooms                                   |
+| user_id           | INT      | FK to users                                        |
+| role_in_classroom | ENUM     | `main_teacher`, `co_teacher`, `teaching_assistant` |
+| active_flag       | BOOLEAN  | Whether assignment is currently active             |
+| assigned_by       | INT      | FK to users (who made the assignment)              |
+| assigned_at       | DATETIME | Assignment timestamp                               |
+| created_at        | DATETIME | Creation timestamp                                 |
+| updated_at        | DATETIME | Last update timestamp                              |
+
+### Classroom Sessions
+
+Individual scheduled class sessions within a classroom.
+
+| Column              | Type         | Description                                          |
+| ------------------- | ------------ | ---------------------------------------------------- |
+| id                  | INT          | Primary key                                          |
+| classroom_id        | INT          | FK to classrooms                                     |
+| session_no          | INT          | Session number (sequential)                          |
+| session_title       | VARCHAR(255) | Session title (nullable)                             |
+| session_date        | DATE         | Date of the session                                  |
+| start_time          | TIME         | Start time                                           |
+| end_time            | TIME         | End time                                             |
+| status              | ENUM         | `scheduled`, `completed`, `cancelled`, `rescheduled` |
+| location            | VARCHAR(255) | Override location (nullable)                         |
+| online_meeting_link | VARCHAR(500) | Override meeting link (nullable)                     |
+| teacher_id          | INT          | FK to users (session teacher, nullable)              |
+| notes               | TEXT         | Session notes (nullable)                             |
+| original_date       | DATE         | Original date before reschedule (nullable)           |
+| original_start_time | TIME         | Original start time before reschedule (nullable)     |
+| original_end_time   | TIME         | Original end time before reschedule (nullable)       |
+| created_at          | DATETIME     | Creation timestamp                                   |
+| updated_at          | DATETIME     | Last update timestamp                                |
+
+### Classroom Enrollments
+
+Per-classroom enrollment records for students.
+
+| Column                      | Type     | Description                                                                                                 |
+| --------------------------- | -------- | ----------------------------------------------------------------------------------------------------------- |
+| id                          | INT      | Primary key                                                                                                 |
+| classroom_id                | INT      | FK to classrooms                                                                                            |
+| student_id                  | INT      | FK to users                                                                                                 |
+| enrollment_status           | ENUM     | `pending_approval`, `enrolled`, `waitlisted`, `withdrawn`, `transferred`, `rejected`, `completed`, `failed` |
+| enrollment_date             | DATETIME | When enrollment was created                                                                                 |
+| enrollment_end_date         | DATETIME | When enrollment ended (nullable)                                                                            |
+| source                      | ENUM     | `manual`, `self_enrollment`, `transfer`, `invitation`                                                       |
+| notes                       | TEXT     | Admin/teacher notes (nullable)                                                                              |
+| transferred_to_classroom_id | INT      | FK to classrooms if transferred (nullable)                                                                  |
+| created_by                  | INT      | FK to users                                                                                                 |
+| updated_by                  | INT      | FK to users                                                                                                 |
+| created_at                  | DATETIME | Creation timestamp                                                                                          |
+| updated_at                  | DATETIME | Last update timestamp                                                                                       |
 
 ---
 

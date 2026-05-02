@@ -40,7 +40,7 @@ Create a new user account.
 | email    | string | Yes      | Valid email address                                        |
 | password | string | Yes      | Minimum 6 characters                                       |
 | fullName | string | Yes      | User's full name                                           |
-| roleName | string | No       | One of: `student`, `teacher`, `admin` (default: `student`) |
+| roleName | string | No       | One of: `student`, `teacher`, `admin`, `parent` (default: `student`) |
 
 **Success Response (201):**
 

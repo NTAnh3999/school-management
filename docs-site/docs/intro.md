@@ -8,7 +8,8 @@ Welcome to the **SchoolHub API** documentation! This is a comprehensive Learning
 
 ## 🌟 Features
 
-- 🔐 **User Authentication & Authorization** - Secure JWT-based authentication with role-based access control (Admin, Teacher, Student)
+- 🔐 **User Authentication & Authorization** - Secure JWT-based authentication with role-based access control (Admin, Teacher, Student, Parent)
+- 👤 **Profile Module** - Business profile management for Students, Parents, and Teachers — separate from IAM accounts, with parent–student relationship tracking and role-scoped access
 - 📚 **Course Management** - Create and manage courses with department grouping, credit hours, and prerequisite chains
 - 📖 **Content Authoring** - Structured content versions (draft → published) with per-lesson learning items and rich media assets
 - 📊 **Progress Tracking** - Track student progress with real-time completion rates and time tracking
@@ -16,6 +17,7 @@ Welcome to the **SchoolHub API** documentation! This is a comprehensive Learning
 - 🏆 **Rewards & Achievements** - Certificates, badges, and points for gamification
 - ⭐ **Reviews & Feedback** - Course ratings and lesson-specific feedback
 - 🔔 **Notifications** - Notifications for progress updates, assignments, and rewards
+- 🏫 **Classroom Module** - Operational classroom instances with teacher assignments, session schedules, enrollment management, and full lifecycle (draft → open → in progress → completed → archived)
 
 ## 🚀 Quick Start
 
