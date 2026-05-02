@@ -22,4 +22,7 @@ router.use("/learning-items", require("./learning-item.routes"));
 router.use("/content-assets", require("./content-asset.routes"));
 router.use("/content", require("./content-version.routes"));
 
+// Classroom module
+router.use("/classrooms", require("./classroom.routes"));
+
 module.exports = router;

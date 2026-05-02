@@ -29,6 +29,10 @@ const ContentVersion = require("./content-version.model");
 const EnrollmentHistory = require("./enrollment-history.model");
 const EligibilityResult = require("./eligibility-result.model");
 const PaymentReference = require("./payment-reference.model");
+const Classroom = require("./classroom.model");
+const ClassroomTeacher = require("./classroom-teacher.model");
+const ClassroomSession = require("./classroom-session.model");
+const ClassroomEnrollment = require("./classroom-enrollment.model");
 
 // Define associations
 // User - Role
@@ -164,6 +168,45 @@ EligibilityResult.belongsTo(Enrollment, { foreignKey: "enrollment_id", as: "enro
 PaymentReference.belongsTo(Enrollment, { foreignKey: "enrollment_id", as: "enrollment" });
 Enrollment.hasMany(PaymentReference, { foreignKey: "enrollment_id", as: "payment_references" });
 
+// ---------------------------------------------------------------------------
+// Classroom associations
+// ---------------------------------------------------------------------------
+
+// Classroom - Course
+Classroom.belongsTo(Course, { foreignKey: "course_id", as: "course" });
+Course.hasMany(Classroom, { foreignKey: "course_id", as: "classrooms" });
+
+// Classroom - ContentVersion
+Classroom.belongsTo(ContentVersion, { foreignKey: "course_version_id", as: "course_version" });
+ContentVersion.hasMany(Classroom, { foreignKey: "course_version_id", as: "classrooms" });
+
+// Classroom - User (created_by / updated_by)
+Classroom.belongsTo(User, { foreignKey: "created_by", as: "creator" });
+Classroom.belongsTo(User, { foreignKey: "updated_by", as: "updater" });
+
+// ClassroomTeacher - Classroom & User
+ClassroomTeacher.belongsTo(Classroom, { foreignKey: "classroom_id", as: "classroom" });
+ClassroomTeacher.belongsTo(User, { foreignKey: "user_id", as: "user" });
+ClassroomTeacher.belongsTo(User, { foreignKey: "assigned_by", as: "assigner" });
+Classroom.hasMany(ClassroomTeacher, { foreignKey: "classroom_id", as: "teachers" });
+User.hasMany(ClassroomTeacher, { foreignKey: "user_id", as: "classroom_roles" });
+
+// ClassroomSession - Classroom & User (teacher)
+ClassroomSession.belongsTo(Classroom, { foreignKey: "classroom_id", as: "classroom" });
+ClassroomSession.belongsTo(User, { foreignKey: "teacher_id", as: "teacher" });
+Classroom.hasMany(ClassroomSession, { foreignKey: "classroom_id", as: "sessions" });
+
+// ClassroomEnrollment - Classroom & User (student)
+ClassroomEnrollment.belongsTo(Classroom, { foreignKey: "classroom_id", as: "classroom" });
+ClassroomEnrollment.belongsTo(User, { foreignKey: "student_id", as: "student" });
+ClassroomEnrollment.belongsTo(User, { foreignKey: "approved_by", as: "approver" });
+ClassroomEnrollment.belongsTo(Classroom, {
+  foreignKey: "transferred_to_classroom_id",
+  as: "transfer_target",
+});
+Classroom.hasMany(ClassroomEnrollment, { foreignKey: "classroom_id", as: "enrollments" });
+User.hasMany(ClassroomEnrollment, { foreignKey: "student_id", as: "classroom_enrollments" });
+
 
 const sync = async () => {
   await sequelize.sync();
@@ -199,5 +242,9 @@ module.exports = {
   EnrollmentHistory,
   EligibilityResult,
   PaymentReference,
+  Classroom,
+  ClassroomTeacher,
+  ClassroomSession,
+  ClassroomEnrollment,
   sync,
 };
