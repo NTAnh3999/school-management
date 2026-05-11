@@ -6,9 +6,9 @@ import {
   ClipboardList,
   GraduationCap,
   LayoutDashboard,
+  Settings2,
   Users,
   Award,
-  Bell,
 } from "lucide-react";
 
 export type AppRoute = {
@@ -60,5 +60,11 @@ export const appRoutes: AppRoute[] = [
     href: "/people",
     icon: Users,
     description: "Students and instructors",
+  },
+  {
+    label: "Settings",
+    href: "/settings",
+    icon: Settings2,
+    description: "Profile, focus, and notification preferences",
   },
 ];
