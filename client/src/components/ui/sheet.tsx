@@ -52,7 +52,7 @@ const SheetContent = React.forwardRef<
     <SheetPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed z-50 grid gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out sm:rounded-lg",
+        "fixed z-50 grid gap-4 border border-white/70 bg-background/95 p-6 shadow-focus transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out sm:rounded-[1.5rem]",
         sheetVariants[side],
         className
       )}
