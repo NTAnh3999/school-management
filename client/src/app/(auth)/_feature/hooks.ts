@@ -11,6 +11,7 @@ import {
   type RegisterPayload,
 } from "./api";
 import { useSessionStore } from "@/stores/session-store";
+import { forgotPassword, type ForgotPasswordPayload } from "./api";
 
 export const useLogin = () => {
   const setSession = useSessionStore((state) => state.setSession);
@@ -59,3 +60,8 @@ export const useLogout = () => {
     },
   });
 };
+
+export const useForgotPassword = () =>
+  useMutation({
+    mutationFn: (payload: ForgotPasswordPayload) => forgotPassword(payload),
+  });

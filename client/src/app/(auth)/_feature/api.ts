@@ -98,3 +98,9 @@ export async function logout(refreshToken?: string | null) {
   }
   await httpClient.post(API_ROUTES.auth.logout, { refreshToken });
 }
+
+export type ForgotPasswordPayload = { email: string };
+
+export async function forgotPassword(data: ForgotPasswordPayload) {
+  await httpClient.post(API_ROUTES.auth.forgotPassword, data);
+}

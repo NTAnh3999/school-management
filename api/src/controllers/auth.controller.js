@@ -40,4 +40,12 @@ const logout = asyncHandler(async (req, res) => {
   return new OKResponse({ message: "Logged out" }).send(res);
 });
 
-module.exports = { register, login, refresh, logout };
+const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body || {};
+  await AuthService.forgotPassword({ email });
+  // Always return 200 — never reveal whether the email exists
+  return new OKResponse({
+    message: "If that email is registered, a reset link has been sent.",
+  }).send(res);
+});
+module.exports = { register, login, refresh, logout, forgotPassword };

@@ -268,7 +268,6 @@ ParentStudentRelationship.belongsTo(Tenant, { foreignKey: "tenant_id", as: "tena
 ParentStudentRelationship.belongsTo(User, { foreignKey: "created_by", as: "relationship_creator" });
 ParentStudentRelationship.belongsTo(User, { foreignKey: "updated_by", as: "relationship_updater" });
 
-
 const sync = async () => {
   await sequelize.sync();
 };

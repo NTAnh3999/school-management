@@ -35,5 +35,9 @@ router.post(
 );
 
 router.post("/logout", AuthController.logout);
-
+router.post(
+  "/forgot-password",
+  validate([body("email").isEmail().withMessage("Invalid email")]),
+  AuthController.forgotPassword
+);
 module.exports = router;

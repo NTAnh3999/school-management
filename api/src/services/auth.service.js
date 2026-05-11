@@ -133,4 +133,12 @@ const logout = async (token) => {
   return { message: "Logged out successfully" };
 };
 
-module.exports = { register, login, refresh, logout };
+const forgotPassword = async ({ email }) => {
+  if (!email) throw new BadRequestError("Email is required");
+  const user = await User.findOne({ where: { email } });
+  if (!user) return; // Silent — don't leak user existence
+  // TODO: Generate a signed reset token and send via email (SMTP/SendGrid)
+  console.log(`[forgotPassword] Reset requested for: ${email}`);
+};
+
+module.exports = { register, login, refresh, logout, forgotPassword };
