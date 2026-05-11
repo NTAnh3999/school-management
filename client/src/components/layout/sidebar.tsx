@@ -24,7 +24,7 @@ function NavigationList({
   onNavigate?: () => void;
 }) {
   return (
-    <nav className="flex flex-col gap-1">
+    <nav className="flex flex-col gap-2">
       {appRoutes.map((route) => {
         const isActive =
           pathname === route.href ||
@@ -35,16 +35,25 @@ function NavigationList({
             href={route.href}
             onClick={onNavigate}
             className={cn(
-              "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition",
+              "group flex items-start gap-3 rounded-xl border px-4 py-3 text-sm transition-all",
               isActive
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                ? "border-primary/15 bg-primary/10 text-primary shadow-mentor"
+                : "border-transparent text-muted-foreground hover:border-white/80 hover:bg-white/75 hover:text-foreground"
             )}
           >
-            <route.icon className="h-4 w-4" />
+            <span
+              className={cn(
+                "mt-0.5 rounded-lg p-2 transition-colors",
+                isActive
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-surface-container text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+              )}
+            >
+              <route.icon className="h-4 w-4" />
+            </span>
             <div className="flex flex-col">
-              <span>{route.label}</span>
-              <span className="text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">{route.label}</span>
+              <span className="mt-1 text-xs leading-5 text-muted-foreground">
                 {route.description}
               </span>
             </div>
@@ -58,8 +67,19 @@ function NavigationList({
 export function Sidebar() {
   const pathname = usePathname();
   return (
-    <aside className="hidden w-72 border-r bg-muted/30 p-4 lg:block">
-      <NavigationList pathname={pathname} />
+    <aside className="hidden w-[308px] px-5 py-6 lg:block">
+      <div className="surface-float sticky top-6 flex h-[calc(100vh-3rem)] flex-col rounded-[1.75rem] border border-white/70 px-5 py-6">
+        <div className="mb-6 border-b border-border/70 pb-5">
+          <p className="text-label-caps text-primary">Cognitive Clarity</p>
+          <h1 className="mt-3 text-2xl font-semibold tracking-tight">
+            SchoolHub
+          </h1>
+          <p className="mt-2 max-w-[22ch] text-sm leading-6 text-muted-foreground">
+            A calm workspace for steady progress, structured practice, and visible small wins.
+          </p>
+        </div>
+        <NavigationList pathname={pathname} />
+      </div>
     </aside>
   );
 }
@@ -72,14 +92,14 @@ export function MobileNav() {
   return (
     <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="lg:hidden">
+        <Button variant="outline" size="icon" className="lg:hidden">
           <Menu className="h-5 w-5" />
           <span className="sr-only">Open navigation</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-72">
+      <SheetContent side="left" className="w-72 rounded-r-[1.5rem] border-white/70 bg-white/90">
         <SheetHeader>
-          <SheetTitle>Navigation</SheetTitle>
+          <SheetTitle>SchoolHub</SheetTitle>
         </SheetHeader>
         <div className="mt-6">
           <NavigationList pathname={pathname} onNavigate={() => setSidebarOpen(false)} />
