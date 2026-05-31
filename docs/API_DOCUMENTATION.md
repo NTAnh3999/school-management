@@ -12,7 +12,7 @@ A complete Learning Management System (LMS) API built with Node.js, Express, and
 - 📖 **Content Management** (Sections, Lessons with videos/text/quizzes)
 - �️ **Course Content Authoring** (Learning Items, Content Assets, versioned publishing workflow)
 - �📊 **Progress Tracking** (Student progress, completion rates, time tracking)
-- ✅ **Quiz & Assessment System** (Multiple question types, auto-grading, attempt limits)
+- ✅ **Assessment System** (Draft/publish/close/archive lifecycle, attempts, submissions, grading, result publication, exports)
 - 🏆 **Rewards & Achievements** (Certificates, badges, points)
 - ⭐ **Reviews & Feedback** (Course ratings, lesson feedback)
 - 🔔 **Notifications** (Progress updates, assignments, rewards)
@@ -41,11 +41,15 @@ A complete Learning Management System (LMS) API built with Node.js, Express, and
 
 ### Assessment Tables
 
-- **quizzes** - Quiz definitions with passing scores
-- **quiz_questions** - Quiz questions with types
-- **quiz_options** - Answer options for questions
-- **quiz_attempts** - Student quiz attempts with scores
-- **quiz_attempt_answers** - Individual answers per attempt
+- **quizzes** - Assessment definitions with lifecycle, scope, grading, and publication settings
+- **quiz_questions** - Assessment questions with objective and manual-review question types
+- **quiz_options** - Answer options for objective questions
+- **quiz_attempts** - Learner attempts with lifecycle status, expiry, and published result state
+- **quiz_attempt_answers** - Per-question answer payloads and awarded points
+- **assessment_submissions** - One submission record per attempt
+- **assessment_grades** - Finalized or draft grading records
+- **assessment_result_publications** - Grade publication state and timestamps
+- **assessment_audit_logs** - Assessment-specific audit trail for lifecycle, attempts, grading, exports, and access events
 
 ### Engagement Tables
 
@@ -67,7 +71,29 @@ POST /api/v1/auth/register
   "email": "user@example.com",
   "password": "password123",
   "fullName": "John Doe",
-  "roleName": "student" // or "teacher", "admin"
+  "roleName": "student" // or "teacher", "admin", "parent"
+}
+```
+
+Creates the user, provisions an IAM account, assigns the default tenant membership, and returns:
+
+```json
+{
+  "access_token": "jwt_access_token",
+  "refresh_token": "opaque_refresh_token",
+  "session": {
+    "id": "uuid",
+    "active_tenant_id": 1,
+    "status": "active"
+  },
+  "tenant_context_required": false,
+  "active_tenant": {
+    "id": 1,
+    "tenant_code": "DEFAULT",
+    "tenant_name": "Default School"
+  },
+  "tenants": [...],
+  "user": {...}
 }
 ```
 
@@ -77,10 +103,139 @@ POST /api/v1/auth/register
 POST /api/v1/auth/login
 {
   "email": "user@example.com",
-  "password": "password123"
+  "password": "password123",
+  "tenantId": 1 // optional
 }
-Response: { "token": "jwt_token" }
 ```
+
+Business rules:
+
+- Credentials must be valid.
+- IAM account status must be `active`.
+- User must have at least one active tenant membership.
+- If the user has one valid tenant, it is selected automatically.
+- If the user has multiple tenants and `tenantId` is omitted, login still succeeds but returns `tenant_context_required: true` and `active_tenant: null`.
+
+#### Refresh Session
+
+```http
+POST /api/v1/auth/refresh
+{
+  "refreshToken": "opaque_refresh_token"
+}
+```
+
+Returns a rotated refresh token, a new access token, and the current tenant/session context.
+
+#### Logout
+
+```http
+POST /api/v1/auth/logout
+Authorization: Bearer {token}
+{
+  "refreshToken": "opaque_refresh_token" // optional when bearer token is present
+}
+```
+
+Revokes the current IAM session.
+
+#### List Tenant Memberships
+
+```http
+GET /api/v1/auth/tenants
+Authorization: Bearer {token}
+```
+
+Returns the caller's active tenant memberships and the current `active_tenant_id`.
+
+#### Switch Tenant Context
+
+```http
+POST /api/v1/auth/switch-tenant
+Authorization: Bearer {token}
+{
+  "selectedTenantId": 2
+}
+```
+
+Validates the selected tenant membership, updates the active session context, and returns fresh auth payload metadata.
+
+### IAM
+
+#### Users
+
+```http
+GET /api/v1/iam/users
+POST /api/v1/iam/users
+PATCH /api/v1/iam/users/:id
+Authorization: Bearer {token}
+```
+
+Manages IAM user accounts, including base identity fields, IAM account status, and optional tenant bootstrap assignment.
+
+#### Memberships
+
+```http
+POST /api/v1/iam/memberships
+PATCH /api/v1/iam/memberships/:id
+DELETE /api/v1/iam/memberships/:id
+Authorization: Bearer {token}
+```
+
+Assigns, updates, or revokes tenant and scope memberships. Revoking a membership also revokes active sessions in that tenant.
+
+#### Roles and Permissions
+
+```http
+GET /api/v1/iam/roles
+POST /api/v1/iam/roles
+PATCH /api/v1/iam/roles/:id
+GET /api/v1/iam/permissions
+POST /api/v1/iam/role-permissions
+DELETE /api/v1/iam/role-permissions
+Authorization: Bearer {token}
+```
+
+Role-permission mapping uses permission codes in `module.resource.action` format such as `iam.user.manage`.
+
+#### Authorize
+
+```http
+POST /api/v1/iam/authorize
+Authorization: Bearer {token}
+{
+  "requiredPermission": "iam.user.view",
+  "requestedScopeType": "branch",
+  "requestedScopeRefId": "branch-a"
+}
+```
+
+Returns an allow/deny decision with IAM decision code such as:
+
+- `ALLOW`
+- `IAM_TENANT_CONTEXT_REQUIRED`
+- `IAM_TENANT_ACCESS_DENIED`
+- `IAM_SCOPE_ACCESS_DENIED`
+- `IAM_PERMISSION_DENIED`
+
+#### Session Revoke
+
+```http
+POST /api/v1/iam/sessions/revoke
+Authorization: Bearer {token}
+{
+  "sessionId": "uuid"
+}
+```
+
+#### IAM Audit Logs
+
+```http
+GET /api/v1/iam/audit-logs?tenantId=1&actorUserId=5
+Authorization: Bearer {token}
+```
+
+Returns audit records for login, logout, tenant switching, membership changes, role updates, permission mapping changes, and session revocation.
 
 ### Courses
 
@@ -587,79 +742,393 @@ GET /api/v1/progress/course/:courseId
 Authorization: Bearer {token}
 ```
 
-### Quizzes
+### Assessments
 
-#### Create Quiz (Teacher/Admin)
+The assessment service is the canonical flow for quiz, assignment, exam, survey, and other learner evaluations. Legacy `/api/v1/quizzes/*` endpoints remain as compatibility wrappers for quiz-only use cases, but new integrations should use `/api/v1/assessments/*`.
+
+#### Create Assessment (Teacher/Admin)
 
 ```http
-POST /api/v1/quizzes/lesson/:lessonId
+POST /api/v1/assessments
 Authorization: Bearer {token}
 {
-  "title": "JavaScript Basics Quiz",
-  "description": "Test your knowledge",
-  "passingScore": 70,
-  "timeLimitMinutes": 30,
-  "maxAttempts": 3
+  "title": "Midterm Quiz",
+  "lessonId": 12,
+  "classroomId": 4,
+  "description": "Week 6 assessment",
+  "assessmentType": "quiz",
+  "openAt": "2026-06-01T08:00:00.000Z",
+  "closeAt": "2026-06-02T08:00:00.000Z",
+  "durationMinutes": 45,
+  "maxAttempts": 2,
+  "maxScore": 100,
+  "gradingMethod": "hybrid",
+  "publishPolicy": "manual",
+  "resultPublishAt": "2026-06-03T08:00:00.000Z",
+  "questions": [
+    {
+      "questionText": "What is JavaScript?",
+      "questionType": "single_choice",
+      "points": 10,
+      "orderIndex": 0,
+      "options": [
+        { "text": "A programming language", "isCorrect": true },
+        { "text": "A coffee brand", "isCorrect": false }
+      ]
+    }
+  ]
 }
 ```
+
+Business rules:
+
+- `lessonId` is required and determines the course scope.
+- `classroomId` is optional, but when present it must belong to the same course as the lesson.
+- `openAt` must be earlier than `closeAt`.
+- `maxAttempts` and `maxScore` must be greater than zero.
+- Assessments are created in `draft` status.
+
+#### Update Assessment (Teacher/Admin)
+
+```http
+PATCH /api/v1/assessments/:id
+Authorization: Bearer {token}
+{
+  "title": "Updated Midterm Quiz",
+  "closeAt": "2026-06-02T10:00:00.000Z",
+  "publishPolicy": "scheduled",
+  "resultPublishAt": "2026-06-03T08:00:00.000Z"
+}
+```
+
+Business rules:
+
+- Locked fields such as `maxScore`, `gradingMethod`, and `maxAttempts` cannot change after attempts already exist.
+- Archived assessments cannot be modified.
+
+#### Publish Assessment (Teacher/Admin)
+
+```http
+POST /api/v1/assessments/:id/publish
+Authorization: Bearer {token}
+```
+
+Only `draft` assessments with at least one question can transition to `published`.
+
+#### Close or Archive Assessment (Teacher/Admin)
+
+```http
+POST /api/v1/assessments/:id/close
+POST /api/v1/assessments/:id/archive
+Authorization: Bearer {token}
+{
+  "reason": "Submission window finished"
+}
+```
+
+Closing an assessment expires in-progress attempts. Archiving preserves history and blocks further updates.
 
 #### Add Question (Teacher/Admin)
 
 ```http
-POST /api/v1/quizzes/:quizId/questions
+POST /api/v1/assessments/:id/questions
 Authorization: Bearer {token}
 {
-  "questionText": "What is JavaScript?",
-  "questionType": "single_choice",
-  "points": 1,
-  "orderIndex": 0,
-  "options": [
-    { "text": "A programming language", "isCorrect": true },
-    { "text": "A coffee brand", "isCorrect": false }
-  ]
+  "questionText": "Upload your essay",
+  "questionType": "essay",
+  "points": 40,
+  "orderIndex": 2
 }
 ```
 
-#### Get Quiz (Authenticated)
+Supported question types: `single_choice`, `multiple_choice`, `text`, `essay`, `file_upload`.
+
+#### List or Get Assessments
 
 ```http
-GET /api/v1/quizzes/:id
+GET /api/v1/assessments?status=published&courseId=5
+GET /api/v1/assessments/:id
 Authorization: Bearer {token}
-# Students see questions without correct answers
-# Teachers/Admins see full quiz data
 ```
 
-#### Start Quiz Attempt (Student)
+Students and parents only see published assessments in their scope. Staff users see full definitions and correct answers.
+
+#### Start Attempt (Student)
 
 ```http
-POST /api/v1/quizzes/:quizId/attempts
+POST /api/v1/assessments/:id/attempts
 Authorization: Bearer {token}
 {
-  "enrollmentId": 1
+  "enrollmentId": 15
 }
 ```
 
-#### Submit Quiz Attempt (Student)
+Business rules:
+
+- Assessment must be `published`.
+- Current time must be inside the `openAt` and `closeAt` window.
+- Learner must belong to the matching enrollment and classroom scope.
+- Existing in-progress attempts are returned instead of duplicated.
+
+#### Submit Attempt (Student)
 
 ```http
-POST /api/v1/quizzes/attempts/:attemptId/submit
+POST /api/v1/assessments/attempts/:attemptId/submit
 Authorization: Bearer {token}
 {
   "answers": [
     { "questionId": 1, "selectedOptionId": 2 },
-    { "questionId": 2, "selectedOptionId": 5 }
+    { "questionId": 2, "selectedOptionIds": [5, 6] },
+    { "questionId": 3, "textAnswer": "Manual grading response" }
   ]
 }
 ```
 
-#### Get Quiz Attempts (Student)
+Business rules:
+
+- Only `in_progress` and non-expired attempts can be submitted.
+- Objective questions are auto-graded.
+- Manual or hybrid assessments keep the attempt in `submitted` until staff grading completes.
+- Publish policy `auto_after_graded` can publish results immediately once grading is finalized.
+
+#### Grade Submission (Teacher/Admin)
 
 ```http
-GET /api/v1/quizzes/:quizId/attempts
+POST /api/v1/assessments/submissions/:submissionId/grade
+Authorization: Bearer {token}
+{
+  "score": 82,
+  "feedback": "Strong answer. Clarify the final example.",
+  "reason": "Essay review complete"
+}
+```
+
+Business rules:
+
+- `score` must be between `0` and `maxScore`.
+- Published grades are locked against direct modification.
+- This endpoint finalizes draft/manual grades and updates the attempt status to `graded`.
+
+#### Publish Grade (Teacher/Admin)
+
+```http
+POST /api/v1/assessments/grades/:gradeId/publish
 Authorization: Bearer {token}
 ```
 
+Publishing a grade moves the attempt to `published`, records `publishedAt` / `publishedBy`, and returns a `GradePublished` event payload for downstream consumers.
+
+#### View Results
+
+```http
+GET /api/v1/assessments/:id/results
+GET /api/v1/assessments/:id/results?studentId=21
+Authorization: Bearer {token}
+```
+
+Business rules:
+
+- Students only see their own results.
+- Parents only see results of linked students.
+- Students and parents only see results after grade publication.
+- Staff users can review unpublished and published grading states inside their scope.
+
+#### Export Results (Teacher/Admin)
+
+```http
+GET /api/v1/assessments/:id/export
+Authorization: Bearer {token}
+```
+
+Exports a scoped result snapshot. Large exports are rejected when the record count exceeds the service limit.
+
+#### Assessment Audit Logs (Teacher/Admin)
+
+```http
+GET /api/v1/assessments/:id/audit-logs
+Authorization: Bearer {token}
+```
+
+Includes create, update, publish, close, attempt, submission, grade, publication, and export audit records.
+
+#### Legacy Quiz Compatibility
+
+```http
+POST /api/v1/quizzes/lesson/:lessonId
+POST /api/v1/quizzes/:quizId/questions
+GET /api/v1/quizzes/:id
+POST /api/v1/quizzes/:quizId/attempts
+POST /api/v1/quizzes/attempts/:attemptId/submit
+GET /api/v1/quizzes/:quizId/attempts?enrollmentId=15
+Authorization: Bearer {token}
+```
+
+These routes delegate to the assessment service with `assessmentType = quiz`.
+
 ### Reviews & Feedback
+
+### Profiles
+
+The profile module is the source of business identity data for students, parents, and teachers. It is separate from IAM authentication and authorization state.
+
+#### Get My Profile
+
+```http
+GET /api/v1/profiles/me
+GET /api/v1/profiles/me?profileType=teacher
+Authorization: Bearer {token}
+```
+
+Returns the caller's profile in the active tenant. `profileType` is optional and useful when a user can own multiple business profiles.
+
+#### Get My Profile Summary
+
+```http
+GET /api/v1/profiles/me/summary
+Authorization: Bearer {token}
+```
+
+Returns a summary projection for portal headers and downstream modules:
+
+- `profile_id`
+- `user_id`
+- `tenant_id`
+- `profile_type`
+- `display_name`
+- `avatar_url`
+- `status`
+- `student_code` or `teacher_code` when applicable
+
+#### List Profiles
+
+```http
+GET /api/v1/profiles?tenantId=1&profileType=student&status=active&search=an&page=1&limit=20
+Authorization: Bearer {token}
+```
+
+Access rules:
+
+- Admin can list profiles in the active tenant.
+- Teacher can only list their own profile and student profiles in classrooms they teach.
+
+#### Get Profile Detail or Summary
+
+```http
+GET /api/v1/profiles/:id
+GET /api/v1/profiles/:id/summary
+Authorization: Bearer {token}
+```
+
+Access rules:
+
+- Users can view their own profile.
+- Parent can only view linked student profiles with an active relationship.
+- Teacher can only view student profiles in their classroom scope.
+- Admin can view any profile in the active tenant.
+
+#### Create Profile
+
+```http
+POST /api/v1/profiles
+Authorization: Bearer {token}
+{
+  "tenantId": 1,
+  "userId": 42,
+  "profileType": "student",
+  "fullName": "Alice Nguyen",
+  "status": "draft",
+  "studentCode": "ST-0001",
+  "dateOfBirth": "2012-01-15",
+  "learningGoal": "Improve English speaking"
+}
+```
+
+Business rules:
+
+- Admin only.
+- `userId` must already exist in IAM.
+- Duplicate profiles of the same `profileType` for the same `userId` and tenant are rejected.
+- `studentCode`, `parentCode`, and `teacherCode` are unique per tenant when provided.
+- Profile payload cannot update password, session, role, or permission data.
+
+#### Update Profile
+
+```http
+PUT /api/v1/profiles/:id
+Authorization: Bearer {token}
+{
+  "displayName": "Alice N.",
+  "phoneNumber": "+84-123-456-789"
+}
+```
+
+Access rules:
+
+- Admin can update full business profile data.
+- Student, parent, and teacher can only update limited self-service fields on their own profile.
+- Inactive or archived profiles cannot be self-updated.
+
+#### Change Profile Status
+
+```http
+PATCH /api/v1/profiles/:id/status
+Authorization: Bearer {token}
+{
+  "status": "inactive",
+  "reason": "Student transferred"
+}
+```
+
+Allowed transitions:
+
+- `draft -> active, inactive`
+- `active -> inactive, archived`
+- `inactive -> active, archived`
+- `archived ->` no transitions
+
+#### Link or Update Parent-Student Relationship
+
+```http
+POST /api/v1/profiles/relationships/link
+PATCH /api/v1/profiles/relationships/:relationshipId/status
+PATCH /api/v1/profiles/relationships/:relationshipId/revoke
+Authorization: Bearer {token}
+```
+
+Relationship rules:
+
+- Admin only.
+- Parent and student must belong to the same tenant.
+- Duplicate active or pending links are rejected.
+- Supported statuses: `pending`, `active`, `suspended`, `revoked`.
+
+#### View Linked Students
+
+```http
+GET /api/v1/profiles/me/linked-students
+GET /api/v1/profiles/parent/:parentProfileId/students
+Authorization: Bearer {token}
+```
+
+Parents only receive active linked students, and archived student profiles are excluded from the response.
+
+#### Export Profiles
+
+```http
+GET /api/v1/profiles/export?tenantId=1&profileType=teacher&status=active
+Authorization: Bearer {token}
+```
+
+Admin only. Returns a tenant-scoped export payload and records an audit log entry.
+
+#### View Profile Audit Logs
+
+```http
+GET /api/v1/profiles/:id/audit-logs
+Authorization: Bearer {token}
+```
+
+Admin only. Includes profile create/update/status events and related parent-student relationship audit events.
 
 #### Create Course Review (Student)
 
@@ -812,24 +1281,22 @@ Authorization: Bearer {token}
    - Identify struggling students
    - Monitor quiz performance
 
-## ✅ Quiz System Features
+## ✅ Assessment Features
 
-1. **Question Types**
-   - Single choice (radio buttons)
-   - Multiple choice (checkboxes)
-   - Text answers (for manual grading)
+1. **Lifecycle**
+   - Draft, published, closed, and archived states
+   - Scoped to lesson, course, and optional classroom
+   - Separate result publication policy from assessment publication
 
-2. **Quiz Configuration**
-   - Set passing score threshold
-   - Time limit per quiz
-   - Maximum attempt limits
-   - Point values per question
+2. **Attempt and Submission Flow**
+   - Idempotent attempt start with max-attempt enforcement
+   - Expiring attempts based on configured duration
+   - Separate attempt, submission, grade, and publication records
 
-3. **Auto-Grading**
-   - Automatic scoring for choice questions
-   - Immediate feedback
-   - Pass/fail determination
-   - Detailed attempt history
+3. **Grading and Visibility**
+   - Auto, manual, and hybrid grading methods
+   - Explicit grade publication before learner and parent visibility
+   - Result export and audit logging for sensitive score data
 
 ## 🏆 Reward System Features
 
