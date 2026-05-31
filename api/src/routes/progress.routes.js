@@ -21,6 +21,26 @@ router.post(
   ProgressController.updateProgress
 );
 
+router.post(
+  "/enrollment/:enrollmentId/recompute",
+  AuthMiddleware.verifyToken,
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
+  validate([
+    param("enrollmentId").isInt({ min: 1 }),
+    body("courseVersionId").optional().isInt({ min: 1 }),
+    body("reason").optional().isString(),
+  ]),
+  ProgressController.recomputeEnrollmentProgress
+);
+
+router.get(
+  "/enrollment/:enrollmentId/event-logs",
+  AuthMiddleware.verifyToken,
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
+  validate([param("enrollmentId").isInt({ min: 1 })]),
+  ProgressController.getProgressEventLogs
+);
+
 router.get(
   "/enrollment/:enrollmentId",
   AuthMiddleware.verifyToken,
