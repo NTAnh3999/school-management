@@ -17,11 +17,20 @@ const QuizAttempt = sequelize.define(
     },
     score: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
     status: {
-      type: DataTypes.ENUM("in_progress", "submitted", "graded"),
+      type: DataTypes.ENUM(
+        "not_started",
+        "in_progress",
+        "submitted",
+        "graded",
+        "published",
+        "expired"
+      ),
       defaultValue: "in_progress",
     },
     started_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+    expired_at: { type: DataTypes.DATE, allowNull: true },
     submitted_at: { type: DataTypes.DATE, allowNull: true },
+    published_at: { type: DataTypes.DATE, allowNull: true },
     feedback: { type: DataTypes.TEXT, allowNull: true },
     attempt_number: { type: DataTypes.INTEGER, defaultValue: 1 },
   },

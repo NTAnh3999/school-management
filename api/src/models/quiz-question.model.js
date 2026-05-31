@@ -12,7 +12,7 @@ const QuizQuestion = sequelize.define(
     },
     question_text: { type: DataTypes.TEXT, allowNull: false },
     question_type: {
-      type: DataTypes.ENUM("single_choice", "multiple_choice", "text"),
+      type: DataTypes.ENUM("single_choice", "multiple_choice", "text", "essay", "file_upload"),
       defaultValue: "single_choice",
     },
     points: { type: DataTypes.DECIMAL(5, 2), defaultValue: 1.0 },

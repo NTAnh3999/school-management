@@ -1,7 +1,7 @@
 const { OKResponse, CreatedResponse } = require("../utils/success-responses");
 const QuizService = require("../services/quiz.service");
 const asyncHandler = require("../utils/async-handler");
-const { STAFF_ROLES, hasRole } = require("../constants/roles");
+const { STAFF_ROLES } = require("../constants/roles");
 
 const createQuiz = asyncHandler(async (req, res) => {
   const quiz = await QuizService.createQuiz(
@@ -24,23 +24,26 @@ const addQuestion = asyncHandler(async (req, res) => {
 });
 
 const getQuiz = asyncHandler(async (req, res) => {
-  const includeAnswers = hasRole(req.user.role, STAFF_ROLES);
-  const quiz = await QuizService.getQuiz(req.params.id, includeAnswers);
+  const quiz = await QuizService.getQuiz(req.params.id, req.user);
   return new OKResponse({ metadata: { quiz } }).send(res);
 });
 
 const startAttempt = asyncHandler(async (req, res) => {
-  const attempt = await QuizService.startAttempt(req.params.quizId, req.body.enrollmentId);
+  const attempt = await QuizService.startAttempt(req.params.quizId, req.body.enrollmentId, req.user);
   return new CreatedResponse({ message: "Attempt started", metadata: { attempt } }).send(res);
 });
 
 const submitAttempt = asyncHandler(async (req, res) => {
-  const attempt = await QuizService.submitAttempt(req.params.attemptId, req.body.answers);
-  return new OKResponse({ message: "Attempt submitted", metadata: { attempt } }).send(res);
+  const result = await QuizService.submitAttempt(req.params.attemptId, req.body.answers, req.user);
+  return new OKResponse({ message: "Attempt submitted", metadata: result }).send(res);
 });
 
 const getAttempts = asyncHandler(async (req, res) => {
-  const attempts = await QuizService.getAttempts(req.body.enrollmentId, req.params.quizId);
+  const attempts = await QuizService.getAttempts(
+    req.query.enrollmentId || req.body.enrollmentId,
+    req.params.quizId,
+    req.user
+  );
   return new OKResponse({ metadata: { attempts } }).send(res);
 });
 

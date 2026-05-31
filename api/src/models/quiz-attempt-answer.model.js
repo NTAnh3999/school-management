@@ -21,7 +21,9 @@ const QuizAttemptAnswer = sequelize.define(
       references: { model: "quiz_options", key: "id" },
     },
     text_answer: { type: DataTypes.TEXT, allowNull: true },
+    answer_payload: { type: DataTypes.JSON, allowNull: true },
     is_correct: { type: DataTypes.BOOLEAN, allowNull: true },
+    awarded_points: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
   },
   {
     tableName: "quiz_attempt_answers",

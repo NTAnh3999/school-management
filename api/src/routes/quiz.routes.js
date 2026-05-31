@@ -1,5 +1,5 @@
 const express = require("express");
-const { body, param } = require("express-validator");
+const { body, param, query } = require("express-validator");
 const { validate } = require("../middleware/validation.middleware");
 const router = express.Router();
 const AuthMiddleware = require("../middleware/auth.middleware");
@@ -36,7 +36,10 @@ router.get(
   "/:quizId/attempts",
   AuthMiddleware.verifyToken,
   RoleMiddleware.requireRole([ROLES.STUDENT]),
-  validate([param("quizId").isInt({ min: 1 })]),
+  validate([
+    param("quizId").isInt({ min: 1 }),
+    query("enrollmentId").optional().isInt({ min: 1 }),
+  ]),
   QuizController.getAttempts
 );
 
@@ -51,7 +54,13 @@ router.post(
     body("description").optional().isString(),
     body("passingScore").optional().isFloat({ min: 0, max: 100 }),
     body("timeLimitMinutes").optional().isInt({ min: 1 }),
+    body("durationMinutes").optional().isInt({ min: 1 }),
     body("maxAttempts").optional().isInt({ min: 1 }),
+    body("maxScore").optional().isFloat({ min: 0.01 }),
+    body("openAt").optional().isISO8601(),
+    body("closeAt").optional().isISO8601(),
+    body("gradingMethod").optional().isIn(["auto", "manual", "hybrid"]),
+    body("publishPolicy").optional().isIn(["manual", "auto_after_graded", "scheduled"]),
   ]),
   QuizController.createQuiz
 );
@@ -63,7 +72,13 @@ router.post(
   validate([
     param("quizId").isInt({ min: 1 }),
     body("questionText").isString().notEmpty(),
-    body("questionType").optional().isIn(["single_choice", "multiple_choice", "text"]),
+    body("questionType").optional().isIn([
+      "single_choice",
+      "multiple_choice",
+      "text",
+      "essay",
+      "file_upload",
+    ]),
     body("points").optional().isFloat({ min: 0 }),
     body("orderIndex").optional().isInt({ min: 0 }),
     body("options").optional().isArray(),
