@@ -8,16 +8,38 @@ const { ROLES } = require("../constants/roles");
 
 const router = express.Router();
 
-// All profile routes require authentication
 router.use(AuthMiddleware.verifyToken);
 
-// ---------------------------------------------------------------------------
-// PROFILE-00: List & view profiles
-// ---------------------------------------------------------------------------
+router.get(
+  "/me",
+  validate([query("profileType").optional().isIn(["student", "parent", "teacher", "staff", "admin"])]),
+  ProfileController.getMyProfile
+);
+
+router.get(
+  "/me/summary",
+  validate([query("profileType").optional().isIn(["student", "parent", "teacher", "staff", "admin"])]),
+  ProfileController.getMyProfileSummary
+);
+
+router.get("/me/linked-students", requireRole([ROLES.PARENT]), ProfileController.getMyLinkedStudents);
+
+router.get(
+  "/export",
+  requireRole([ROLES.ADMIN]),
+  validate([
+    query("tenantId").optional().isInt({ min: 1 }),
+    query("profileType").optional().isIn(["student", "parent", "teacher", "staff", "admin"]),
+    query("status").optional().isIn(["draft", "active", "inactive", "archived"]),
+  ]),
+  ProfileController.exportProfiles
+);
+
 router.get(
   "/",
   requireRole([ROLES.ADMIN, ROLES.TEACHER]),
   validate([
+    query("tenantId").optional().isInt({ min: 1 }),
     query("profileType").optional().isIn(["student", "parent", "teacher", "staff", "admin"]),
     query("status").optional().isIn(["draft", "active", "inactive", "archived"]),
     query("page").optional().isInt({ min: 1 }),
@@ -26,72 +48,25 @@ router.get(
   ProfileController.listProfiles
 );
 
-router.get("/:id", validate([param("id").isInt({ min: 1 })]), ProfileController.getProfileById);
-
-router.get(
-  "/:id/summary",
-  validate([param("id").isInt({ min: 1 })]),
-  ProfileController.getProfileSummary
-);
-
-// ---------------------------------------------------------------------------
-// PROFILE-01: Create profile (Admin only)
-// ---------------------------------------------------------------------------
 router.post(
   "/",
   requireRole([ROLES.ADMIN]),
   validate([
-    body("userId").isInt({ min: 1 }).withMessage("userId must be a valid integer"),
-    body("profileType")
-      .isIn(["student", "parent", "teacher", "staff", "admin"])
-      .withMessage("Invalid profileType"),
-    body("fullName")
-      .isString()
-      .isLength({ min: 2, max: 120 })
-      .withMessage("fullName is required (2-120 chars)"),
+    body("tenantId").optional().isInt({ min: 1 }),
+    body("userId").isInt({ min: 1 }),
+    body("profileType").isIn(["student", "parent", "teacher", "staff", "admin"]),
+    body("fullName").isString().isLength({ min: 2, max: 120 }),
     body("contactEmail").optional({ nullable: true }).isEmail(),
     body("phoneNumber").optional({ nullable: true }).isString(),
-    body("status")
-      .optional()
-      .isIn(["draft", "active"])
-      .withMessage("status must be draft or active on creation"),
+    body("status").optional().isIn(["draft", "active", "inactive"]),
+    body("visibility").optional().isIn(["internal", "public", "private"]),
+    body("dateOfBirth").optional({ nullable: true }).isISO8601(),
+    body("relationshipStatus").optional().isIn(["pending", "active"]),
+    body("yearsOfExperience").optional().isInt({ min: 0 }),
   ]),
   ProfileController.createProfile
 );
 
-// ---------------------------------------------------------------------------
-// PROFILE-02: Update profile
-// ---------------------------------------------------------------------------
-router.put(
-  "/:id",
-  validate([
-    param("id").isInt({ min: 1 }),
-    body("fullName").optional().isString().isLength({ min: 2, max: 120 }),
-    body("contactEmail").optional({ nullable: true }).isEmail(),
-    body("phoneNumber").optional({ nullable: true }).isString(),
-  ]),
-  ProfileController.updateProfile
-);
-
-// ---------------------------------------------------------------------------
-// PROFILE-03: Change profile status (Admin only)
-// ---------------------------------------------------------------------------
-router.patch(
-  "/:id/status",
-  requireRole([ROLES.ADMIN]),
-  validate([
-    param("id").isInt({ min: 1 }),
-    body("status")
-      .isIn(["draft", "active", "inactive", "archived"])
-      .withMessage("Invalid status value"),
-    body("reason").optional({ nullable: true }).isString(),
-  ]),
-  ProfileController.changeProfileStatus
-);
-
-// ---------------------------------------------------------------------------
-// PROFILE-07: Link parent to student (Admin only)
-// ---------------------------------------------------------------------------
 router.post(
   "/relationships/link",
   requireRole([ROLES.ADMIN]),
@@ -99,13 +74,22 @@ router.post(
     body("parentProfileId").isInt({ min: 1 }),
     body("studentProfileId").isInt({ min: 1 }),
     body("relationshipType").optional().isIn(["father", "mother", "guardian", "other"]),
+    body("relationshipStatus").optional().isIn(["pending", "active"]),
   ]),
   ProfileController.linkParentToStudent
 );
 
-// ---------------------------------------------------------------------------
-// PROFILE-08: Unlink parent-student relationship (Admin only)
-// ---------------------------------------------------------------------------
+router.patch(
+  "/relationships/:relationshipId/status",
+  requireRole([ROLES.ADMIN]),
+  validate([
+    param("relationshipId").isInt({ min: 1 }),
+    body("status").isIn(["pending", "active", "suspended", "revoked"]),
+    body("reason").optional({ nullable: true }).isString(),
+  ]),
+  ProfileController.updateRelationshipStatus
+);
+
 router.patch(
   "/relationships/:relationshipId/revoke",
   requireRole([ROLES.ADMIN]),
@@ -116,23 +100,40 @@ router.patch(
   ProfileController.unlinkParentStudent
 );
 
-// ---------------------------------------------------------------------------
-// PROFILE-09: Get linked students for a parent profile
-// ---------------------------------------------------------------------------
 router.get(
   "/parent/:parentProfileId/students",
   validate([param("parentProfileId").isInt({ min: 1 })]),
   ProfileController.getLinkedStudents
 );
 
-// ---------------------------------------------------------------------------
-// PROFILE-13: Audit logs (Admin only)
-// ---------------------------------------------------------------------------
-router.get(
-  "/:id/audit-logs",
+router.get("/:id/audit-logs", requireRole([ROLES.ADMIN]), validate([param("id").isInt({ min: 1 })]), ProfileController.getAuditLogs);
+
+router.get("/:id/summary", validate([param("id").isInt({ min: 1 })]), ProfileController.getProfileSummary);
+
+router.get("/:id", validate([param("id").isInt({ min: 1 })]), ProfileController.getProfileById);
+
+router.put(
+  "/:id",
+  validate([
+    param("id").isInt({ min: 1 }),
+    body("fullName").optional().isString().isLength({ min: 2, max: 120 }),
+    body("contactEmail").optional({ nullable: true }).isEmail(),
+    body("phoneNumber").optional({ nullable: true }).isString(),
+    body("dateOfBirth").optional({ nullable: true }).isISO8601(),
+    body("yearsOfExperience").optional().isInt({ min: 0 }),
+  ]),
+  ProfileController.updateProfile
+);
+
+router.patch(
+  "/:id/status",
   requireRole([ROLES.ADMIN]),
-  validate([param("id").isInt({ min: 1 })]),
-  ProfileController.getAuditLogs
+  validate([
+    param("id").isInt({ min: 1 }),
+    body("status").isIn(["draft", "active", "inactive", "archived"]),
+    body("reason").optional({ nullable: true }).isString(),
+  ]),
+  ProfileController.changeProfileStatus
 );
 
 module.exports = router;

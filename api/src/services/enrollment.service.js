@@ -12,12 +12,15 @@ const {
   EligibilityResult,
   PaymentReference,
   Course,
+  Classroom,
+  ClassroomTeacher,
   CoursePrerequisite,
   User,
   AuditLog,
   StudentCourseProgress,
 } = require("../models");
 const { ROLES, isRole } = require("../constants/roles");
+const ProgressService = require("./progress.service");
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -115,9 +118,31 @@ const resolveHistorySource = (actorRole, isBillingEvent = false) => {
  * Check if actor can view/operate on an enrollment (scope guard).
  * Returns true if allowed.
  */
-const canAccessEnrollment = (enrollment, actorId, actorRole) => {
+const getTeacherCourseIds = async (teacherUserId) => {
+  const assignments = await ClassroomTeacher.findAll({
+    where: { user_id: teacherUserId, active_flag: true },
+    attributes: ["classroom_id"],
+    include: [
+      {
+        model: Classroom,
+        as: "classroom",
+        required: true,
+        attributes: ["course_id"],
+      },
+    ],
+  });
+
+  return [
+    ...new Set(assignments.map((assignment) => assignment.classroom?.course_id).filter(Boolean)),
+  ];
+};
+
+const canAccessEnrollment = async (enrollment, actorId, actorRole) => {
   if (isRole(actorRole, ROLES.ADMIN)) return true;
-  if (isRole(actorRole, ROLES.TEACHER)) return true; // teachers can read any enrollment in their courses
+  if (isRole(actorRole, ROLES.TEACHER)) {
+    const teacherCourseIds = await getTeacherCourseIds(actorId);
+    return teacherCourseIds.includes(enrollment.course_id);
+  }
   // Students can only access their own enrollment
   return enrollment.student_id === actorId;
 };
@@ -202,17 +227,6 @@ const runEligibilityChecks = async (learnerId, courseId, existingEnrollmentId = 
         };
       }
     }
-  }
-
-  // 5. Payment condition: if course has price > 0 and no payment_reference provided,
-  //    mark as pending_condition (caller decides final status)
-  if (parseFloat(course.price || 0) > 0) {
-    return {
-      eligible: false,
-      result: "pending_condition",
-      reasonCode: "PAYMENT_REQUIRED",
-      reasonMessage: "Payment is required before enrollment can be activated",
-    };
   }
 
   return { eligible: true, result: "eligible", reasonCode: null, reasonMessage: null };
@@ -335,16 +349,12 @@ const requestEnrollment = async (payload, actorId, actorRole) => {
 
   // If enrollment is active, create baseline progress record
   if (initialStatus === ENROLLMENT_STATUSES.ACTIVE) {
-    const existing = await StudentCourseProgress.findOne({
-      where: { enrollment_id: enrollment.id },
+    await ProgressService.initializeProgressForEnrollment(enrollment.id, {
+      actorId,
+      sourceEventId: `enrollment:${enrollment.id}:activated`,
+      sourceEventName: "EnrollmentActivated",
+      sourceModule: "enrollment",
     });
-    if (!existing) {
-      await StudentCourseProgress.create({
-        enrollment_id: enrollment.id,
-        completion_percentage: 0,
-        total_time_spent_minutes: 0,
-      });
-    }
   }
 
   // If rejected, throw with reason to signal failure clearly
@@ -411,14 +421,12 @@ const activateEnrollment = async (enrollmentId, actorId, actorRole) => {
   });
 
   // Create baseline progress if not yet exists
-  const existing = await StudentCourseProgress.findOne({ where: { enrollment_id: enrollment.id } });
-  if (!existing) {
-    await StudentCourseProgress.create({
-      enrollment_id: enrollment.id,
-      completion_percentage: 0,
-      total_time_spent_minutes: 0,
-    });
-  }
+  await ProgressService.initializeProgressForEnrollment(enrollment.id, {
+    actorId,
+    sourceEventId: `enrollment:${enrollment.id}:activated`,
+    sourceEventName: "EnrollmentActivated",
+    sourceModule: "enrollment",
+  });
 
   return enrollment;
 };
@@ -614,11 +622,7 @@ const list = async (filters = {}, actorId, actorRole) => {
     where.student_id = actorId;
   } else if (isRole(actorRole, ROLES.TEACHER)) {
     // Teachers can see enrollments for courses they teach
-    const teacherCourses = await Course.findAll({
-      where: { teacher_id: actorId },
-      attributes: ["id"],
-    });
-    const courseIds = teacherCourses.map((c) => c.id);
+    const courseIds = await getTeacherCourseIds(actorId);
     if (courseIds.length === 0) return { total: 0, page: 1, page_size: 20, enrollments: [] };
     where.course_id = { [Op.in]: courseIds };
   }
@@ -638,7 +642,7 @@ const list = async (filters = {}, actorId, actorRole) => {
     where,
     include: [
       { model: User, as: "student", attributes: ["id", "full_name", "email"] },
-      { model: Course, as: "course", attributes: ["id", "course_code", "title", "status"] },
+      { model: Course, as: "course", attributes: ["id", "course_code", "course_name", "status"] },
     ],
     limit,
     offset,
@@ -658,7 +662,7 @@ const detail = async (enrollmentId, actorId, actorRole) => {
       {
         model: Course,
         as: "course",
-        attributes: ["id", "course_code", "title", "status", "price"],
+        attributes: ["id", "course_code", "course_name", "status"],
       },
       { model: StudentCourseProgress, as: "progress" },
     ],
@@ -666,7 +670,7 @@ const detail = async (enrollmentId, actorId, actorRole) => {
 
   if (!enrollment) throw new NotFoundError("Enrollment not found");
 
-  if (!canAccessEnrollment(enrollment, actorId, actorRole)) {
+  if (!(await canAccessEnrollment(enrollment, actorId, actorRole))) {
     throw new ForbiddenError("Access denied to this enrollment");
   }
 
@@ -680,7 +684,7 @@ const getHistory = async (enrollmentId, actorId, actorRole) => {
   const enrollment = await Enrollment.findByPk(enrollmentId);
   if (!enrollment) throw new NotFoundError("Enrollment not found");
 
-  if (!canAccessEnrollment(enrollment, actorId, actorRole)) {
+  if (!(await canAccessEnrollment(enrollment, actorId, actorRole))) {
     throw new ForbiddenError("Access denied to this enrollment");
   }
 
@@ -696,7 +700,7 @@ const getHistory = async (enrollmentId, actorId, actorRole) => {
 // ---------------------------------------------------------------------------
 // ENR-08: Query Enrollment Access State
 // ---------------------------------------------------------------------------
-const queryAccessState = async (learnerId, courseId, actorId, actorRole) => {
+const queryAccessState = async (learnerId, courseId) => {
   const enrollment = await Enrollment.findOne({
     where: {
       student_id: learnerId,
@@ -818,14 +822,12 @@ const handlePaymentConfirmed = async ({ enrollmentId, billingReference, eventId 
   });
 
   // Create baseline progress
-  const existing = await StudentCourseProgress.findOne({ where: { enrollment_id: enrollment.id } });
-  if (!existing) {
-    await StudentCourseProgress.create({
-      enrollment_id: enrollment.id,
-      completion_percentage: 0,
-      total_time_spent_minutes: 0,
-    });
-  }
+  await ProgressService.initializeProgressForEnrollment(enrollment.id, {
+    actorId: null,
+    sourceEventId: eventId || `payment:${enrollment.id}:confirmed`,
+    sourceEventName: "EnrollmentActivated",
+    sourceModule: "billing",
+  });
 
   return { enrollment };
 };
