@@ -1,13 +1,11 @@
 import type { ComponentType, SVGProps } from "react";
 
 import {
-  Blocks,
   BookOpen,
   ClipboardList,
-  GraduationCap,
   LayoutDashboard,
+  MessageSquare,
   Settings2,
-  Users,
   Award,
 } from "lucide-react";
 
@@ -23,48 +21,36 @@ export const appRoutes: AppRoute[] = [
     label: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
-    description: "Your learning progress and enrolled courses",
+    description: "Your progress, streaks, and current learning focus",
   },
   {
-    label: "Courses",
+    label: "Enrollments",
+    href: "/enrollments",
+    icon: ClipboardList,
+    description: "Track active pathways, completion, and course status",
+  },
+  {
+    label: "My Courses",
     href: "/courses",
     icon: BookOpen,
-    description: "Browse and manage courses",
+    description: "Browse pathways, lessons, and guided study content",
   },
   {
-    label: "Modules",
-    href: "/modules",
-    icon: Blocks,
-    description: "Course modules and lessons",
+    label: "Q&A",
+    href: "/qa",
+    icon: MessageSquare,
+    description: "Ask mentors, review answers, and keep learning moving",
   },
   {
-    label: "Activities",
-    href: "/activities",
-    icon: ClipboardList,
-    description: "Assignments and activities",
-  },
-  {
-    label: "Assessments",
-    href: "/assessments",
-    icon: GraduationCap,
-    description: "Quizzes and assessments",
-  },
-  {
-    label: "Rewards",
+    label: "Achievements",
     href: "/rewards",
     icon: Award,
-    description: "Your achievements and rewards",
-  },
-  {
-    label: "People",
-    href: "/people",
-    icon: Users,
-    description: "Students and instructors",
+    description: "Rewards, points, and milestones earned over time",
   },
   {
     label: "Settings",
     href: "/settings",
     icon: Settings2,
-    description: "Profile, focus, and notification preferences",
+    description: "Profile, focus, and family-friendly workspace preferences",
   },
 ];

@@ -94,8 +94,8 @@ function PreferencePillGroup<T extends string>({
 export default function SettingsPage() {
   const user = useSessionStore((state) => state.user);
   const [isSaving, startTransition] = useTransition();
-  const [fullName, setFullName] = useState(user?.fullName ?? "Admin User");
-  const [email, setEmail] = useState(user?.email ?? "admin@schoolhub.io");
+  const [fullName, setFullName] = useState(user?.fullName ?? "Learner Profile");
+  const [email, setEmail] = useState(user?.email ?? "learner@luminahub.io");
   const [studyGoal, setStudyGoal] = useState("Build steadier study habits with fewer distractions.");
   const [focusWindow, setFocusWindow] = useState("45-minute focus blocks");
   const [learningNotes, setLearningNotes] = useState(
