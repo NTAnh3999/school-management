@@ -1,53 +1,40 @@
-import { httpClient } from "@/lib/http-client";
-import { API_ROUTES } from "@/config/api";
+import {
+  addContentVersion,
+  archiveContentVersionById,
+  getContentVersionById,
+  getDraftPreview,
+  getPublishedStructure,
+  listContentVersions,
+  publishContentVersionById,
+} from "../mock-data";
 
 export async function getContentVersions(courseId: number) {
-  const response = await httpClient.get(
-    API_ROUTES.contentVersions.list(courseId),
-  );
-  return response.data;
+  return listContentVersions(courseId);
 }
 
 export async function getContentVersion(id: number) {
-  const response = await httpClient.get(API_ROUTES.contentVersions.detail(id));
-  return response.data;
+  return getContentVersionById(id);
 }
 
 export async function createContentVersion(
   courseId: number,
   data: { versionLabel: string; changelog?: string },
 ) {
-  const response = await httpClient.post(
-    API_ROUTES.contentVersions.create(courseId),
-    data,
-  );
-  return response.data;
+  return addContentVersion(courseId, data);
 }
 
 export async function publishContentVersion(id: number) {
-  const response = await httpClient.post(
-    API_ROUTES.contentVersions.publish(id),
-  );
-  return response.data;
+  return publishContentVersionById(id);
 }
 
 export async function archiveContentVersion(id: number) {
-  const response = await httpClient.patch(
-    API_ROUTES.contentVersions.archive(id),
-  );
-  return response.data;
+  return archiveContentVersionById(id);
 }
 
 export async function getPublishedContentStructure(courseId: number) {
-  const response = await httpClient.get(
-    API_ROUTES.contentVersions.publishedStructure(courseId),
-  );
-  return response.data;
+  return getPublishedStructure(courseId);
 }
 
 export async function previewDraftContent(courseId: number) {
-  const response = await httpClient.get(
-    API_ROUTES.contentVersions.previewDraft(courseId),
-  );
-  return response.data;
+  return getDraftPreview(courseId);
 }

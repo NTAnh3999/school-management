@@ -29,21 +29,7 @@ const getLevelVariant = (level: string) => {
   }
 };
 
-const getStatusVariant = (status: string) => {
-  switch (status) {
-    case "published":
-      return "default";
-    case "draft":
-      return "secondary";
-    case "archived":
-      return "outline";
-    default:
-      return "secondary";
-  }
-};
-
 export function CourseCard({ course }: CourseCardProps) {
-
   return (
     <Card className="hover:shadow-lg transition-shadow">
       <CardHeader>
@@ -57,7 +43,6 @@ export function CourseCard({ course }: CourseCardProps) {
         </div>
         <div className="flex gap-2 mt-3">
           <Badge variant={getLevelVariant(course.level)}>{course.level}</Badge>
-          <Badge variant={getStatusVariant(course.status)}>{course.status}</Badge>
         </div>
       </CardHeader>
       <CardContent>

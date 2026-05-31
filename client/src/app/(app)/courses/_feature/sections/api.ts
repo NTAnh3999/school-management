@@ -1,14 +1,17 @@
-import { httpClient } from "@/lib/http-client";
-import { API_ROUTES } from "@/config/api";
+import {
+  addSection,
+  getSectionById,
+  listSections,
+  patchSection,
+  removeSection,
+} from "../mock-data";
 
 export async function getSections(courseId: number) {
-  const response = await httpClient.get(API_ROUTES.sections.list(courseId));
-  return response.data;
+  return listSections(courseId);
 }
 
 export async function getSection(id: number) {
-  const response = await httpClient.get(API_ROUTES.sections.detail(id));
-  return response.data;
+  return getSectionById(id);
 }
 
 export async function createSection(
@@ -19,11 +22,7 @@ export async function createSection(
     order_index: number;
   },
 ) {
-  const response = await httpClient.post(
-    API_ROUTES.sections.create(courseId),
-    data,
-  );
-  return response.data;
+  return addSection(courseId, data);
 }
 
 export async function updateSection(
@@ -34,11 +33,9 @@ export async function updateSection(
     order_index: number;
   }>,
 ) {
-  const response = await httpClient.put(API_ROUTES.sections.update(id), data);
-  return response.data;
+  return patchSection(id, data);
 }
 
 export async function deleteSection(id: number) {
-  const response = await httpClient.delete(API_ROUTES.sections.delete(id));
-  return response.data;
+  return removeSection(id);
 }

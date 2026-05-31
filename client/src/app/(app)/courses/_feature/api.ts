@@ -1,5 +1,12 @@
-import { httpClient } from "@/lib/http-client";
-import { API_ROUTES } from "@/config/api";
+import {
+  addCourse,
+  enrollInCourse,
+  getCourseById,
+  listCourses,
+  listMyEnrollments,
+  patchCourse,
+  removeCourse,
+} from "./mock-data";
 
 interface GetCoursesParams {
   level?: string;
@@ -8,13 +15,11 @@ interface GetCoursesParams {
 }
 
 export async function getCourses(params?: GetCoursesParams) {
-  const response = await httpClient.get(API_ROUTES.courses.list, { params });
-  return response.data;
+  return listCourses(params);
 }
 
 export async function getCourse(id: number) {
-  const response = await httpClient.get(API_ROUTES.courses.detail(id));
-  return response.data;
+  return getCourseById(id);
 }
 
 export async function createCourse(data: {
@@ -23,8 +28,7 @@ export async function createCourse(data: {
   level: string;
   price: number;
 }) {
-  const response = await httpClient.post(API_ROUTES.courses.create, data);
-  return response.data;
+  return addCourse(data);
 }
 
 export async function updateCourse(
@@ -37,21 +41,17 @@ export async function updateCourse(
     status: string;
   }>,
 ) {
-  const response = await httpClient.put(API_ROUTES.courses.update(id), data);
-  return response.data;
+  return patchCourse(id, data);
 }
 
 export async function deleteCourse(id: number) {
-  const response = await httpClient.delete(API_ROUTES.courses.delete(id));
-  return response.data;
+  return removeCourse(id);
 }
 
 export async function enrollCourse(id: number) {
-  const response = await httpClient.post(API_ROUTES.courses.enroll(id));
-  return response.data;
+  return enrollInCourse(id);
 }
 
 export async function getMyEnrollments() {
-  const response = await httpClient.get(API_ROUTES.courses.myEnrollments);
-  return response.data;
+  return listMyEnrollments();
 }

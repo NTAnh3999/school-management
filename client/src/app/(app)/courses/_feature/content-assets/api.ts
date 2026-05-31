@@ -1,19 +1,14 @@
-import { httpClient } from "@/lib/http-client";
-import { API_ROUTES } from "@/config/api";
+import { addAsset, getAssetById, listAssets, patchAsset } from "../mock-data";
 
 export async function getContentAssets(params?: {
   mediaType?: string;
   uploadedBy?: number;
 }) {
-  const response = await httpClient.get(API_ROUTES.contentAssets.list, {
-    params,
-  });
-  return response.data;
+  return listAssets(params);
 }
 
 export async function getContentAsset(id: number) {
-  const response = await httpClient.get(API_ROUTES.contentAssets.detail(id));
-  return response.data;
+  return getAssetById(id);
 }
 
 export async function createContentAsset(data: {
@@ -25,17 +20,12 @@ export async function createContentAsset(data: {
   durationSeconds?: number;
   thumbnailUrl?: string;
 }) {
-  const response = await httpClient.post(API_ROUTES.contentAssets.create, data);
-  return response.data;
+  return addAsset(data);
 }
 
 export async function updateContentAsset(
   id: number,
   data: Partial<{ filename: string; thumbnailUrl: string }>,
 ) {
-  const response = await httpClient.patch(
-    API_ROUTES.contentAssets.update(id),
-    data,
-  );
-  return response.data;
+  return patchAsset(id, data);
 }

@@ -1,14 +1,17 @@
-import { httpClient } from "@/lib/http-client";
-import { API_ROUTES } from "@/config/api";
+import {
+  addLesson,
+  getLessonById,
+  listLessons,
+  patchLesson,
+  removeLesson,
+} from "../mock-data";
 
 export async function getLessons(sectionId: number) {
-  const response = await httpClient.get(API_ROUTES.lessons.list(sectionId));
-  return response.data;
+  return listLessons(sectionId);
 }
 
 export async function getLesson(id: number) {
-  const response = await httpClient.get(API_ROUTES.lessons.detail(id));
-  return response.data;
+  return getLessonById(id);
 }
 
 export async function createLesson(
@@ -22,11 +25,7 @@ export async function createLesson(
     order_index: number;
   },
 ) {
-  const response = await httpClient.post(
-    API_ROUTES.lessons.create(sectionId),
-    data,
-  );
-  return response.data;
+  return addLesson(sectionId, data);
 }
 
 export async function updateLesson(
@@ -40,11 +39,9 @@ export async function updateLesson(
     order_index: number;
   }>,
 ) {
-  const response = await httpClient.put(API_ROUTES.lessons.update(id), data);
-  return response.data;
+  return patchLesson(id, data);
 }
 
 export async function deleteLesson(id: number) {
-  const response = await httpClient.delete(API_ROUTES.lessons.delete(id));
-  return response.data;
+  return removeLesson(id);
 }

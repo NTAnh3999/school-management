@@ -1,17 +1,18 @@
-import { httpClient } from "@/lib/http-client";
-import { API_ROUTES } from "@/config/api";
-import type { LearningItem } from "@/types/models";
+import {
+  addLearningItem,
+  archiveLearningItemById,
+  getLearningItemById,
+  listLearningItems,
+  patchLearningItem,
+  reorderLearningItemsByLesson,
+} from "../mock-data";
 
 export async function getLearningItems(lessonId: number) {
-  const response = await httpClient.get(
-    API_ROUTES.learningItems.list(lessonId),
-  );
-  return response.data;
+  return listLearningItems(lessonId);
 }
 
 export async function getLearningItem(id: number) {
-  const response = await httpClient.get(API_ROUTES.learningItems.detail(id));
-  return response.data;
+  return getLearningItemById(id);
 }
 
 export async function createLearningItem(
@@ -26,11 +27,7 @@ export async function createLearningItem(
     isRequired?: boolean;
   },
 ) {
-  const response = await httpClient.post(
-    API_ROUTES.learningItems.create(lessonId),
-    data,
-  );
-  return response.data;
+  return addLearningItem(lessonId, data);
 }
 
 export async function updateLearningItem(
@@ -44,27 +41,16 @@ export async function updateLearningItem(
     isRequired: boolean;
   }>,
 ) {
-  const response = await httpClient.patch(
-    API_ROUTES.learningItems.update(id),
-    data,
-  );
-  return response.data;
+  return patchLearningItem(id, data);
 }
 
 export async function archiveLearningItem(id: number) {
-  const response = await httpClient.patch(API_ROUTES.learningItems.archive(id));
-  return response.data;
+  return archiveLearningItemById(id);
 }
 
 export async function reorderLearningItems(
   lessonId: number,
   orderedIds: number[],
 ) {
-  const response = await httpClient.patch(
-    API_ROUTES.learningItems.reorder(lessonId),
-    {
-      orderedIds,
-    },
-  );
-  return response.data;
+  return reorderLearningItemsByLesson(lessonId, orderedIds);
 }
