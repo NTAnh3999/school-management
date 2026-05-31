@@ -203,7 +203,7 @@ const list = async (filters = {}, actorId, actorRole) => {
   const { count, rows } = await Classroom.findAndCountAll({
     where,
     include: [
-      { model: Course, as: "course", attributes: ["id", "course_code", "title"] },
+      { model: Course, as: "course", attributes: ["id", "course_code", "course_name"] },
       {
         model: ContentVersion,
         as: "course_version",
@@ -240,7 +240,7 @@ const detail = async (classroomId, actorId, actorRole) => {
       {
         model: Course,
         as: "course",
-        attributes: ["id", "course_code", "title", "status", "description"],
+        attributes: ["id", "course_code", "course_name", "status", "description"],
       },
       {
         model: ContentVersion,
