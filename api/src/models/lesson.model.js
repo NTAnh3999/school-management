@@ -5,20 +5,21 @@ const Lesson = sequelize.define(
   "Lesson",
   {
     id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
-    section_id: {
+    module_id: {
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
-      references: { model: "course_sections", key: "id" },
+      references: { model: "course_modules", key: "id" },
     },
-    title: { type: DataTypes.STRING(150), allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
+    lesson_summary: { type: DataTypes.TEXT, allowNull: true },
     content: { type: DataTypes.TEXT, allowNull: true },
     lesson_type: {
-      type: DataTypes.ENUM("video", "text", "quiz", "assignment"),
-      defaultValue: "text",
+      type: DataTypes.ENUM("Standard", "Microlearning", "QuizOnly"),
+      defaultValue: "Standard",
     },
     video_url: { type: DataTypes.STRING(255), allowNull: true },
     duration_minutes: { type: DataTypes.INTEGER, defaultValue: 0 },
-    order_index: { type: DataTypes.INTEGER, defaultValue: 0 },
+    display_order: { type: DataTypes.INTEGER, defaultValue: 0 },
     status: {
       type: DataTypes.ENUM("draft", "archived"),
       allowNull: false,

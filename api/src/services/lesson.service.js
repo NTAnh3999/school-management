@@ -1,29 +1,30 @@
 const { BadRequestError, NotFoundError, ForbiddenError } = require("../utils/error-responses");
-const { Lesson, CourseSection, Course, Quiz, LessonFeedback, AuditLog } = require("../models");
+const { Lesson, CourseModule, Course, Quiz, LessonFeedback, AuditLog } = require("../models");
 const { ROLES, isRole } = require("../constants/roles");
 
-const create = async (sectionId, payload, userId, userRole) => {
-  const { title, content, lessonType, videoUrl, durationMinutes, orderIndex } = payload;
+const create = async (moduleId, payload, userId, userRole) => {
+  const { title, lessonSummary, content, lessonType, videoUrl, durationMinutes, displayOrder } =
+    payload;
   if (!title) throw new BadRequestError("Missing title");
 
-  const section = await CourseSection.findByPk(sectionId, {
+  const courseModule = await CourseModule.findByPk(moduleId, {
     include: [{ model: Course, as: "course" }],
   });
-  if (!section) throw new NotFoundError("Section not found");
+  if (!courseModule) throw new NotFoundError("Module not found");
 
-  // Check authorization
-  if (!isRole(userRole, ROLES.ADMIN) && section.course.teacher_id !== userId) {
-    throw new ForbiddenError("Not authorized to add lessons to this section");
+  if (!isRole(userRole, ROLES.ADMIN)) {
+    throw new ForbiddenError("Not authorized to add lessons to this module");
   }
 
   const lesson = await Lesson.create({
-    section_id: sectionId,
+    module_id: moduleId,
     title,
+    lesson_summary: lessonSummary,
     content,
-    lesson_type: lessonType || "text",
+    lesson_type: lessonType || "Standard",
     video_url: videoUrl,
     duration_minutes: durationMinutes || 0,
-    order_index: orderIndex || 0,
+    display_order: displayOrder || 0,
     status: "draft",
     created_by: userId,
     updated_by: userId,
@@ -32,7 +33,7 @@ const create = async (sectionId, payload, userId, userRole) => {
   await AuditLog.create({
     entity_name: "Lesson",
     entity_id: lesson.id,
-    course_id: section.course_id,
+    course_id: courseModule.course_id,
     action: "CREATE",
     new_values: { title, lessonType },
     changed_by: userId,
@@ -42,18 +43,18 @@ const create = async (sectionId, payload, userId, userRole) => {
   return lesson;
 };
 
-const list = async (sectionId) => {
+const list = async (moduleId) => {
   return Lesson.findAll({
-    where: { section_id: sectionId },
+    where: { module_id: moduleId },
     include: [{ model: Quiz, as: "quiz" }],
-    order: [["order_index", "ASC"]],
+    order: [["display_order", "ASC"]],
   });
 };
 
 const detail = async (id) => {
   const lesson = await Lesson.findByPk(id, {
     include: [
-      { model: CourseSection, as: "section", include: [{ model: Course, as: "course" }] },
+      { model: CourseModule, as: "module", include: [{ model: Course, as: "course" }] },
       { model: Quiz, as: "quiz" },
       { model: LessonFeedback, as: "feedback" },
     ],
@@ -64,22 +65,23 @@ const detail = async (id) => {
 
 const update = async (id, payload, userId, userRole) => {
   const lesson = await Lesson.findByPk(id, {
-    include: [{ model: CourseSection, as: "section", include: [{ model: Course, as: "course" }] }],
+    include: [{ model: CourseModule, as: "module", include: [{ model: Course, as: "course" }] }],
   });
   if (!lesson) throw new NotFoundError("Lesson not found");
 
-  // Check authorization
-  if (!isRole(userRole, ROLES.ADMIN) && lesson.section.course.teacher_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN)) {
     throw new ForbiddenError("Not authorized to update this lesson");
   }
 
-  const { title, content, lessonType, videoUrl, durationMinutes, orderIndex } = payload;
+  const { title, lessonSummary, content, lessonType, videoUrl, durationMinutes, displayOrder } =
+    payload;
   lesson.title = title ?? lesson.title;
+  lesson.lesson_summary = lessonSummary ?? lesson.lesson_summary;
   lesson.content = content ?? lesson.content;
   lesson.lesson_type = lessonType ?? lesson.lesson_type;
   lesson.video_url = videoUrl ?? lesson.video_url;
   lesson.duration_minutes = durationMinutes ?? lesson.duration_minutes;
-  lesson.order_index = orderIndex ?? lesson.order_index;
+  lesson.display_order = displayOrder ?? lesson.display_order;
   lesson.updated_by = userId;
 
   await lesson.save();
@@ -88,12 +90,11 @@ const update = async (id, payload, userId, userRole) => {
 
 const remove = async (id, userId, userRole) => {
   const lesson = await Lesson.findByPk(id, {
-    include: [{ model: CourseSection, as: "section", include: [{ model: Course, as: "course" }] }],
+    include: [{ model: CourseModule, as: "module", include: [{ model: Course, as: "course" }] }],
   });
   if (!lesson) throw new NotFoundError("Lesson not found");
 
-  // Check authorization
-  if (!isRole(userRole, ROLES.ADMIN) && lesson.section.course.teacher_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN)) {
     throw new ForbiddenError("Not authorized to delete this lesson");
   }
 
@@ -103,12 +104,12 @@ const remove = async (id, userId, userRole) => {
 
 const archive = async (id, userId, userRole) => {
   const lesson = await Lesson.findByPk(id, {
-    include: [{ model: CourseSection, as: "section", include: [{ model: Course, as: "course" }] }],
+    include: [{ model: CourseModule, as: "module", include: [{ model: Course, as: "course" }] }],
   });
   if (!lesson) throw new NotFoundError("Lesson not found");
   if (lesson.status === "archived") throw new BadRequestError("Lesson is already archived");
 
-  if (!isRole(userRole, ROLES.ADMIN) && lesson.section.course.teacher_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN)) {
     throw new ForbiddenError("Not authorized to archive this lesson");
   }
 
@@ -119,7 +120,7 @@ const archive = async (id, userId, userRole) => {
   await AuditLog.create({
     entity_name: "Lesson",
     entity_id: lesson.id,
-    course_id: lesson.section.course_id,
+    course_id: lesson.module.course_id,
     action: "CHANGE_STATUS",
     new_values: { status: "archived" },
     changed_by: userId,

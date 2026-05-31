@@ -1,22 +1,15 @@
 const { BadRequestError, NotFoundError, ForbiddenError } = require("../utils/error-responses");
-const {
-  LearningItem,
-  Lesson,
-  CourseSection,
-  Course,
-  ContentAsset,
-  AuditLog,
-} = require("../models");
+const { LearningItem, Lesson, CourseModule, Course, ContentAsset, AuditLog } = require("../models");
 const { ROLES, isRole } = require("../constants/roles");
 
 const VALID_ITEM_TYPES = ["VIDEO", "QUIZ", "INFOGRAPHIC", "DOCUMENT", "TEXT"];
 
 const _authorizeViaCourse = async (lessonId, userId, userRole) => {
   const lesson = await Lesson.findByPk(lessonId, {
-    include: [{ model: CourseSection, as: "section", include: [{ model: Course, as: "course" }] }],
+    include: [{ model: CourseModule, as: "module", include: [{ model: Course, as: "course" }] }],
   });
   if (!lesson) throw new NotFoundError("Lesson not found");
-  if (!isRole(userRole, ROLES.ADMIN) && lesson.section.course.teacher_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN)) {
     throw new ForbiddenError("Not authorized to manage learning items in this lesson");
   }
   return lesson;
@@ -93,7 +86,7 @@ const update = async (id, payload, userId, userRole) => {
         model: Lesson,
         as: "lesson",
         include: [
-          { model: CourseSection, as: "section", include: [{ model: Course, as: "course" }] },
+          { model: CourseModule, as: "module", include: [{ model: Course, as: "course" }] },
         ],
       },
     ],
@@ -102,7 +95,7 @@ const update = async (id, payload, userId, userRole) => {
   if (item.status === "archived")
     throw new BadRequestError("Cannot edit an archived learning item");
 
-  if (!isRole(userRole, ROLES.ADMIN) && item.lesson.section.course.teacher_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN)) {
     throw new ForbiddenError("Not authorized to update this learning item");
   }
 
@@ -125,7 +118,7 @@ const update = async (id, payload, userId, userRole) => {
   await AuditLog.create({
     entity_name: "LearningItem",
     entity_id: item.id,
-    course_id: item.lesson.section.course_id,
+    course_id: item.lesson.module.course_id,
     action: "UPDATE",
     old_values: oldValues,
     new_values: { title: item.title },
@@ -143,14 +136,14 @@ const archive = async (id, userId, userRole) => {
         model: Lesson,
         as: "lesson",
         include: [
-          { model: CourseSection, as: "section", include: [{ model: Course, as: "course" }] },
+          { model: CourseModule, as: "module", include: [{ model: Course, as: "course" }] },
         ],
       },
     ],
   });
   if (!item) throw new NotFoundError("Learning item not found");
 
-  if (!isRole(userRole, ROLES.ADMIN) && item.lesson.section.course.teacher_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN)) {
     throw new ForbiddenError("Not authorized to archive this learning item");
   }
 
@@ -161,7 +154,7 @@ const archive = async (id, userId, userRole) => {
   await AuditLog.create({
     entity_name: "LearningItem",
     entity_id: item.id,
-    course_id: item.lesson.section.course_id,
+    course_id: item.lesson.module.course_id,
     action: "CHANGE_STATUS",
     new_values: { status: "archived" },
     changed_by: userId,
@@ -172,7 +165,7 @@ const archive = async (id, userId, userRole) => {
 };
 
 const reorder = async (lessonId, orderedIds, userId, userRole) => {
-  const lesson = await _authorizeViaCourse(lessonId, userId, userRole);
+  await _authorizeViaCourse(lessonId, userId, userRole);
 
   if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
     throw new BadRequestError("orderedIds must be a non-empty array");

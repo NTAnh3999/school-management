@@ -5,12 +5,12 @@ const router = express.Router();
 const AuthMiddleware = require("../middleware/auth.middleware");
 const RoleMiddleware = require("../middleware/role.middleware");
 const LessonController = require("../controllers/lesson.controller");
-const { STAFF_ROLES } = require("../constants/roles");
+const { ROLES } = require("../constants/roles");
 
-// Get lessons for a section
+// Get lessons for a module
 router.get(
-  "/section/:sectionId",
-  validate([param("sectionId").isInt({ min: 1 })]),
+  "/module/:moduleId",
+  validate([param("moduleId").isInt({ min: 1 })]),
   LessonController.list
 );
 
@@ -21,19 +21,20 @@ router.get(
   LessonController.detail
 );
 
-// Instructor/Admin routes
+// Admin routes
 router.post(
-  "/section/:sectionId",
+  "/module/:moduleId",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
   validate([
-    param("sectionId").isInt({ min: 1 }),
+    param("moduleId").isInt({ min: 1 }),
     body("title").isString().notEmpty(),
+    body("lessonSummary").optional().isString(),
     body("content").optional().isString(),
-    body("lessonType").optional().isIn(["video", "text", "quiz", "assignment"]),
+    body("lessonType").optional().isIn(["Standard", "Microlearning", "QuizOnly"]),
     body("videoUrl").optional().isString(),
     body("durationMinutes").optional().isInt({ min: 0 }),
-    body("orderIndex").optional().isInt({ min: 0 }),
+    body("displayOrder").optional().isInt({ min: 0 }),
   ]),
   LessonController.create
 );
@@ -41,15 +42,16 @@ router.post(
 router.put(
   "/:id",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
   validate([
     param("id").isInt({ min: 1 }),
     body("title").optional().isString().notEmpty(),
+    body("lessonSummary").optional().isString(),
     body("content").optional().isString(),
-    body("lessonType").optional().isIn(["video", "text", "quiz", "assignment"]),
+    body("lessonType").optional().isIn(["Standard", "Microlearning", "QuizOnly"]),
     body("videoUrl").optional().isString(),
     body("durationMinutes").optional().isInt({ min: 0 }),
-    body("orderIndex").optional().isInt({ min: 0 }),
+    body("displayOrder").optional().isInt({ min: 0 }),
   ]),
   LessonController.update
 );
@@ -57,7 +59,7 @@ router.put(
 router.delete(
   "/:id",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
   validate([param("id").isInt({ min: 1 })]),
   LessonController.remove
 );
@@ -65,7 +67,7 @@ router.delete(
 router.patch(
   "/:id/archive",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
   validate([param("id").isInt({ min: 1 })]),
   LessonController.archive
 );
