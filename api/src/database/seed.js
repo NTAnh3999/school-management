@@ -1,6 +1,8 @@
 const bcrypt = require("bcryptjs");
-const { Role, User, Tenant } = require("../models");
+const { Role, User, Tenant, Permission, RolePermission } = require("../models");
 const { ROLES } = require("../constants/roles");
+const { IAM_PERMISSION_DEFINITIONS } = require("../constants/iam");
+const { ensureIamAccount, ensureMembership, ensureRoleAssignment } = require("../services/iam.service");
 
 const DEFAULT_ACCOUNTS = [
   {
@@ -68,10 +70,104 @@ const ensureDefaultTenant = async () => {
   }
 };
 
+const ensurePermissions = async () => {
+  for (const definition of IAM_PERMISSION_DEFINITIONS) {
+    const [permission] = await Permission.findOrCreate({
+      where: { code: definition.code },
+      defaults: definition,
+    });
+
+    if (
+      permission.description !== definition.description ||
+      permission.module !== definition.module ||
+      permission.resource !== definition.resource ||
+      permission.action !== definition.action
+    ) {
+      permission.description = definition.description;
+      permission.module = definition.module;
+      permission.resource = definition.resource;
+      permission.action = definition.action;
+      await permission.save();
+    }
+  }
+};
+
+const ensureDefaultRolePermissions = async () => {
+  const adminRole = await Role.findOne({ where: { name: ROLES.ADMIN } });
+  const teacherRole = await Role.findOne({ where: { name: ROLES.TEACHER } });
+  const studentRole = await Role.findOne({ where: { name: ROLES.STUDENT } });
+  const parentRole = await Role.findOne({ where: { name: ROLES.PARENT } });
+
+  if (adminRole) {
+    const permissions = await Permission.findAll();
+    for (const permission of permissions) {
+      await RolePermission.findOrCreate({
+        where: { role_id: adminRole.id, permission_id: permission.id },
+        defaults: { role_id: adminRole.id, permission_id: permission.id },
+      });
+    }
+  }
+
+  if (teacherRole) {
+    const teacherPermissionCodes = ["auth.tenant.switch"];
+    const permissions = await Permission.findAll({ where: { code: teacherPermissionCodes } });
+    for (const permission of permissions) {
+      await RolePermission.findOrCreate({
+        where: { role_id: teacherRole.id, permission_id: permission.id },
+        defaults: { role_id: teacherRole.id, permission_id: permission.id },
+      });
+    }
+  }
+
+  if (studentRole) {
+    const permissions = await Permission.findAll({ where: { code: ["auth.tenant.switch"] } });
+    for (const permission of permissions) {
+      await RolePermission.findOrCreate({
+        where: { role_id: studentRole.id, permission_id: permission.id },
+        defaults: { role_id: studentRole.id, permission_id: permission.id },
+      });
+    }
+  }
+
+  if (parentRole) {
+    const permissions = await Permission.findAll({ where: { code: ["auth.tenant.switch"] } });
+    for (const permission of permissions) {
+      await RolePermission.findOrCreate({
+        where: { role_id: parentRole.id, permission_id: permission.id },
+        defaults: { role_id: parentRole.id, permission_id: permission.id },
+      });
+    }
+  }
+};
+
+const ensureDefaultIamIdentity = async () => {
+  const defaultTenant = await Tenant.findOne({ where: { tenant_code: "DEFAULT" } });
+  if (!defaultTenant) return;
+
+  for (const account of DEFAULT_ACCOUNTS) {
+    const user = await User.findOne({
+      where: { email: account.email },
+      include: [{ model: Role, as: "role" }],
+    });
+    if (!user) continue;
+
+    await ensureIamAccount(user.id);
+    await ensureMembership({ userId: user.id, tenantId: defaultTenant.id });
+    await ensureRoleAssignment({
+      userId: user.id,
+      tenantId: defaultTenant.id,
+      roleId: user.role_id,
+    });
+  }
+};
+
 const ensureSeedData = async () => {
   await ensureRoles();
-  await ensureDefaultAccounts();
   await ensureDefaultTenant();
+  await ensureDefaultAccounts();
+  await ensurePermissions();
+  await ensureDefaultRolePermissions();
+  await ensureDefaultIamIdentity();
 };
 
 module.exports = { ensureRoles, ensureDefaultAccounts, ensureDefaultTenant, ensureSeedData };
