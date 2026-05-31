@@ -2,8 +2,15 @@ const sequelize = require("../database/init.mysql.js");
 
 // Import all models
 const Role = require("./role.model");
+const Permission = require("./permission.model");
+const RolePermission = require("./role-permission.model");
 const Department = require("./department.model");
 const Tenant = require("./tenant.model");
+const IamUserAccount = require("./iam-user-account.model");
+const IamMembership = require("./iam-membership.model");
+const IamRoleAssignment = require("./iam-role-assignment.model");
+const IamSession = require("./iam-session.model");
+const IamAuditLog = require("./iam-audit-log.model");
 const Profile = require("./profile.model");
 const StudentProfile = require("./student-profile.model");
 const ParentProfile = require("./parent-profile.model");
@@ -14,7 +21,7 @@ const AuditLog = require("./audit-log.model");
 const User = require("./user.model");
 const RefreshToken = require("./refresh-token.model");
 const Course = require("./course.model");
-const CourseSection = require("./course-section.model");
+const CourseModule = require("./course-module.model");
 const Lesson = require("./lesson.model");
 const Enrollment = require("./enrollment.model");
 const LessonProgress = require("./lesson-progress.model");
@@ -23,9 +30,14 @@ const QuizQuestion = require("./quiz-question.model");
 const QuizOption = require("./quiz-option.model");
 const QuizAttempt = require("./quiz-attempt.model");
 const QuizAttemptAnswer = require("./quiz-attempt-answer.model");
+const AssessmentSubmission = require("./assessment-submission.model");
+const AssessmentGrade = require("./assessment-grade.model");
+const AssessmentResultPublication = require("./assessment-result-publication.model");
+const AssessmentAuditLog = require("./assessment-audit-log.model");
 const Reward = require("./reward.model");
 const StudentReward = require("./student-reward.model");
 const StudentCourseProgress = require("./student-course-progress.model");
+const ProgressEventLog = require("./progress-event-log.model");
 const CourseReview = require("./course-review.model");
 const LessonFeedback = require("./lesson-feedback.model");
 const Notification = require("./notification.model");
@@ -39,27 +51,74 @@ const Classroom = require("./classroom.model");
 const ClassroomTeacher = require("./classroom-teacher.model");
 const ClassroomSession = require("./classroom-session.model");
 const ClassroomEnrollment = require("./classroom-enrollment.model");
+const ScheduleSeries = require("./schedule-series.model");
+const ScheduleChangeRecord = require("./schedule-change-record.model");
+const LiveSessionMetadata = require("./live-session-metadata.model");
 
 // Define associations
 // User - Role
 User.belongsTo(Role, { foreignKey: "role_id", as: "role" });
 Role.hasMany(User, { foreignKey: "role_id", as: "role_users" });
 
+// Role - Permission
+Role.belongsToMany(Permission, {
+  through: RolePermission,
+  foreignKey: "role_id",
+  otherKey: "permission_id",
+  as: "permissions",
+});
+Permission.belongsToMany(Role, {
+  through: RolePermission,
+  foreignKey: "permission_id",
+  otherKey: "role_id",
+  as: "roles",
+});
+Role.hasMany(RolePermission, { foreignKey: "role_id", as: "role_permissions" });
+Permission.hasMany(RolePermission, { foreignKey: "permission_id", as: "permission_roles" });
+RolePermission.belongsTo(Role, { foreignKey: "role_id", as: "role" });
+RolePermission.belongsTo(Permission, { foreignKey: "permission_id", as: "permission" });
+
+// User - IAM account
+User.hasOne(IamUserAccount, { foreignKey: "user_id", as: "iam_account" });
+IamUserAccount.belongsTo(User, { foreignKey: "user_id", as: "user" });
+
+// User - Memberships
+User.hasMany(IamMembership, { foreignKey: "user_id", as: "memberships" });
+IamMembership.belongsTo(User, { foreignKey: "user_id", as: "user" });
+Tenant.hasMany(IamMembership, { foreignKey: "tenant_id", as: "memberships" });
+IamMembership.belongsTo(Tenant, { foreignKey: "tenant_id", as: "tenant" });
+
+// User - Role assignments
+User.hasMany(IamRoleAssignment, { foreignKey: "user_id", as: "role_assignments" });
+IamRoleAssignment.belongsTo(User, { foreignKey: "user_id", as: "user" });
+Role.hasMany(IamRoleAssignment, { foreignKey: "role_id", as: "assignments" });
+IamRoleAssignment.belongsTo(Role, { foreignKey: "role_id", as: "role" });
+Tenant.hasMany(IamRoleAssignment, { foreignKey: "tenant_id", as: "role_assignments" });
+IamRoleAssignment.belongsTo(Tenant, { foreignKey: "tenant_id", as: "tenant" });
+
+// User - IAM sessions
+User.hasMany(IamSession, { foreignKey: "user_id", as: "iam_sessions" });
+IamSession.belongsTo(User, { foreignKey: "user_id", as: "user" });
+Tenant.hasMany(IamSession, { foreignKey: "active_tenant_id", as: "iam_sessions" });
+IamSession.belongsTo(Tenant, { foreignKey: "active_tenant_id", as: "active_tenant" });
+
+// IAM audit logs
+User.hasMany(IamAuditLog, { foreignKey: "actor_user_id", as: "iam_audit_entries" });
+IamAuditLog.belongsTo(User, { foreignKey: "actor_user_id", as: "actor" });
+Tenant.hasMany(IamAuditLog, { foreignKey: "tenant_id", as: "iam_audit_entries" });
+IamAuditLog.belongsTo(Tenant, { foreignKey: "tenant_id", as: "tenant" });
+
 // RefreshToken - User
 RefreshToken.belongsTo(User, { foreignKey: "user_id", as: "user" });
 User.hasMany(RefreshToken, { foreignKey: "user_id", as: "refresh_tokens" });
 
-// Course - User (Teacher)
-Course.belongsTo(User, { foreignKey: "teacher_id", as: "teacher" });
-User.hasMany(Course, { foreignKey: "teacher_id", as: "courses_teaching" });
+// CourseModule - Course
+CourseModule.belongsTo(Course, { foreignKey: "course_id", as: "course" });
+Course.hasMany(CourseModule, { foreignKey: "course_id", as: "modules" });
 
-// CourseSection - Course
-CourseSection.belongsTo(Course, { foreignKey: "course_id", as: "course" });
-Course.hasMany(CourseSection, { foreignKey: "course_id", as: "sections" });
-
-// Lesson - CourseSection
-Lesson.belongsTo(CourseSection, { foreignKey: "section_id", as: "section" });
-CourseSection.hasMany(Lesson, { foreignKey: "section_id", as: "lessons" });
+// Lesson - CourseModule
+Lesson.belongsTo(CourseModule, { foreignKey: "module_id", as: "module" });
+CourseModule.hasMany(Lesson, { foreignKey: "module_id", as: "lessons" });
 
 // Enrollment - User (Student) & Course
 Enrollment.belongsTo(User, { foreignKey: "student_id", as: "student" });
@@ -76,6 +135,10 @@ Lesson.hasMany(LessonProgress, { foreignKey: "lesson_id", as: "progress_records"
 // Quiz - Lesson
 Quiz.belongsTo(Lesson, { foreignKey: "lesson_id", as: "lesson" });
 Lesson.hasOne(Quiz, { foreignKey: "lesson_id", as: "quiz" });
+Quiz.belongsTo(Course, { foreignKey: "course_id", as: "course" });
+Course.hasMany(Quiz, { foreignKey: "course_id", as: "assessments" });
+Quiz.belongsTo(Classroom, { foreignKey: "classroom_id", as: "classroom" });
+Classroom.hasMany(Quiz, { foreignKey: "classroom_id", as: "assessments" });
 
 // QuizQuestion - Quiz
 QuizQuestion.belongsTo(Quiz, { foreignKey: "quiz_id", as: "quiz" });
@@ -100,6 +163,54 @@ QuizAttemptAnswer.belongsTo(QuizOption, {
 });
 QuizAttempt.hasMany(QuizAttemptAnswer, { foreignKey: "attempt_id", as: "answers" });
 
+// Assessment submission / grade / publication
+QuizAttempt.hasOne(AssessmentSubmission, { foreignKey: "attempt_id", as: "submission" });
+AssessmentSubmission.belongsTo(QuizAttempt, { foreignKey: "attempt_id", as: "attempt" });
+AssessmentSubmission.belongsTo(User, { foreignKey: "submitted_by", as: "submitter" });
+
+AssessmentSubmission.hasOne(AssessmentGrade, { foreignKey: "submission_id", as: "grade" });
+AssessmentGrade.belongsTo(AssessmentSubmission, { foreignKey: "submission_id", as: "submission" });
+AssessmentGrade.belongsTo(User, { foreignKey: "graded_by", as: "grader" });
+
+AssessmentGrade.hasOne(AssessmentResultPublication, {
+  foreignKey: "grade_id",
+  as: "publication",
+});
+AssessmentResultPublication.belongsTo(AssessmentGrade, {
+  foreignKey: "grade_id",
+  as: "grade",
+});
+AssessmentResultPublication.belongsTo(User, { foreignKey: "published_by", as: "publisher" });
+
+// Assessment audit logs
+Quiz.hasMany(AssessmentAuditLog, { foreignKey: "assessment_id", as: "assessment_audit_logs" });
+AssessmentAuditLog.belongsTo(Quiz, { foreignKey: "assessment_id", as: "assessment" });
+QuizAttempt.hasMany(AssessmentAuditLog, { foreignKey: "attempt_id", as: "assessment_audit_logs" });
+AssessmentAuditLog.belongsTo(QuizAttempt, { foreignKey: "attempt_id", as: "attempt" });
+AssessmentSubmission.hasMany(AssessmentAuditLog, {
+  foreignKey: "submission_id",
+  as: "assessment_audit_logs",
+});
+AssessmentAuditLog.belongsTo(AssessmentSubmission, {
+  foreignKey: "submission_id",
+  as: "submission",
+});
+AssessmentGrade.hasMany(AssessmentAuditLog, {
+  foreignKey: "grade_id",
+  as: "assessment_audit_logs",
+});
+AssessmentAuditLog.belongsTo(AssessmentGrade, { foreignKey: "grade_id", as: "grade" });
+AssessmentResultPublication.hasMany(AssessmentAuditLog, {
+  foreignKey: "publication_id",
+  as: "assessment_audit_logs",
+});
+AssessmentAuditLog.belongsTo(AssessmentResultPublication, {
+  foreignKey: "publication_id",
+  as: "publication",
+});
+User.hasMany(AssessmentAuditLog, { foreignKey: "actor_user_id", as: "assessment_actor_logs" });
+AssessmentAuditLog.belongsTo(User, { foreignKey: "actor_user_id", as: "actor" });
+
 // StudentReward - User (Student), Reward, Enrollment
 StudentReward.belongsTo(User, { foreignKey: "student_id", as: "student" });
 StudentReward.belongsTo(Reward, { foreignKey: "reward_id", as: "reward" });
@@ -110,6 +221,10 @@ Reward.hasMany(StudentReward, { foreignKey: "reward_id", as: "student_rewards" }
 // StudentCourseProgress - Enrollment
 StudentCourseProgress.belongsTo(Enrollment, { foreignKey: "enrollment_id", as: "enrollment" });
 Enrollment.hasOne(StudentCourseProgress, { foreignKey: "enrollment_id", as: "progress" });
+StudentCourseProgress.hasMany(ProgressEventLog, { foreignKey: "progress_id", as: "event_logs" });
+ProgressEventLog.belongsTo(StudentCourseProgress, { foreignKey: "progress_id", as: "progress" });
+Enrollment.hasMany(ProgressEventLog, { foreignKey: "enrollment_id", as: "progress_event_logs" });
+ProgressEventLog.belongsTo(Enrollment, { foreignKey: "enrollment_id", as: "enrollment" });
 
 // CourseReview - Course & User (Student)
 CourseReview.belongsTo(Course, { foreignKey: "course_id", as: "course" });
@@ -202,6 +317,26 @@ ClassroomSession.belongsTo(Classroom, { foreignKey: "classroom_id", as: "classro
 ClassroomSession.belongsTo(User, { foreignKey: "teacher_id", as: "teacher" });
 Classroom.hasMany(ClassroomSession, { foreignKey: "classroom_id", as: "sessions" });
 
+// ScheduleSeries - Classroom & User
+ScheduleSeries.belongsTo(Classroom, { foreignKey: "classroom_id", as: "classroom" });
+ScheduleSeries.belongsTo(User, { foreignKey: "teacher_id", as: "teacher" });
+ScheduleSeries.belongsTo(User, { foreignKey: "created_by", as: "creator" });
+Classroom.hasMany(ScheduleSeries, { foreignKey: "classroom_id", as: "schedule_series" });
+
+// ClassroomSession - ScheduleSeries
+ClassroomSession.belongsTo(ScheduleSeries, { foreignKey: "series_id", as: "series" });
+ScheduleSeries.hasMany(ClassroomSession, { foreignKey: "series_id", as: "sessions" });
+
+// ScheduleChangeRecord - ClassroomSession & User
+ScheduleChangeRecord.belongsTo(ClassroomSession, { foreignKey: "session_id", as: "session" });
+ScheduleChangeRecord.belongsTo(ScheduleSeries, { foreignKey: "series_id", as: "series" });
+ScheduleChangeRecord.belongsTo(User, { foreignKey: "changed_by", as: "actor" });
+ClassroomSession.hasMany(ScheduleChangeRecord, { foreignKey: "session_id", as: "change_records" });
+
+// LiveSessionMetadata - ClassroomSession
+LiveSessionMetadata.belongsTo(ClassroomSession, { foreignKey: "session_id", as: "session" });
+ClassroomSession.hasOne(LiveSessionMetadata, { foreignKey: "session_id", as: "live_metadata" });
+
 // ClassroomEnrollment - Classroom & User (student)
 ClassroomEnrollment.belongsTo(Classroom, { foreignKey: "classroom_id", as: "classroom" });
 ClassroomEnrollment.belongsTo(User, { foreignKey: "student_id", as: "student" });
@@ -275,7 +410,14 @@ const sync = async () => {
 module.exports = {
   sequelize,
   Role,
+  Permission,
+  RolePermission,
   Tenant,
+  IamUserAccount,
+  IamMembership,
+  IamRoleAssignment,
+  IamSession,
+  IamAuditLog,
   Profile,
   StudentProfile,
   ParentProfile,
@@ -284,7 +426,7 @@ module.exports = {
   User,
   RefreshToken,
   Course,
-  CourseSection,
+  CourseModule,
   Lesson,
   Enrollment,
   LessonProgress,
@@ -293,9 +435,14 @@ module.exports = {
   QuizOption,
   QuizAttempt,
   QuizAttemptAnswer,
+  AssessmentSubmission,
+  AssessmentGrade,
+  AssessmentResultPublication,
+  AssessmentAuditLog,
   Reward,
   StudentReward,
   StudentCourseProgress,
+  ProgressEventLog,
   CourseReview,
   LessonFeedback,
   Notification,
@@ -312,5 +459,8 @@ module.exports = {
   ClassroomTeacher,
   ClassroomSession,
   ClassroomEnrollment,
+  ScheduleSeries,
+  ScheduleChangeRecord,
+  LiveSessionMetadata,
   sync,
 };

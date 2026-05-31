@@ -2,7 +2,7 @@ const { BadRequestError, NotFoundError, ForbiddenError } = require("../utils/err
 const {
   ContentVersion,
   Course,
-  CourseSection,
+  CourseModule,
   Lesson,
   LearningItem,
   AuditLog,
@@ -13,7 +13,7 @@ const { ROLES, isRole } = require("../constants/roles");
  * Build a snapshot of the current draft structure for a course.
  */
 const _buildSnapshot = async (courseId) => {
-  const sections = await CourseSection.findAll({
+  const modules = await CourseModule.findAll({
     where: { course_id: courseId, status: "draft" },
     include: [
       {
@@ -32,8 +32,8 @@ const _buildSnapshot = async (courseId) => {
       },
     ],
     order: [
-      ["order_index", "ASC"],
-      [{ model: Lesson, as: "lessons" }, "order_index", "ASC"],
+      ["display_order", "ASC"],
+      [{ model: Lesson, as: "lessons" }, "display_order", "ASC"],
       [
         { model: Lesson, as: "lessons" },
         { model: LearningItem, as: "learning_items" },
@@ -42,7 +42,7 @@ const _buildSnapshot = async (courseId) => {
       ],
     ],
   });
-  return JSON.parse(JSON.stringify(sections));
+  return JSON.parse(JSON.stringify(modules));
 };
 
 /**
@@ -52,10 +52,10 @@ const _validatePublishReadiness = (snapshot) => {
   if (!snapshot || snapshot.length === 0) {
     throw new BadRequestError("Content version is not ready to publish: no modules found");
   }
-  for (const section of snapshot) {
-    if (!section.lessons || section.lessons.length === 0) {
+  for (const courseModule of snapshot) {
+    if (!courseModule.lessons || courseModule.lessons.length === 0) {
       throw new BadRequestError(
-        `Content version is not ready to publish: module "${section.title}" has no lessons`
+        `Content version is not ready to publish: module "${courseModule.title}" has no lessons`
       );
     }
   }
@@ -72,7 +72,7 @@ const create = async (courseId, payload, userId, userRole) => {
     throw new BadRequestError("Cannot create a content version for an archived course");
   }
 
-  if (!isRole(userRole, ROLES.ADMIN) && course.teacher_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN)) {
     throw new ForbiddenError("Not authorized to create content versions for this course");
   }
 
@@ -137,7 +137,7 @@ const publish = async (id, userId, userRole) => {
   if (version.status === "ARCHIVED")
     throw new BadRequestError("Cannot publish an archived content version");
 
-  if (!isRole(userRole, ROLES.ADMIN) && version.course.teacher_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN)) {
     throw new ForbiddenError("Not authorized to publish this content version");
   }
 
@@ -232,7 +232,7 @@ const previewDraft = async (courseId, userId, userRole) => {
   const course = await Course.findByPk(courseId);
   if (!course) throw new NotFoundError("Course not found");
 
-  if (!isRole(userRole, ROLES.ADMIN) && course.teacher_id !== userId) {
+  if (!isRole(userRole, ROLES.ADMIN)) {
     throw new ForbiddenError("Not authorized to preview content for this course");
   }
 
