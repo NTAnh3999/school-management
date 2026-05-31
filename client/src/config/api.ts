@@ -43,6 +43,10 @@ export const API_ROUTES = {
     enrollment: (enrollmentId: number) =>
       `/progress/enrollment/${enrollmentId}`,
     course: (courseId: number) => `/progress/course/${courseId}`,
+    recomputeEnrollment: (enrollmentId: number) =>
+      `/progress/enrollment/${enrollmentId}/recompute`,
+    eventLogs: (enrollmentId: number) =>
+      `/progress/enrollment/${enrollmentId}/event-logs`,
   },
   quizzes: {
     get: (id: number) => `/quizzes/${id}`,

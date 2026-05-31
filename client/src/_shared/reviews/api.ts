@@ -1,9 +1,12 @@
-import { httpClient } from "@/lib/http-client";
-import { API_ROUTES } from "@/config/api";
+import {
+  addCourseReview,
+  listCourseReviews,
+  patchCourseReview,
+  removeCourseReview,
+} from "@/app/(app)/courses/_feature/mock-data";
 
 export async function getCourseReviews(courseId: number) {
-  const response = await httpClient.get(API_ROUTES.reviews.course(courseId));
-  return response.data;
+  return listCourseReviews(courseId);
 }
 
 export async function createReview(
@@ -13,11 +16,7 @@ export async function createReview(
     review_text?: string;
   },
 ) {
-  const response = await httpClient.post(
-    API_ROUTES.reviews.create(courseId),
-    data,
-  );
-  return response.data;
+  return addCourseReview(courseId, data);
 }
 
 export async function updateReview(
@@ -27,11 +26,9 @@ export async function updateReview(
     review_text?: string;
   },
 ) {
-  const response = await httpClient.put(API_ROUTES.reviews.update(id), data);
-  return response.data;
+  return patchCourseReview(id, data);
 }
 
 export async function deleteReview(id: number) {
-  const response = await httpClient.delete(API_ROUTES.reviews.delete(id));
-  return response.data;
+  return removeCourseReview(id);
 }

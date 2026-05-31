@@ -1,4 +1,4 @@
-export type Role = "admin" | "instructor" | "student";
+export type Role = "student" | "parent";
 
 export interface User {
   id: number;
@@ -83,6 +83,12 @@ export interface Enrollment {
 }
 
 export type LessonProgressStatus = "not_started" | "in_progress" | "completed";
+export type ProgressStatus =
+  | "not_started"
+  | "in_progress"
+  | "completed"
+  | "blocked"
+  | "archived";
 
 export interface LessonProgress {
   id: number;
@@ -99,8 +105,16 @@ export interface LessonProgress {
 export interface StudentCourseProgress {
   id: number;
   enrollment_id: number;
+  course_version_id?: number | null;
+  status: ProgressStatus;
   completion_percentage: number;
+  completed_item_count: number;
+  total_item_count: number;
   total_time_spent_minutes: number;
+  progress_snapshot?: unknown;
+  started_at?: string | null;
+  completed_at?: string | null;
+  last_computed_at?: string | null;
   createdAt: string;
   updatedAt: string;
 }
