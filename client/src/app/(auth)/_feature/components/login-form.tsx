@@ -78,10 +78,13 @@ export function LoginForm() {
         </div>
 
         <div className="space-y-1">
-          <div className="flex items-center justify-between gap-4">
+          <div
+            className="flex items-center justify-between gap-4"
+          >
             <Label htmlFor="password">Password</Label>
             <Link
               href="/forgot-password"
+              tabIndex={-1}
               className="text-sm font-semibold text-primary hover:underline"
             >
               Forgot password?
@@ -171,7 +174,10 @@ export function LoginForm() {
 
       <p className="mt-10 text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{" "}
-        <Link href="/register" className="font-bold text-primary hover:underline">
+        <Link
+          href="/register"
+          className="font-bold text-primary hover:underline"
+        >
           Create a new account
         </Link>
       </p>

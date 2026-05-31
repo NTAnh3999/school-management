@@ -28,15 +28,18 @@ type RawUser = {
   avatarUrl?: string;
 };
 
+function normalizeRole(roleSource?: string): User["role"] {
+  return roleSource?.toLowerCase() === "parent" ? "parent" : "student";
+}
+
 const transformUser = (payload: RawUser): User => {
   const roleSource =
     typeof payload.role === "string" ? payload.role : payload.role?.name;
-  const normalizedRole = roleSource?.toLowerCase();
   return {
     id: payload.id,
     email: payload.email,
     fullName: payload.full_name ?? payload.fullName ?? payload.email,
-    role: (normalizedRole as User["role"]) ?? "student",
+    role: normalizeRole(roleSource),
     avatarUrl: payload.avatar_url ?? payload.avatarUrl,
     createdAt: payload.createdAt ?? payload.created_at ?? "",
     updatedAt: payload.updatedAt ?? payload.updated_at ?? "",
