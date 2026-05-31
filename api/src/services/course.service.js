@@ -10,8 +10,7 @@ const {
   Department,
   CoursePrerequisite,
   AuditLog,
-  User,
-  CourseSection,
+  CourseModule,
   Lesson,
   Enrollment,
   CourseReview,
@@ -96,22 +95,21 @@ const hasActiveEnrollments = async (courseId) => {
 const create = async (payload, userId) => {
   const {
     course_code,
-    title,
+    course_name,
+    short_name,
     description,
     course_type,
     credit,
     duration_hours,
-    level,
-    price,
     status,
     department_id,
     effective_from,
     effective_to,
-    teacher_id,
   } = payload;
 
   if (!course_code) throw new BadRequestError("course_code is required");
-  if (!title) throw new BadRequestError("title is required");
+  if (!course_name) throw new BadRequestError("course_name is required");
+  if (!department_id) throw new BadRequestError("department_id is required");
 
   // Uniqueness check
   const existing = await Course.findOne({ where: { course_code } });
@@ -119,11 +117,9 @@ const create = async (payload, userId) => {
     throw new ConflictError(`course_code '${course_code}' already exists`);
   }
 
-  // Validate department if provided
-  if (department_id) {
-    const dept = await Department.findByPk(department_id);
-    if (!dept) throw new BadRequestError(`Department ${department_id} not found`);
-  }
+  // Validate department
+  const dept = await Department.findByPk(department_id);
+  if (!dept) throw new BadRequestError(`Department ${department_id} not found`);
 
   // Validate effective dates
   if (effective_from && effective_to && new Date(effective_from) > new Date(effective_to)) {
@@ -139,18 +135,16 @@ const create = async (payload, userId) => {
 
   const course = await Course.create({
     course_code,
-    title,
+    course_name,
+    short_name: short_name || null,
     description,
     course_type: course_type || "general",
     credit: credit || null,
     duration_hours: duration_hours || null,
-    level: level || "beginner",
-    price: price || 0,
     status: status || "draft",
-    department_id: department_id || null,
+    department_id,
     effective_from: effective_from || null,
     effective_to: effective_to || null,
-    teacher_id: teacher_id || userId,
     is_deleted: false,
     created_by: userId,
     updated_by: userId,
@@ -173,13 +167,11 @@ const list = async (filters = {}, userRole) => {
 
   if (filters.keyword) {
     where[Op.or] = [
-      { title: { [Op.like]: `%${filters.keyword}%` } },
+      { course_name: { [Op.like]: `%${filters.keyword}%` } },
       { course_code: { [Op.like]: `%${filters.keyword}%` } },
     ];
   }
   if (filters.status) where.status = filters.status;
-  if (filters.level) where.level = filters.level;
-  if (filters.teacherId) where.teacher_id = filters.teacherId;
   if (filters.departmentId) where.department_id = filters.departmentId;
   if (filters.courseType) where.course_type = filters.courseType;
 
@@ -194,7 +186,6 @@ const list = async (filters = {}, userRole) => {
   const { count, rows } = await Course.findAndCountAll({
     where,
     include: [
-      { model: User, as: "teacher", attributes: ["id", "full_name", "email"] },
       {
         model: Department,
         as: "department",
@@ -216,7 +207,6 @@ const list = async (filters = {}, userRole) => {
 const detail = async (id, userRole) => {
   const course = await Course.findByPk(id, {
     include: [
-      { model: User, as: "teacher", attributes: ["id", "full_name", "email"] },
       { model: Department, as: "department" },
       {
         model: CoursePrerequisite,
@@ -225,13 +215,13 @@ const detail = async (id, userRole) => {
           {
             model: Course,
             as: "prerequisite_course",
-            attributes: ["id", "course_code", "title", "status"],
+            attributes: ["id", "course_code", "course_name", "status"],
           },
         ],
       },
       {
-        model: CourseSection,
-        as: "sections",
+        model: CourseModule,
+        as: "modules",
         include: [{ model: Lesson, as: "lessons" }],
       },
       { model: CourseReview, as: "reviews" },
@@ -307,17 +297,15 @@ const update = async (id, payload, userId, userRole) => {
 
   const allowedFields = [
     "course_code",
-    "title",
+    "course_name",
+    "short_name",
     "description",
     "course_type",
     "credit",
     "duration_hours",
-    "level",
-    "price",
     "department_id",
     "effective_from",
     "effective_to",
-    "teacher_id",
   ];
   allowedFields.forEach((field) => {
     if (payload[field] !== undefined) course[field] = payload[field];
@@ -434,7 +422,11 @@ const updatePrerequisites = async (courseId, prerequisiteList, userId, userRole)
   return CoursePrerequisite.findAll({
     where: { course_id: courseId },
     include: [
-      { model: Course, as: "prerequisite_course", attributes: ["id", "course_code", "title"] },
+      {
+        model: Course,
+        as: "prerequisite_course",
+        attributes: ["id", "course_code", "course_name"],
+      },
     ],
   });
 };
@@ -501,11 +493,131 @@ const getEnrollments = async (studentId) => {
       {
         model: Course,
         as: "course",
-        include: [{ model: User, as: "teacher", attributes: ["id", "full_name"] }],
       },
       { model: StudentCourseProgress, as: "progress" },
     ],
   });
+};
+
+// ---------------------------------------------------------------------------
+// COURSE-05: Import Courses from Excel
+// ---------------------------------------------------------------------------
+const importCourses = async (fileBuffer, userId) => {
+  const XLSX = require("xlsx");
+  const workbook = XLSX.read(fileBuffer, { type: "buffer" });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+
+  if (!rows || rows.length === 0) {
+    throw new BadRequestError("Excel file is empty or has no data rows");
+  }
+
+  const results = { created: 0, skipped: 0, errors: [] };
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const rowNum = i + 2; // 1-indexed with header row
+
+    const course_code = String(row["course_code"] || "").trim();
+    const course_name = String(row["course_name"] || "").trim();
+    const department_id = parseInt(row["department_id"]);
+
+    if (!course_code) {
+      results.errors.push({ row: rowNum, error: "course_code is required" });
+      continue;
+    }
+    if (!course_name) {
+      results.errors.push({ row: rowNum, error: "course_name is required" });
+      continue;
+    }
+    if (!department_id || isNaN(department_id)) {
+      results.errors.push({
+        row: rowNum,
+        error: "department_id is required and must be an integer",
+      });
+      continue;
+    }
+
+    const dept = await Department.findByPk(department_id);
+    if (!dept) {
+      results.errors.push({ row: rowNum, error: `department_id ${department_id} not found` });
+      continue;
+    }
+
+    const existing = await Course.findOne({ where: { course_code } });
+    if (existing) {
+      results.skipped++;
+      continue;
+    }
+
+    const effective_from = row["effective_from"] || null;
+    const effective_to = row["effective_to"] || null;
+
+    if (effective_from && effective_to && new Date(effective_from) > new Date(effective_to)) {
+      results.errors.push({ row: rowNum, error: "effective_to must be >= effective_from" });
+      continue;
+    }
+
+    await Course.create({
+      course_code,
+      course_name,
+      short_name: String(row["short_name"] || "").trim() || null,
+      description: row["description"] || null,
+      course_type: String(row["course_type"] || "general").trim(),
+      credit: row["credit"] ? parseFloat(row["credit"]) : null,
+      duration_hours: row["duration_hours"] ? parseFloat(row["duration_hours"]) : null,
+      status: "draft",
+      department_id,
+      effective_from,
+      effective_to,
+      is_deleted: false,
+      created_by: userId,
+      updated_by: userId,
+    });
+    results.created++;
+  }
+
+  return results;
+};
+
+// ---------------------------------------------------------------------------
+// COURSE-06: Export Courses to Excel
+// ---------------------------------------------------------------------------
+const exportCourses = async (filters = {}, userRole) => {
+  const XLSX = require("xlsx");
+  const where = {};
+  if (filters.status) where.status = filters.status;
+  if (filters.departmentId) where.department_id = filters.departmentId;
+  if (filters.courseType) where.course_type = filters.courseType;
+  if (!isRole(userRole, ROLES.ADMIN)) where.status = "active";
+
+  const courses = await Course.findAll({
+    where,
+    include: [
+      { model: Department, as: "department", attributes: ["department_code", "department_name"] },
+    ],
+    order: [["course_code", "ASC"]],
+  });
+
+  const data = courses.map((c) => ({
+    course_code: c.course_code,
+    course_name: c.course_name,
+    short_name: c.short_name || "",
+    department_id: c.department_id,
+    department_code: c.department?.department_code || "",
+    department_name: c.department?.department_name || "",
+    course_type: c.course_type,
+    credit: c.credit || "",
+    duration_hours: c.duration_hours || "",
+    status: c.status,
+    effective_from: c.effective_from || "",
+    effective_to: c.effective_to || "",
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Courses");
+  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 };
 
 module.exports = {
@@ -518,4 +630,6 @@ module.exports = {
   remove,
   enroll,
   getEnrollments,
+  importCourses,
+  exportCourses,
 };

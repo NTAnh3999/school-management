@@ -13,8 +13,6 @@ const list = asyncHandler(async (req, res) => {
   const filters = {
     keyword: req.query.keyword,
     status: req.query.status,
-    level: req.query.level,
-    teacherId: req.query.teacherId,
     departmentId: req.query.departmentId,
     courseType: req.query.courseType,
     page: req.query.page,
@@ -80,6 +78,24 @@ const getEnrollments = asyncHandler(async (req, res) => {
   return new OKResponse({ metadata: { enrollments } }).send(res);
 });
 
+// COURSE-05: Import courses from Excel
+const importCourses = asyncHandler(async (req, res) => {
+  if (!req.file) throw new Error("No file uploaded");
+  const results = await CourseService.importCourses(req.file.buffer, req.user.id);
+  return new OKResponse({ message: "Import complete", metadata: results }).send(res);
+});
+
+// COURSE-06: Export courses to Excel
+const exportCourses = asyncHandler(async (req, res) => {
+  const buffer = await CourseService.exportCourses(req.query, req.user?.role);
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader("Content-Disposition", `attachment; filename="courses_${Date.now()}.xlsx"`);
+  return res.send(buffer);
+});
+
 module.exports = {
   create,
   list,
@@ -90,4 +106,6 @@ module.exports = {
   remove,
   enroll,
   getEnrollments,
+  importCourses,
+  exportCourses,
 };

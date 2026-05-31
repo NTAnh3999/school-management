@@ -4,67 +4,67 @@ const { validate } = require("../middleware/validation.middleware");
 const router = express.Router();
 const AuthMiddleware = require("../middleware/auth.middleware");
 const RoleMiddleware = require("../middleware/role.middleware");
-const SectionController = require("../controllers/section.controller");
-const { STAFF_ROLES } = require("../constants/roles");
+const ModuleController = require("../controllers/module.controller");
+const { ROLES } = require("../constants/roles");
 
-// Get sections for a course (public if course is published)
+// Get modules for a course
 router.get(
   "/course/:courseId",
   validate([param("courseId").isInt({ min: 1 })]),
-  SectionController.list
+  ModuleController.list
 );
 
-router.get("/:id", validate([param("id").isInt({ min: 1 })]), SectionController.detail);
+router.get("/:id", validate([param("id").isInt({ min: 1 })]), ModuleController.detail);
 
-// Instructor/Admin routes
+// Admin routes
 router.post(
   "/course/:courseId",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
   validate([
     param("courseId").isInt({ min: 1 }),
     body("title").isString().notEmpty(),
     body("description").optional().isString(),
-    body("orderIndex").optional().isInt({ min: 0 }),
+    body("displayOrder").optional().isInt({ min: 0 }),
   ]),
-  SectionController.create
+  ModuleController.create
 );
 
 router.put(
   "/:id",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
   validate([
     param("id").isInt({ min: 1 }),
     body("title").optional().isString().notEmpty(),
     body("description").optional().isString(),
-    body("orderIndex").optional().isInt({ min: 0 }),
+    body("displayOrder").optional().isInt({ min: 0 }),
   ]),
-  SectionController.update
+  ModuleController.update
 );
 
 router.delete(
   "/:id",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
   validate([param("id").isInt({ min: 1 })]),
-  SectionController.remove
+  ModuleController.remove
 );
 
 router.patch(
   "/:id/archive",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
   validate([param("id").isInt({ min: 1 })]),
-  SectionController.archive
+  ModuleController.archive
 );
 
 router.patch(
   "/course/:courseId/reorder",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
   validate([param("courseId").isInt({ min: 1 }), body("orderedIds").isArray({ min: 1 })]),
-  SectionController.reorder
+  ModuleController.reorder
 );
 
 module.exports = router;

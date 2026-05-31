@@ -1,8 +1,8 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../database/init.mysql.js");
 
-const CourseSection = sequelize.define(
-  "CourseSection",
+const CourseModule = sequelize.define(
+  "CourseModule",
   {
     id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
     course_id: {
@@ -10,9 +10,9 @@ const CourseSection = sequelize.define(
       allowNull: false,
       references: { model: "courses", key: "id" },
     },
-    title: { type: DataTypes.STRING(150), allowNull: false },
+    title: { type: DataTypes.STRING(255), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: true },
-    order_index: { type: DataTypes.INTEGER, defaultValue: 0 },
+    display_order: { type: DataTypes.INTEGER, defaultValue: 0 },
     status: {
       type: DataTypes.ENUM("draft", "archived"),
       allowNull: false,
@@ -22,10 +22,10 @@ const CourseSection = sequelize.define(
     updated_by: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
   },
   {
-    tableName: "course_sections",
+    tableName: "course_modules",
     timestamps: true,
     underscored: true,
   }
 );
 
-module.exports = CourseSection;
+module.exports = CourseModule;

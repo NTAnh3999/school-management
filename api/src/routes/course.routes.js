@@ -1,3 +1,5 @@
+const multer = require("multer");
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 const express = require("express");
 const { body, param, query } = require("express-validator");
 const { validate } = require("../middleware/validation.middleware");
@@ -18,9 +20,7 @@ router.get(
   validate([
     query("keyword").optional({ values: "falsy" }).isString(),
     query("status").optional({ values: "falsy" }).isIn(VALID_STATUSES),
-    query("level").optional({ values: "falsy" }).isIn(["beginner", "intermediate", "advanced"]),
     query("departmentId").optional({ values: "falsy" }).isInt({ min: 1 }),
-    query("teacherId").optional({ values: "falsy" }).isInt({ min: 1 }),
     query("courseType").optional({ values: "falsy" }).isString(),
     query("page").optional({ values: "falsy" }).isInt({ min: 1 }),
     query("page_size").optional({ values: "falsy" }).isInt({ min: 1, max: 100 }),
@@ -64,14 +64,13 @@ router.post(
   RoleMiddleware.requireRole([ROLES.ADMIN]),
   validate([
     body("course_code").isString().notEmpty().withMessage("course_code is required"),
-    body("title").isString().notEmpty().withMessage("title is required"),
-    body("department_id").optional().isInt({ min: 1 }),
+    body("course_name").isString().notEmpty().withMessage("course_name is required"),
+    body("department_id").isInt({ min: 1 }).withMessage("department_id is required"),
+    body("short_name").optional().isString(),
     body("description").optional().isString(),
     body("course_type").optional().isString(),
     body("credit").optional().isFloat({ min: 0.01 }),
     body("duration_hours").optional().isFloat({ min: 0.01 }),
-    body("level").optional().isIn(["beginner", "intermediate", "advanced"]),
-    body("price").optional().isFloat({ min: 0 }),
     body("status").optional().isIn(VALID_STATUSES),
     body("effective_from").optional().isDate(),
     body("effective_to").optional().isDate(),
@@ -87,14 +86,13 @@ router.put(
   validate([
     param("id").isInt({ min: 1 }),
     body("course_code").optional().isString().notEmpty(),
-    body("title").optional().isString().notEmpty(),
+    body("course_name").optional().isString().notEmpty(),
+    body("short_name").optional().isString(),
     body("department_id").optional().isInt({ min: 1 }),
     body("description").optional().isString(),
     body("course_type").optional().isString(),
     body("credit").optional().isFloat({ min: 0.01 }),
     body("duration_hours").optional().isFloat({ min: 0.01 }),
-    body("level").optional().isIn(["beginner", "intermediate", "advanced"]),
-    body("price").optional().isFloat({ min: 0 }),
     body("effective_from").optional().isDate(),
     body("effective_to").optional().isDate(),
   ]),
@@ -132,6 +130,28 @@ router.put(
       .withMessage("prerequisite_type must be ALL or ANY"),
   ]),
   CourseController.updatePrerequisites
+);
+
+// COURSE-05: Import courses from Excel
+router.post(
+  "/import",
+  AuthMiddleware.verifyToken,
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
+  upload.single("file"),
+  CourseController.importCourses
+);
+
+// COURSE-06: Export courses to Excel
+router.get(
+  "/export",
+  AuthMiddleware.verifyToken,
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
+  validate([
+    query("status").optional({ values: "falsy" }).isIn(VALID_STATUSES),
+    query("departmentId").optional({ values: "falsy" }).isInt({ min: 1 }),
+    query("courseType").optional({ values: "falsy" }).isString(),
+  ]),
+  CourseController.exportCourses
 );
 
 // COURSE-07: Delete Course (soft delete)
