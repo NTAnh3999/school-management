@@ -1,0 +1,818 @@
+
+erDiagram
+
+%% ===== CORE & IAM =====
+tenants {
+    int id PK
+    varchar tenant_code
+    varchar tenant_name
+    enum tenant_type
+    enum status
+    varchar timezone
+    datetime created_at
+    datetime updated_at
+}
+branches {
+    int id PK
+    int tenant_id FK
+    varchar branch_code
+    varchar branch_name
+    enum status
+    datetime created_at
+    datetime updated_at
+}
+campuses {
+    int id PK
+    int tenant_id FK
+    int branch_id FK
+    varchar campus_code
+    varchar campus_name
+    enum status
+    datetime created_at
+    datetime updated_at
+}
+locations {
+    int id PK
+    int tenant_id FK
+    int branch_id FK
+    int campus_id FK
+    int parent_location_id FK
+    varchar location_code
+    varchar location_name
+    enum location_type
+    int capacity
+    enum status
+    json metadata
+    datetime created_at
+    datetime updated_at
+}
+roles {
+    int id PK
+    varchar name
+    datetime created_at
+    datetime updated_at
+}
+permissions {
+    int id PK
+    varchar code
+    varchar description
+    varchar module
+    varchar resource
+    varchar action
+    boolean is_system
+    datetime created_at
+    datetime updated_at
+}
+role_permissions {
+    int id PK
+    int role_id FK
+    int permission_id FK
+    datetime created_at
+    datetime updated_at
+}
+users {
+    int id PK
+    varchar email
+    varchar password_hash
+    varchar full_name
+    datetime created_at
+    datetime updated_at
+}
+iam_user_accounts {
+    int id PK
+    int user_id FK
+    varchar username
+    varchar phone
+    enum status
+    json login_methods
+    datetime last_login_at
+    datetime created_at
+    datetime updated_at
+}
+refresh_tokens {
+    int id PK
+    varchar token
+    int user_id FK
+    datetime expires_at
+    datetime created_at
+    datetime updated_at
+}
+iam_sessions {
+    uuid id PK
+    int user_id FK
+    int active_tenant_id FK
+    varchar refresh_token
+    enum status
+    datetime expires_at
+    datetime last_used_at
+    varchar ip_address
+    datetime created_at
+    datetime updated_at
+}
+iam_memberships {
+    int id PK
+    int user_id FK
+    int tenant_id FK
+    enum status
+    datetime expires_at
+    datetime created_at
+    datetime updated_at
+}
+iam_membership_scopes {
+    int id PK
+    int membership_id FK
+    int tenant_id FK
+    int branch_id FK
+    int campus_id FK
+    int location_id FK
+    enum scope_type
+    datetime created_at
+    datetime updated_at
+}
+iam_role_assignments {
+    int id PK
+    int user_id FK
+    int role_id FK
+    int tenant_id FK
+    int branch_id FK
+    int campus_id FK
+    int location_id FK
+    enum scope_type
+    enum status
+    datetime expires_at
+    int assigned_by FK
+    datetime created_at
+    datetime updated_at
+}
+iam_audit_logs {
+    int id PK
+    int actor_user_id FK
+    int tenant_id FK
+    varchar action
+    varchar entity_type
+    varchar entity_id
+    varchar status
+    json details
+    varchar ip_address
+    datetime created_at
+    datetime updated_at
+}
+departments {
+    int id PK
+    int tenant_id FK
+    int branch_id FK
+    int campus_id FK
+    varchar department_code
+    varchar department_name
+    datetime created_at
+    datetime updated_at
+}
+
+%% ===== PROFILES =====
+profiles {
+    int id PK
+    int tenant_id FK
+    int user_id FK
+    enum profile_type
+    varchar full_name
+    varchar display_name
+    varchar avatar_url
+    varchar contact_email
+    varchar phone_number
+    enum status
+    enum visibility
+    int created_by FK
+    datetime created_at
+    datetime updated_at
+}
+student_profiles {
+    int id PK
+    int profile_id FK
+    varchar student_code
+    date date_of_birth
+    enum gender
+    varchar current_level
+    enum student_status
+    datetime created_at
+    datetime updated_at
+}
+parent_profiles {
+    int id PK
+    int profile_id FK
+    varchar parent_code
+    varchar occupation
+    int contact_priority
+    boolean emergency_contact_flag
+    datetime created_at
+    datetime updated_at
+}
+teacher_profiles {
+    int id PK
+    int profile_id FK
+    varchar teacher_code
+    text bio
+    json expertise
+    int years_of_experience
+    boolean public_profile_enabled
+    datetime created_at
+    datetime updated_at
+}
+parent_student_relationships {
+    int id PK
+    int tenant_id FK
+    int parent_profile_id FK
+    int student_profile_id FK
+    enum relationship_type
+    enum status
+    datetime start_date
+    datetime end_date
+    int created_by FK
+    datetime created_at
+    datetime updated_at
+}
+
+%% ===== COURSES & CONTENT =====
+courses {
+    int id PK
+    varchar course_code
+    int department_id FK
+    int tenant_id FK
+    int branch_id FK
+    int campus_id FK
+    varchar course_name
+    varchar course_type
+    decimal credit
+    decimal duration_hours
+    enum status
+    boolean is_deleted
+    int created_by FK
+    datetime created_at
+    datetime updated_at
+}
+course_prerequisites {
+    int id PK
+    int course_id FK
+    int prerequisite_course_id FK
+    enum prerequisite_type
+    int created_by FK
+    datetime created_at
+    datetime updated_at
+}
+content_versions {
+    int id PK
+    int course_id FK
+    varchar version_label
+    int version_no
+    enum status
+    text changelog
+    json snapshot_ref
+    datetime published_at
+    int published_by FK
+    int created_by FK
+    datetime created_at
+    datetime updated_at
+}
+course_modules {
+    int id PK
+    int course_id FK
+    varchar title
+    text description
+    int display_order
+    enum status
+    int created_by FK
+    datetime created_at
+    datetime updated_at
+}
+lessons {
+    int id PK
+    int module_id FK
+    varchar title
+    text lesson_summary
+    text content
+    enum lesson_type
+    varchar video_url
+    int duration_minutes
+    int display_order
+    enum status
+    int created_by FK
+    datetime created_at
+    datetime updated_at
+}
+learning_items {
+    int id PK
+    int lesson_id FK
+    enum item_type
+    varchar title
+    json content_payload
+    int asset_id FK
+    int display_order
+    boolean is_required
+    enum status
+    int created_by FK
+    datetime created_at
+    datetime updated_at
+}
+content_assets {
+    int id PK
+    int tenant_id FK
+    varchar filename
+    varchar media_type
+    varchar mime_type
+    bigint size_bytes
+    int duration_seconds
+    varchar storage_key
+    varchar thumbnail_url
+    int uploaded_by FK
+    datetime uploaded_at
+    datetime created_at
+    datetime updated_at
+}
+
+%% ===== ENROLLMENTS & PROGRESS =====
+enrollments {
+    int id PK
+    int tenant_id FK
+    int branch_id FK
+    int campus_id FK
+    int student_profile_id FK
+    int course_id FK
+    int classroom_id FK
+    enum status
+    enum request_source
+    int eligibility_result_id FK
+    datetime requested_at
+    datetime activated_at
+    datetime completed_at
+    int created_by FK
+    datetime created_at
+    datetime updated_at
+}
+enrollment_histories {
+    int id PK
+    int enrollment_id FK
+    enum from_status
+    enum to_status
+    varchar reason_code
+    enum source
+    datetime changed_at
+    int changed_by FK
+}
+eligibility_results {
+    int id PK
+    int enrollment_id FK
+    int student_profile_id FK
+    int course_id FK
+    enum result
+    varchar reason_code
+    datetime checked_at
+    int checked_by FK
+}
+payment_references {
+    int id PK
+    int enrollment_id FK
+    varchar billing_reference
+    enum payment_condition_status
+    datetime confirmed_at
+    datetime created_at
+    datetime updated_at
+}
+lesson_progress {
+    int id PK
+    int enrollment_id FK
+    int lesson_id FK
+    enum status
+    datetime completion_date
+    int time_spent_minutes
+    datetime created_at
+    datetime updated_at
+}
+student_course_progress {
+    int id PK
+    int tenant_id FK
+    int branch_id FK
+    int campus_id FK
+    int enrollment_id FK
+    int course_version_id FK
+    enum status
+    decimal completion_percentage
+    int completed_item_count
+    int total_item_count
+    int total_time_spent_minutes
+    datetime started_at
+    datetime completed_at
+    datetime created_at
+    datetime updated_at
+}
+progress_event_logs {
+    int id PK
+    int progress_id FK
+    int enrollment_id FK
+    int student_profile_id FK
+    int course_id FK
+    varchar source_module
+    varchar source_event_name
+    varchar source_event_id
+    enum process_status
+    datetime received_at
+    datetime created_at
+    datetime updated_at
+}
+
+%% ===== CLASSROOMS & SCHEDULING =====
+classrooms {
+    int id PK
+    int tenant_id FK
+    int branch_id FK
+    int campus_id FK
+    int default_location_id FK
+    int course_id FK
+    int course_version_id FK
+    varchar classroom_code
+    varchar classroom_name
+    enum status
+    enum delivery_method
+    date start_date
+    date end_date
+    enum enrollment_mode
+    int max_capacity
+    int enrolled_count
+    boolean waitlist_enabled
+    boolean approval_required
+    boolean is_deleted
+    int created_by FK
+    datetime created_at
+    datetime updated_at
+}
+classroom_teachers {
+    int id PK
+    int classroom_id FK
+    int user_id FK
+    enum role_in_classroom
+    datetime assigned_at
+    int assigned_by FK
+    boolean active_flag
+    datetime created_at
+    datetime updated_at
+}
+classroom_roster_snapshots {
+    int id PK
+    int classroom_id FK
+    int enrollment_id FK
+    int student_profile_id FK
+    enum enrollment_status
+    enum completion_status
+    decimal attendance_rate
+    datetime snapshot_at
+    datetime created_at
+    datetime updated_at
+}
+schedule_series {
+    int id PK
+    int tenant_id FK
+    int branch_id FK
+    int campus_id FK
+    int classroom_id FK
+    int default_location_id FK
+    json recurrence_rule
+    date start_date
+    date end_date
+    time start_time
+    time end_time
+    int teacher_id FK
+    enum delivery_mode
+    enum status
+    int created_by FK
+    datetime created_at
+    datetime updated_at
+}
+schedule_sessions {
+    int id PK
+    int tenant_id FK
+    int branch_id FK
+    int campus_id FK
+    int location_id FK
+    int classroom_id FK
+    int series_id FK
+    int session_no
+    varchar session_title
+    datetime start_datetime
+    datetime end_datetime
+    int teacher_id FK
+    enum status
+    enum delivery_mode
+    int created_by FK
+    datetime created_at
+    datetime updated_at
+}
+schedule_change_records {
+    int id PK
+    int session_id FK
+    int series_id FK
+    varchar change_type
+    json old_values
+    json new_values
+    int changed_by FK
+    datetime created_at
+}
+live_session_metadata {
+    int id PK
+    int session_id FK
+    varchar provider
+    varchar room_id
+    varchar join_url
+    varchar host_url
+    json access_policy
+    enum provider_status
+    datetime created_at
+    datetime updated_at
+}
+
+%% ===== ASSESSMENT =====
+quizzes {
+    int id PK
+    int lesson_id FK
+    varchar title
+    enum assessment_type
+    int course_id FK
+    int classroom_id FK
+    int tenant_id FK
+    enum status
+    datetime open_at
+    datetime close_at
+    decimal passing_score
+    int time_limit_minutes
+    int max_attempts
+    enum grading_method
+    enum publish_policy
+    int created_by FK
+    datetime created_at
+    datetime updated_at
+}
+quiz_questions {
+    int id PK
+    int quiz_id FK
+    text question_text
+    enum question_type
+    decimal points
+    int order_index
+    datetime created_at
+    datetime updated_at
+}
+quiz_options {
+    int id PK
+    int question_id FK
+    text option_text
+    boolean is_correct
+    datetime created_at
+    datetime updated_at
+}
+quiz_attempts {
+    int id PK
+    int enrollment_id FK
+    int quiz_id FK
+    decimal score
+    enum status
+    datetime started_at
+    datetime submitted_at
+    int attempt_number
+    datetime created_at
+    datetime updated_at
+}
+quiz_attempt_answers {
+    int id PK
+    int attempt_id FK
+    int question_id FK
+    int selected_option_id FK
+    text text_answer
+    json answer_payload
+    boolean is_correct
+    decimal awarded_points
+    datetime created_at
+    datetime updated_at
+}
+assessment_submissions {
+    int id PK
+    int attempt_id FK
+    json submission_payload
+    enum submission_status
+    int submitted_by FK
+    datetime submitted_at
+    datetime created_at
+    datetime updated_at
+}
+assessment_grades {
+    int id PK
+    int submission_id FK
+    decimal score
+    decimal max_score
+    enum grading_status
+    text feedback
+    int graded_by FK
+    datetime graded_at
+    datetime created_at
+    datetime updated_at
+}
+assessment_result_publications {
+    int id PK
+    int grade_id FK
+    enum publication_status
+    datetime scheduled_publish_at
+    datetime published_at
+    int published_by FK
+    datetime created_at
+    datetime updated_at
+}
+assessment_audit_logs {
+    int id PK
+    int assessment_id FK
+    int attempt_id FK
+    int submission_id FK
+    int grade_id FK
+    varchar entity_type
+    int entity_id
+    varchar action
+    int actor_user_id FK
+    json old_values
+    json new_values
+    datetime created_at
+    datetime updated_at
+}
+
+%% ===== ENGAGEMENT & AUDIT =====
+rewards {
+    int id PK
+    int tenant_id FK
+    varchar title
+    text description
+    enum reward_type
+    int points_value
+    varchar icon_url
+    datetime created_at
+    datetime updated_at
+}
+student_rewards {
+    int id PK
+    int student_profile_id FK
+    int reward_id FK
+    int enrollment_id FK
+    datetime earned_at
+    datetime created_at
+    datetime updated_at
+}
+course_reviews {
+    int id PK
+    int course_id FK
+    int student_profile_id FK
+    int rating
+    text review_text
+    datetime created_at
+    datetime updated_at
+}
+lesson_feedback {
+    int id PK
+    int lesson_id FK
+    int student_profile_id FK
+    text feedback_text
+    datetime created_at
+    datetime updated_at
+}
+notifications {
+    int id PK
+    int tenant_id FK
+    int user_id FK
+    enum notification_type
+    varchar title
+    text message
+    varchar source_module
+    varchar source_event_id
+    enum delivery_status
+    boolean is_read
+    datetime created_at
+    datetime updated_at
+}
+audit_logs {
+    int id PK
+    int tenant_id FK
+    int branch_id FK
+    int campus_id FK
+    varchar module
+    varchar entity_name
+    int entity_id
+    varchar action
+    json old_values
+    json new_values
+    int actor_user_id FK
+    varchar correlation_id
+    datetime changed_at
+}
+
+%% ===== RELATIONSHIPS =====
+
+%% Core & IAM
+tenants ||--o{ branches : "has"
+tenants ||--o{ campuses : "has"
+branches ||--o{ campuses : "has"
+tenants ||--o{ locations : "has"
+branches ||--o{ locations : "has"
+campuses ||--o{ locations : "has"
+locations ||--o{ locations : "contains"
+tenants ||--o{ departments : "has"
+branches ||--o{ departments : "has"
+campuses ||--o{ departments : "has"
+tenants ||--o{ iam_memberships : "has"
+iam_memberships ||--o{ iam_membership_scopes : "has scopes"
+branches ||--o{ iam_membership_scopes : "scopes"
+campuses ||--o{ iam_membership_scopes : "scopes"
+locations ||--o{ iam_membership_scopes : "scopes"
+roles ||--o{ role_permissions : "has"
+permissions ||--o{ role_permissions : "has"
+users ||--|| iam_user_accounts : "has"
+users ||--o{ refresh_tokens : "has"
+users ||--o{ iam_sessions : "has"
+users ||--o{ iam_memberships : "belongs to"
+roles ||--o{ iam_role_assignments : "assigned via"
+users ||--o{ iam_role_assignments : "has"
+branches ||--o{ iam_role_assignments : "scopes"
+campuses ||--o{ iam_role_assignments : "scopes"
+locations ||--o{ iam_role_assignments : "scopes"
+
+%% Profiles
+tenants ||--o{ profiles : "has"
+users ||--o{ profiles : "has"
+profiles ||--o| student_profiles : "extended by"
+profiles ||--o| parent_profiles : "extended by"
+profiles ||--o| teacher_profiles : "extended by"
+parent_profiles ||--o{ parent_student_relationships : "parent in"
+student_profiles ||--o{ parent_student_relationships : "child in"
+
+%% Courses & Content
+tenants ||--o{ courses : "owns"
+branches ||--o{ courses : "scopes"
+campuses ||--o{ courses : "scopes"
+departments ||--o{ courses : "contains"
+courses ||--o{ course_prerequisites : "requires"
+courses ||--o{ content_versions : "versioned by"
+courses ||--o{ course_modules : "has"
+course_modules ||--o{ lessons : "has"
+lessons ||--o{ learning_items : "contains"
+learning_items ||--o| content_assets : "uses"
+tenants ||--o{ content_assets : "owns"
+
+%% Enrollments & Progress
+tenants ||--o{ enrollments : "owns"
+student_profiles ||--o{ enrollments : "learner"
+courses ||--o{ enrollments : "enrolled in"
+classrooms ||--o{ enrollments : "optional classroom"
+enrollments ||--o{ enrollment_histories : "has history"
+enrollments ||--o{ eligibility_results : "checked by"
+enrollments ||--o{ payment_references : "has"
+enrollments ||--o{ lesson_progress : "tracks"
+lessons ||--o{ lesson_progress : "tracked in"
+enrollments ||--o{ student_course_progress : "has"
+content_versions ||--o{ student_course_progress : "version"
+enrollments ||--o{ progress_event_logs : "logged in"
+
+%% Classrooms & Scheduling
+courses ||--o{ classrooms : "taught in"
+classrooms ||--o{ classroom_teachers : "has"
+users ||--o{ classroom_teachers : "teaches in"
+classrooms ||--o{ classroom_roster_snapshots : "has snapshot"
+enrollments ||--o{ classroom_roster_snapshots : "source"
+student_profiles ||--o{ classroom_roster_snapshots : "learner"
+classrooms ||--o{ schedule_series : "has"
+locations ||--o{ schedule_series : "default location"
+classrooms ||--o{ schedule_sessions : "has"
+locations ||--o{ schedule_sessions : "held at"
+schedule_series ||--o{ schedule_sessions : "generates"
+schedule_sessions ||--o{ schedule_change_records : "has"
+schedule_sessions ||--o| live_session_metadata : "has"
+
+%% Assessment
+tenants ||--o{ quizzes : "owns"
+lessons ||--o{ quizzes : "has"
+courses ||--o{ quizzes : "has"
+classrooms ||--o{ quizzes : "has"
+quizzes ||--o{ quiz_questions : "has"
+quiz_questions ||--o{ quiz_options : "has"
+enrollments ||--o{ quiz_attempts : "makes"
+quizzes ||--o{ quiz_attempts : "attempted in"
+quiz_attempts ||--o{ quiz_attempt_answers : "has"
+quiz_questions ||--o{ quiz_attempt_answers : "answered in"
+quiz_options ||--o{ quiz_attempt_answers : "selected in"
+quiz_attempts ||--o{ assessment_submissions : "submitted as"
+assessment_submissions ||--o{ assessment_grades : "graded as"
+assessment_grades ||--o| assessment_result_publications : "published via"
+
+%% Engagement & Audit
+tenants ||--o{ rewards : "owns"
+rewards ||--o{ student_rewards : "earned by"
+student_profiles ||--o{ student_rewards : "earns"
+enrollments ||--o{ student_rewards : "via"
+courses ||--o{ course_reviews : "reviewed in"
+student_profiles ||--o{ course_reviews : "writes"
+lessons ||--o{ lesson_feedback : "has"
+student_profiles ||--o{ lesson_feedback : "gives"
+tenants ||--o{ notifications : "owns"
+users ||--o{ notifications : "receives"
+tenants ||--o{ audit_logs : "has"
+users ||--o{ audit_logs : "actor"
