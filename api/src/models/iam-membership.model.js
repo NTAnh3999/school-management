@@ -21,7 +21,21 @@ const IamMembership = sequelize.define(
       allowNull: false,
       defaultValue: SCOPE_TYPES.TENANT,
     },
-    scope_ref_id: { type: DataTypes.STRING(100), allowNull: true },
+    branch_id: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
+      references: { model: "branches", key: "id" },
+    },
+    campus_id: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
+      references: { model: "campuses", key: "id" },
+    },
+    location_id: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
+      references: { model: "locations", key: "id" },
+    },
     status: {
       type: DataTypes.ENUM(...Object.values(MEMBERSHIP_STATUSES)),
       allowNull: false,
@@ -38,7 +52,11 @@ const IamMembership = sequelize.define(
     indexes: [
       { fields: ["user_id"] },
       { fields: ["tenant_id"] },
-      { unique: true, fields: ["user_id", "tenant_id", "scope_type", "scope_ref_id"] },
+      {
+        name: "iam_memberships_unique_scope",
+        unique: true,
+        fields: ["user_id", "tenant_id", "scope_type", "branch_id", "campus_id", "location_id"],
+      },
     ],
   }
 );

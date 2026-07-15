@@ -17,25 +17,27 @@ const {
 } = require("../constants/iam");
 const { normalizeRole, ROLES } = require("../constants/roles");
 const {
+  Branch,
+  Campus,
   IamAuditLog,
   IamMembership,
   IamRoleAssignment,
   IamSession,
   IamUserAccount,
+  Location,
   Permission,
   Role,
   RolePermission,
   Tenant,
   User,
 } = require("../models");
+const { resolveScopeOfEntity, scopeCovers } = require("./scope-hierarchy.service");
 
 const ACTIVE_MEMBERSHIP_STATUSES = [MEMBERSHIP_STATUSES.ACTIVE];
 const ACTIVE_ROLE_ASSIGNMENT_STATUSES = [ROLE_ASSIGNMENT_STATUSES.ACTIVE];
 const DEFAULT_LOGIN_METHODS = ["email_password"];
 
 const now = () => new Date();
-
-const isNotExpired = (value) => !value || new Date(value) > now();
 
 const toPlain = (instance) =>
   instance && typeof instance.get === "function" ? instance.get({ plain: true }) : instance;
@@ -69,7 +71,9 @@ const formatMembership = (membershipInstance) => {
     userId: membership.user_id,
     tenantId: membership.tenant_id,
     scopeType: membership.scope_type,
-    scopeRefId: membership.scope_ref_id,
+    branchId: membership.branch_id,
+    campusId: membership.campus_id,
+    locationId: membership.location_id,
     status: membership.status,
     expiresAt: membership.expires_at,
     tenant: formatTenant(membership.tenant),
@@ -96,7 +100,9 @@ const formatRole = (roleInstance) => {
   return {
     id: role.id,
     name: normalizeRole(role.name) || role.name,
-    permissions: Array.isArray(role.permissions) ? role.permissions.map(formatPermission) : undefined,
+    permissions: Array.isArray(role.permissions)
+      ? role.permissions.map(formatPermission)
+      : undefined,
   };
 };
 
@@ -206,11 +212,18 @@ const listMemberships = async (userId, { validOnly = false } = {}) => {
   const where = validOnly ? buildActiveMembershipWhere(userId) : { user_id: userId };
   return IamMembership.findAll({
     where,
-    include: [{ model: Tenant, as: "tenant" }],
+    include: [
+      { model: Tenant, as: "tenant" },
+      { model: Branch, as: "branch" },
+      { model: Campus, as: "campus" },
+      { model: Location, as: "location" },
+    ],
     order: [
       ["tenant_id", "ASC"],
       ["scope_type", "ASC"],
-      ["scope_ref_id", "ASC"],
+      ["branch_id", "ASC"],
+      ["campus_id", "ASC"],
+      ["location_id", "ASC"],
     ],
   });
 };
@@ -264,7 +277,11 @@ const getPermissionsForRoles = async (roleIds) => {
   return uniqBy(permissions, (permission) => permission.id);
 };
 
-const resolveAuthorizationContext = async (userInstanceOrId, activeTenantId = null, options = {}) => {
+const resolveAuthorizationContext = async (
+  userInstanceOrId,
+  activeTenantId = null,
+  options = {}
+) => {
   const user =
     typeof userInstanceOrId === "object" && userInstanceOrId?.id
       ? userInstanceOrId
@@ -284,7 +301,10 @@ const resolveAuthorizationContext = async (userInstanceOrId, activeTenantId = nu
   const roles = [];
   for (const assignment of roleAssignments) {
     if (assignment.role) {
-      roles.push({ id: assignment.role.id, name: normalizeRole(assignment.role.name) || assignment.role.name });
+      roles.push({
+        id: assignment.role.id,
+        name: normalizeRole(assignment.role.name) || assignment.role.name,
+      });
     }
   }
 
@@ -312,16 +332,30 @@ const assertPermission = (context, permissionCode) => {
   throw new ForbiddenError("Permission denied", { errorCode: "IAM_PERMISSION_DENIED" });
 };
 
-const scopeMatches = (memberships, requestedScopeType, requestedScopeRefId) => {
-  if (!requestedScopeType) return true;
-
-  return memberships.some((membership) => {
-    if (membership.scopeType === SCOPE_TYPES.TENANT) return true;
-    return (
-      membership.scopeType === requestedScopeType &&
-      String(membership.scopeRefId || "") === String(requestedScopeRefId || "")
-    );
+const findGrantingAssignments = async (userId, tenantId, requiredPermission) => {
+  const assignments = await IamRoleAssignment.findAll({
+    where: buildActiveRoleAssignmentWhere(userId, tenantId),
+    include: [
+      {
+        model: Role,
+        as: "role",
+        required: true,
+        include: requiredPermission
+          ? [
+              {
+                model: Permission,
+                as: "permissions",
+                through: { attributes: [] },
+                where: { code: requiredPermission },
+                required: true,
+              },
+            ]
+          : [],
+      },
+    ],
   });
+
+  return assignments;
 };
 
 const authorizeAccess = async ({
@@ -329,13 +363,28 @@ const authorizeAccess = async ({
   activeTenantId,
   requiredPermission,
   requestedScopeType,
-  requestedScopeRefId,
+  requestedTenantId,
+  requestedBranchId,
+  requestedCampusId,
+  requestedLocationId,
 }) => {
   if (!activeTenantId) {
     return {
       allow: false,
       code: "IAM_TENANT_CONTEXT_REQUIRED",
       reason: "Tenant context is required",
+    };
+  }
+
+  // A request can only ever act within the tenant the actor is currently switched into --
+  // e.g. granting a membership FOR a different tenantId than the actor's own active one must
+  // be denied outright, regardless of scope_type, since nothing here lets an actor operate
+  // cross-tenant in a single request.
+  if (requestedTenantId && Number(requestedTenantId) !== Number(activeTenantId)) {
+    return {
+      allow: false,
+      code: "IAM_TENANT_ACCESS_DENIED",
+      reason: "Cannot act on a different tenant than the active one",
     };
   }
 
@@ -356,7 +405,48 @@ const authorizeAccess = async ({
     };
   }
 
-  if (!scopeMatches(context.activeMemberships, requestedScopeType, requestedScopeRefId)) {
+  const scopeCovered = requestedScopeType
+    ? await (async () => {
+        const requestedId =
+          requestedScopeType === SCOPE_TYPES.BRANCH
+            ? requestedBranchId
+            : requestedScopeType === SCOPE_TYPES.CAMPUS
+              ? requestedCampusId
+              : requestedScopeType === SCOPE_TYPES.LOCATION
+                ? requestedLocationId
+                : null;
+
+        // Resolve the target's FULL ancestor chain (e.g. a campus's branchId too), not just
+        // the single id the caller passed — scopeCovers compares denormalized columns flatly,
+        // so a branch-scoped assignment can only match a campus target if the target scope
+        // actually carries that campus's branchId.
+        const targetScope =
+          requestedScopeType === SCOPE_TYPES.TENANT
+            ? { tenantId: Number(activeTenantId), branchId: null, campusId: null, locationId: null }
+            : await resolveScopeOfEntity({ type: requestedScopeType, id: requestedId });
+
+        if (!targetScope || Number(targetScope.tenantId) !== Number(activeTenantId)) return false;
+
+        const grantingAssignments = await findGrantingAssignments(
+          userId,
+          Number(activeTenantId),
+          requiredPermission
+        );
+        for (const assignment of grantingAssignments) {
+          const assignmentScope = {
+            scopeType: assignment.scope_type,
+            tenantId: Number(activeTenantId),
+            branchId: assignment.branch_id,
+            campusId: assignment.campus_id,
+            locationId: assignment.location_id,
+          };
+          if (await scopeCovers(assignmentScope, targetScope)) return true;
+        }
+        return false;
+      })()
+    : true;
+
+  if (!scopeCovered) {
     return {
       allow: false,
       code: "IAM_SCOPE_ACCESS_DENIED",
@@ -370,6 +460,41 @@ const authorizeAccess = async ({
     reason: "Authorized",
     context,
   };
+};
+
+const getMembershipScope = async (membershipId) => {
+  const membership = await IamMembership.findByPk(membershipId);
+  if (!membership) return null;
+  return {
+    scopeType: membership.scope_type,
+    branchId: membership.branch_id,
+    campusId: membership.campus_id,
+    locationId: membership.location_id,
+  };
+};
+
+// Every active scope the given user holds within a single tenant, as {scopeType, branchId,
+// campusId, locationId} shapes for requirePermission's multi-target scope check — used when a
+// request could touch a user who holds memberships at several different scopes at once.
+const resolveUserTenantScopes = async (userId, tenantId) => {
+  const memberships = await listMemberships(userId, { validOnly: true });
+  return memberships
+    .filter((membership) => Number(membership.tenant_id) === Number(tenantId))
+    .map((membership) => ({
+      scopeType: membership.scope_type,
+      branchId: membership.branch_id,
+      campusId: membership.campus_id,
+      locationId: membership.location_id,
+    }));
+};
+
+// Same idea, resolved from a session (by id or refresh token) to that session owner's scopes.
+const resolveSessionTargetScopes = async ({ sessionId, refreshToken }, tenantId) => {
+  const session = await IamSession.findOne({
+    where: sessionId ? { id: sessionId } : { refresh_token: refreshToken },
+  });
+  if (!session) return [];
+  return resolveUserTenantScopes(session.user_id, tenantId);
 };
 
 const getRequestMeta = (req = {}) => ({
@@ -426,21 +551,53 @@ const resolveTenant = async (tenantId) => {
   return tenant;
 };
 
+const SCOPE_COLUMN_BY_TYPE = Object.freeze({
+  [SCOPE_TYPES.TENANT]: null,
+  [SCOPE_TYPES.BRANCH]: "branchId",
+  [SCOPE_TYPES.CAMPUS]: "campusId",
+  [SCOPE_TYPES.LOCATION]: "locationId",
+});
+
+const validateScopeColumns = (scopeType, { branchId, campusId, locationId }) => {
+  const expectedKey = SCOPE_COLUMN_BY_TYPE[scopeType];
+  const values = { branchId, campusId, locationId };
+
+  for (const [key, value] of Object.entries(values)) {
+    if (value != null && key !== expectedKey) {
+      throw new BadRequestError(`${key} must not be set for scopeType '${scopeType}'`, {
+        errorCode: "IAM_SCOPE_MISMATCH",
+      });
+    }
+  }
+
+  if (expectedKey && values[expectedKey] == null) {
+    throw new BadRequestError(`${expectedKey} is required for scopeType '${scopeType}'`, {
+      errorCode: "IAM_SCOPE_MISMATCH",
+    });
+  }
+};
+
 const ensureMembership = async ({
   userId,
   tenantId,
   scopeType = SCOPE_TYPES.TENANT,
-  scopeRefId = null,
+  branchId = null,
+  campusId = null,
+  locationId = null,
   status = MEMBERSHIP_STATUSES.ACTIVE,
   expiresAt = null,
   actorUserId = null,
 }) => {
+  validateScopeColumns(scopeType, { branchId, campusId, locationId });
+
   let membership = await IamMembership.findOne({
     where: {
       user_id: userId,
       tenant_id: tenantId,
       scope_type: scopeType,
-      scope_ref_id: scopeRefId,
+      branch_id: branchId,
+      campus_id: campusId,
+      location_id: locationId,
     },
   });
 
@@ -449,7 +606,9 @@ const ensureMembership = async ({
       user_id: userId,
       tenant_id: tenantId,
       scope_type: scopeType,
-      scope_ref_id: scopeRefId,
+      branch_id: branchId,
+      campus_id: campusId,
+      location_id: locationId,
       status,
       expires_at: expiresAt,
       created_by: actorUserId,
@@ -470,18 +629,24 @@ const ensureRoleAssignment = async ({
   tenantId,
   roleId,
   scopeType = SCOPE_TYPES.TENANT,
-  scopeRefId = null,
+  branchId = null,
+  campusId = null,
+  locationId = null,
   status = ROLE_ASSIGNMENT_STATUSES.ACTIVE,
   expiresAt = null,
   actorUserId = null,
 }) => {
+  validateScopeColumns(scopeType, { branchId, campusId, locationId });
+
   let assignment = await IamRoleAssignment.findOne({
     where: {
       user_id: userId,
       tenant_id: tenantId,
       role_id: roleId,
       scope_type: scopeType,
-      scope_ref_id: scopeRefId,
+      branch_id: branchId,
+      campus_id: campusId,
+      location_id: locationId,
     },
   });
 
@@ -491,7 +656,9 @@ const ensureRoleAssignment = async ({
       tenant_id: tenantId,
       role_id: roleId,
       scope_type: scopeType,
-      scope_ref_id: scopeRefId,
+      branch_id: branchId,
+      campus_id: campusId,
+      location_id: locationId,
       status,
       expires_at: expiresAt,
       assigned_by: actorUserId,
@@ -503,6 +670,41 @@ const ensureRoleAssignment = async ({
     await assignment.save();
   }
 
+  const [supersededCount] = await IamRoleAssignment.update(
+    { status: ROLE_ASSIGNMENT_STATUSES.REVOKED, assigned_by: actorUserId },
+    {
+      where: {
+        user_id: userId,
+        tenant_id: tenantId,
+        scope_type: scopeType,
+        branch_id: branchId,
+        campus_id: campusId,
+        location_id: locationId,
+        role_id: { [Op.ne]: roleId },
+        status: ROLE_ASSIGNMENT_STATUSES.ACTIVE,
+      },
+    }
+  );
+
+  if (supersededCount > 0) {
+    await recordAuditLog({
+      actorUserId,
+      tenantId,
+      action: "iam.role_assignment.supersede",
+      entityType: "role_assignment",
+      entityId: assignment.id,
+      details: {
+        userId,
+        scopeType,
+        branchId,
+        campusId,
+        locationId,
+        newRoleId: roleId,
+        supersededCount,
+      },
+    });
+  }
+
   return assignment;
 };
 
@@ -512,21 +714,61 @@ const getDefaultTenant = async () => {
   return Tenant.findOne({ order: [["id", "ASC"]] });
 };
 
-const listUsers = async () => {
+const listUsers = async (actorUserId, activeTenantId) => {
+  // Only users with an active membership in the viewer's own tenant -- this was previously
+  // missing entirely, so any authenticated admin could see every user across every tenant.
   const users = await User.findAll({
     include: [
-      { model: Role, as: "role" },
       { model: IamUserAccount, as: "iam_account" },
       {
         model: IamMembership,
         as: "memberships",
+        where: { tenant_id: activeTenantId, status: MEMBERSHIP_STATUSES.ACTIVE },
+        required: true,
         include: [{ model: Tenant, as: "tenant" }],
       },
     ],
     order: [["id", "ASC"]],
   });
 
-  return users.map((user) =>
+  const grantingAssignments = await findGrantingAssignments(
+    actorUserId,
+    activeTenantId,
+    "iam.user.view"
+  );
+  const hasTenantWideAccess = grantingAssignments.some(
+    (assignment) => assignment.scope_type === SCOPE_TYPES.TENANT
+  );
+
+  const visibleUsers = hasTenantWideAccess
+    ? users
+    : (
+        await Promise.all(
+          users.map(async (user) => {
+            for (const membership of user.memberships) {
+              const targetScope = {
+                tenantId: activeTenantId,
+                branchId: membership.branch_id,
+                campusId: membership.campus_id,
+                locationId: membership.location_id,
+              };
+              for (const assignment of grantingAssignments) {
+                const assignmentScope = {
+                  scopeType: assignment.scope_type,
+                  tenantId: activeTenantId,
+                  branchId: assignment.branch_id,
+                  campusId: assignment.campus_id,
+                  locationId: assignment.location_id,
+                };
+                if (await scopeCovers(assignmentScope, targetScope)) return user;
+              }
+            }
+            return null;
+          })
+        )
+      ).filter(Boolean);
+
+  return visibleUsers.map((user) =>
     buildUserResponse(user, {
       memberships: (user.memberships || []).map(formatMembership),
       activeTenantId: null,
@@ -535,11 +777,26 @@ const listUsers = async () => {
 };
 
 const createUser = async (payload, actor, req) => {
-  const { email, password, fullName, roleId, roleName, username, phone, status, tenantId } = payload;
+  const {
+    email,
+    password,
+    fullName,
+    roleId,
+    roleName,
+    username,
+    phone,
+    status,
+    tenantId,
+    scopeType,
+    branchId,
+    campusId,
+    locationId,
+  } = payload;
   if (!email || !password || !fullName) throw new BadRequestError("Missing required fields");
 
   const existingEmail = await User.findOne({ where: { email } });
-  if (existingEmail) throw new ConflictError("Duplicate account", { errorCode: "IAM_DUPLICATE_ACCOUNT" });
+  if (existingEmail)
+    throw new ConflictError("Duplicate account", { errorCode: "IAM_DUPLICATE_ACCOUNT" });
 
   if (username) {
     const existingUsername = await IamUserAccount.findOne({ where: { username } });
@@ -550,25 +807,38 @@ const createUser = async (payload, actor, req) => {
 
   if (phone) {
     const existingPhone = await IamUserAccount.findOne({ where: { phone } });
-    if (existingPhone) throw new ConflictError("Duplicate account", { errorCode: "IAM_DUPLICATE_ACCOUNT" });
+    if (existingPhone)
+      throw new ConflictError("Duplicate account", { errorCode: "IAM_DUPLICATE_ACCOUNT" });
   }
 
-  const role = (await resolveRole({ roleId, roleName })) || (await resolveRole({ roleName: ROLES.STUDENT }));
+  const role =
+    (await resolveRole({ roleId, roleName })) || (await resolveRole({ roleName: ROLES.STUDENT }));
   const user = await User.create({
     email,
     password_hash: await bcrypt.hash(password, 10),
     full_name: fullName,
-    role_id: role.id,
   });
 
   await ensureIamAccount(user.id, { status: status || ACCOUNT_STATUSES.ACTIVE, username, phone });
   const tenant = tenantId ? await resolveTenant(tenantId) : await getDefaultTenant();
   if (tenant) {
-    await ensureMembership({ userId: user.id, tenantId: tenant.id, actorUserId: actor.id });
+    await ensureMembership({
+      userId: user.id,
+      tenantId: tenant.id,
+      scopeType,
+      branchId,
+      campusId,
+      locationId,
+      actorUserId: actor.id,
+    });
     await ensureRoleAssignment({
       userId: user.id,
       tenantId: tenant.id,
       roleId: role.id,
+      scopeType: scopeType || SCOPE_TYPES.TENANT,
+      branchId: branchId || null,
+      campusId: campusId || null,
+      locationId: locationId || null,
       actorUserId: actor.id,
     });
   }
@@ -592,7 +862,8 @@ const updateUser = async (userId, payload, actor, req) => {
 
   if (payload.email && payload.email !== user.email) {
     const existingEmail = await User.findOne({ where: { email: payload.email } });
-    if (existingEmail) throw new ConflictError("Duplicate account", { errorCode: "IAM_DUPLICATE_ACCOUNT" });
+    if (existingEmail)
+      throw new ConflictError("Duplicate account", { errorCode: "IAM_DUPLICATE_ACCOUNT" });
     user.email = payload.email;
   }
 
@@ -608,14 +879,43 @@ const updateUser = async (userId, payload, actor, req) => {
   await account.save();
 
   let tenantId = payload.tenantId || null;
-  if (tenantId && role) {
+  if (tenantId && !role) {
     await ensureMembership({ userId: user.id, tenantId, actorUserId: actor.id });
-    await ensureRoleAssignment({
-      userId: user.id,
-      tenantId,
-      roleId: role.id,
-      actorUserId: actor.id,
-    });
+  }
+
+  if (role) {
+    const memberships = await listMemberships(user.id, { validOnly: true });
+    const scopes = memberships.map((membership) => ({
+      tenantId: membership.tenant_id,
+      scopeType: membership.scope_type,
+      branchId: membership.branch_id,
+      campusId: membership.campus_id,
+      locationId: membership.location_id,
+    }));
+
+    if (tenantId && !scopes.some((scope) => scope.tenantId === Number(tenantId))) {
+      await ensureMembership({ userId: user.id, tenantId, actorUserId: actor.id });
+      scopes.push({
+        tenantId: Number(tenantId),
+        scopeType: SCOPE_TYPES.TENANT,
+        branchId: null,
+        campusId: null,
+        locationId: null,
+      });
+    }
+
+    for (const scope of scopes) {
+      await ensureRoleAssignment({
+        userId: user.id,
+        tenantId: scope.tenantId,
+        roleId: role.id,
+        scopeType: scope.scopeType,
+        branchId: scope.branchId,
+        campusId: scope.campusId,
+        locationId: scope.locationId,
+        actorUserId: actor.id,
+      });
+    }
   }
 
   await recordAuditLog({
@@ -727,14 +1027,27 @@ const removeRolePermission = async ({ roleId, permissionId, permissionCode }, ac
 };
 
 const createMembership = async (payload, actor, req) => {
-  const { userId, tenantId, scopeType, scopeRefId, status, expiresAt, roleId, roleName } = payload;
+  const {
+    userId,
+    tenantId,
+    scopeType,
+    branchId,
+    campusId,
+    locationId,
+    status,
+    expiresAt,
+    roleId,
+    roleName,
+  } = payload;
   await getUserWithIam(userId);
   await resolveTenant(tenantId);
   const membership = await ensureMembership({
     userId,
     tenantId,
     scopeType,
-    scopeRefId,
+    branchId,
+    campusId,
+    locationId,
     status: status || MEMBERSHIP_STATUSES.ACTIVE,
     expiresAt: expiresAt || null,
     actorUserId: actor.id,
@@ -747,7 +1060,9 @@ const createMembership = async (payload, actor, req) => {
       tenantId,
       roleId: role.id,
       scopeType: scopeType || SCOPE_TYPES.TENANT,
-      scopeRefId: scopeRefId || null,
+      branchId: branchId || null,
+      campusId: campusId || null,
+      locationId: locationId || null,
       actorUserId: actor.id,
     });
   }
@@ -765,11 +1080,49 @@ const createMembership = async (payload, actor, req) => {
   return IamMembership.findByPk(membership.id, { include: [{ model: Tenant, as: "tenant" }] });
 };
 
+// Revoking a membership must also revoke any role assignment(s) still active at that exact
+// (user, tenant, scope) — otherwise the role assignment row survives independently and the
+// user regains that access on their very next login/session, even though their membership
+// there was just revoked.
+const revokeRoleAssignmentsAtMembershipScope = async (membership, actorUserId) => {
+  const [count] = await IamRoleAssignment.update(
+    { status: ROLE_ASSIGNMENT_STATUSES.REVOKED, assigned_by: actorUserId },
+    {
+      where: {
+        user_id: membership.user_id,
+        tenant_id: membership.tenant_id,
+        scope_type: membership.scope_type,
+        branch_id: membership.branch_id,
+        campus_id: membership.campus_id,
+        location_id: membership.location_id,
+        status: ROLE_ASSIGNMENT_STATUSES.ACTIVE,
+      },
+    }
+  );
+  return count;
+};
+
 const updateMembership = async (membershipId, payload, actor, req) => {
-  const membership = await IamMembership.findByPk(membershipId, { include: [{ model: Tenant, as: "tenant" }] });
+  const membership = await IamMembership.findByPk(membershipId, {
+    include: [{ model: Tenant, as: "tenant" }],
+  });
   if (!membership) throw new NotFoundError("Membership not found");
+  // Captured before any scope fields below might change in this same call -- revoking must
+  // target the scope that actually granted access, not a scope it's simultaneously being
+  // changed to.
+  const previousScope = {
+    user_id: membership.user_id,
+    tenant_id: membership.tenant_id,
+    scope_type: membership.scope_type,
+    branch_id: membership.branch_id,
+    campus_id: membership.campus_id,
+    location_id: membership.location_id,
+  };
+
   if (payload.scopeType) membership.scope_type = payload.scopeType;
-  if (typeof payload.scopeRefId !== "undefined") membership.scope_ref_id = payload.scopeRefId;
+  if (typeof payload.branchId !== "undefined") membership.branch_id = payload.branchId;
+  if (typeof payload.campusId !== "undefined") membership.campus_id = payload.campusId;
+  if (typeof payload.locationId !== "undefined") membership.location_id = payload.locationId;
   if (payload.status) membership.status = payload.status;
   if (typeof payload.expiresAt !== "undefined") membership.expires_at = payload.expiresAt;
   membership.updated_by = actor.id;
@@ -790,6 +1143,19 @@ const updateMembership = async (membershipId, payload, actor, req) => {
         },
       }
     );
+
+    const revokedCount = await revokeRoleAssignmentsAtMembershipScope(previousScope, actor.id);
+    if (revokedCount > 0) {
+      await recordAuditLog({
+        actorUserId: actor.id,
+        tenantId: membership.tenant_id,
+        action: "iam.role_assignment.revoke",
+        entityType: "membership",
+        entityId: membership.id,
+        details: { reason: "membership_revoked", revokedCount },
+        req,
+      });
+    }
   }
 
   await recordAuditLog({
@@ -808,6 +1174,15 @@ const updateMembership = async (membershipId, payload, actor, req) => {
 const deleteMembership = async (membershipId, actor, req) => {
   const membership = await IamMembership.findByPk(membershipId);
   if (!membership) throw new NotFoundError("Membership not found");
+  const previousScope = {
+    user_id: membership.user_id,
+    tenant_id: membership.tenant_id,
+    scope_type: membership.scope_type,
+    branch_id: membership.branch_id,
+    campus_id: membership.campus_id,
+    location_id: membership.location_id,
+  };
+
   membership.status = MEMBERSHIP_STATUSES.REVOKED;
   membership.updated_by = actor.id;
   await membership.save();
@@ -827,6 +1202,19 @@ const deleteMembership = async (membershipId, actor, req) => {
     }
   );
 
+  const revokedCount = await revokeRoleAssignmentsAtMembershipScope(previousScope, actor.id);
+  if (revokedCount > 0) {
+    await recordAuditLog({
+      actorUserId: actor.id,
+      tenantId: membership.tenant_id,
+      action: "iam.role_assignment.revoke",
+      entityType: "membership",
+      entityId: membership.id,
+      details: { reason: "membership_revoked", revokedCount },
+      req,
+    });
+  }
+
   await recordAuditLog({
     actorUserId: actor.id,
     tenantId: membership.tenant_id,
@@ -840,10 +1228,54 @@ const deleteMembership = async (membershipId, actor, req) => {
   return { id: membership.id, status: membership.status };
 };
 
-const listAuditLogs = async ({ tenantId, actorUserId } = {}) => {
-  const where = {};
-  if (tenantId) where.tenant_id = tenantId;
+// Resolves the scope(s) an audit log entry belongs to, from its (heterogeneous) entity_type +
+// entity_id, so listAuditLogs can filter entries the same way listUsers filters rows -- an
+// entry can resolve to zero, one, or several scopes (e.g. a "user" entity can hold several
+// memberships at once). Entities with no scope of their own (roles, permissions,
+// role_permission mappings) resolve to [], meaning only tenant-wide viewers see them.
+const resolveAuditEntityScope = async (entityType, entityId, tenantId) => {
+  const id = Number(entityId);
+  if (!id) return [];
+
+  switch (entityType) {
+    case "membership": {
+      const scope = await getMembershipScope(id);
+      return scope ? [scope] : [];
+    }
+    case "role_assignment": {
+      const assignment = await IamRoleAssignment.findByPk(id);
+      if (!assignment) return [];
+      return [
+        {
+          scopeType: assignment.scope_type,
+          branchId: assignment.branch_id,
+          campusId: assignment.campus_id,
+          locationId: assignment.location_id,
+        },
+      ];
+    }
+    case "branch":
+    case "campus":
+    case "location": {
+      const scope = await resolveScopeOfEntity({ type: entityType, id });
+      return scope ? [scope] : [];
+    }
+    case "user":
+      return resolveUserTenantScopes(id, tenantId);
+    case "session": {
+      const session = await IamSession.findByPk(id);
+      if (!session) return [];
+      return resolveUserTenantScopes(session.user_id, tenantId);
+    }
+    default:
+      return [];
+  }
+};
+
+const listAuditLogs = async ({ actorUserId } = {}, viewerUserId, viewerTenantId) => {
+  const where = { tenant_id: viewerTenantId };
   if (actorUserId) where.actor_user_id = actorUserId;
+
   const logs = await IamAuditLog.findAll({
     where,
     include: [
@@ -853,22 +1285,61 @@ const listAuditLogs = async ({ tenantId, actorUserId } = {}) => {
     order: [["created_at", "DESC"]],
   });
 
-  return logs.map((entry) => {
-    const log = toPlain(entry);
-    return {
-      id: log.id,
-      action: log.action,
-      entityType: log.entity_type,
-      entityId: log.entity_id,
-      status: log.status,
-      details: log.details,
-      actor: log.actor
-        ? { id: log.actor.id, email: log.actor.email, fullName: log.actor.full_name }
-        : null,
-      tenant: formatTenant(log.tenant),
-      createdAt: log.created_at,
-    };
-  });
+  const plainLogs = logs.map(toPlain);
+
+  const grantingAssignments = await findGrantingAssignments(
+    viewerUserId,
+    viewerTenantId,
+    "iam.audit.view"
+  );
+  const hasTenantWideAccess = grantingAssignments.some(
+    (assignment) => assignment.scope_type === SCOPE_TYPES.TENANT
+  );
+
+  const visibleLogs = hasTenantWideAccess
+    ? plainLogs
+    : (
+        await Promise.all(
+          plainLogs.map(async (log) => {
+            const targetScopes = await resolveAuditEntityScope(
+              log.entity_type,
+              log.entity_id,
+              viewerTenantId
+            );
+            for (const targetScope of targetScopes) {
+              for (const assignment of grantingAssignments) {
+                const assignmentScope = {
+                  scopeType: assignment.scope_type,
+                  tenantId: viewerTenantId,
+                  branchId: assignment.branch_id,
+                  campusId: assignment.campus_id,
+                  locationId: assignment.location_id,
+                };
+                if (
+                  await scopeCovers(assignmentScope, { tenantId: viewerTenantId, ...targetScope })
+                ) {
+                  return log;
+                }
+              }
+            }
+            return null;
+          })
+        )
+      ).filter(Boolean);
+
+  return visibleLogs.map((log) => ({
+    id: log.id,
+    action: log.action,
+    entityType: log.entity_type,
+    entityId: log.entity_id,
+    status: log.status,
+    details: log.details,
+    actor: log.actor
+      ? { id: log.actor.id, email: log.actor.email, fullName: log.actor.full_name }
+      : null,
+    tenant: formatTenant(log.tenant),
+    createdAt: log.created_at,
+  }));
 };
 
 const revokeSession = async ({ sessionId, refreshToken, reason = "manual_revoke" }, actor, req) => {
@@ -918,6 +1389,7 @@ module.exports = {
   formatSession,
   formatTenant,
   getDefaultTenant,
+  getMembershipScope,
   getRequestMeta,
   getUserWithIam,
   hasPermission,
@@ -931,7 +1403,9 @@ module.exports = {
   resolveActiveTenant,
   resolveAuthorizationContext,
   resolveRole,
+  resolveSessionTargetScopes,
   resolveTenantMemberships,
+  resolveUserTenantScopes,
   revokeSession,
   updateMembership,
   updateRole,

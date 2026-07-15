@@ -3,7 +3,7 @@ const asyncHandler = require("../utils/async-handler");
 const IamService = require("../services/iam.service");
 
 const listUsers = asyncHandler(async (req, res) => {
-  const users = await IamService.listUsers();
+  const users = await IamService.listUsers(req.user.id, req.user.activeTenantId);
   return new OKResponse({ message: "IAM users", metadata: { users } }).send(res);
 });
 
@@ -82,7 +82,9 @@ const authorize = asyncHandler(async (req, res) => {
     activeTenantId: req.user.activeTenantId,
     requiredPermission: req.body?.requiredPermission,
     requestedScopeType: req.body?.requestedScopeType,
-    requestedScopeRefId: req.body?.requestedScopeRefId,
+    requestedBranchId: req.body?.requestedBranchId,
+    requestedCampusId: req.body?.requestedCampusId,
+    requestedLocationId: req.body?.requestedLocationId,
   });
   return new OKResponse({ message: "Authorization decision", metadata: decision }).send(res);
 });
@@ -93,10 +95,11 @@ const revokeSession = asyncHandler(async (req, res) => {
 });
 
 const listAuditLogs = asyncHandler(async (req, res) => {
-  const logs = await IamService.listAuditLogs({
-    tenantId: req.query?.tenantId ? Number(req.query.tenantId) : undefined,
-    actorUserId: req.query?.actorUserId ? Number(req.query.actorUserId) : undefined,
-  });
+  const logs = await IamService.listAuditLogs(
+    { actorUserId: req.query?.actorUserId ? Number(req.query.actorUserId) : undefined },
+    req.user.id,
+    req.user.activeTenantId
+  );
   return new OKResponse({ message: "IAM audit logs", metadata: { logs } }).send(res);
 });
 

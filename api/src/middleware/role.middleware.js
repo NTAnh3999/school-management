@@ -14,25 +14,17 @@ const requireRole =
   (req, res, next) => {
     try {
       const allowedRoles = normalizeRoles(roles);
-      let userRole =
-        normalizeRole(req.user?.role) ||
-        normalizeRole(req.user?.roleName) ||
-        normalizeRole(req.user?.role_name);
 
-      // Fallback: decode Bearer token if role not present on req.user
-      if (!userRole) {
+      // Defensive fallback only for routes that forgot to attach verifyToken —
+      // req.user is populated fresh from the DB (via resolveAuthorizationContext)
+      // on every request by auth.middleware.js, so it must never be second-guessed
+      // by re-decoding the raw JWT once it exists.
+      if (!req.user) {
         const token = getTokenFromHeader(req);
         if (!token) return next(new UnauthorizedError("Missing Bearer token"));
         try {
           const payload = jwt.verify(token, process.env.JWT_SECRET);
-          userRole =
-            normalizeRole(payload?.role) ||
-            normalizeRole(payload?.roleName) ||
-            normalizeRole(payload?.role_name);
-          req.user = {
-            ...(req.user || payload),
-            role: userRole || payload?.role || payload?.roleName || payload?.role_name,
-          };
+          req.user = { ...payload, role: normalizeRole(payload?.role) || payload?.role };
         } catch (err) {
           if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") {
             return next(new UnauthorizedError("Invalid or expired token"));
@@ -41,8 +33,23 @@ const requireRole =
         }
       }
 
-      if (!userRole) return next(new ForbiddenError("Role missing in token"));
-      req.user = { ...(req.user || {}), role: userRole };
+      if (req.user.tenantContextRequired) {
+        return next(
+          new ForbiddenError("Select an active tenant before performing this action", {
+            errorCode: "IAM_TENANT_CONTEXT_REQUIRED",
+          })
+        );
+      }
+
+      const userRole = normalizeRole(req.user.role);
+      if (!userRole) {
+        return next(
+          new ForbiddenError("No active role assigned for the current tenant", {
+            errorCode: "IAM_NO_ACTIVE_ROLE",
+          })
+        );
+      }
+
       if (!hasRole(userRole, allowedRoles)) {
         return next(new ForbiddenError("Insufficient permissions"));
       }

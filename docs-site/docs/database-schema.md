@@ -6,28 +6,30 @@ The School Management API uses a relational MySQL database with the following st
 
 ### Users
 
-Stores user account information and authentication data.
+Stores login credentials only. There is **no `role_id` column** — a user's role is not a fixed,
+global attribute. It's resolved per request from `iam_role_assignments`, scoped to whichever
+tenant (and optionally branch/campus/location) the session currently has active. See
+[IAM Tables](#iam-tables) below and the [IAM API docs](./api/iam#authorization-model).
 
-| Column          | Type         | Description                |
-| --------------- | ------------ | -------------------------- |
-| id              | INT          | Primary key                |
-| email           | VARCHAR(255) | Unique email address       |
-| password        | VARCHAR(255) | Hashed password            |
-| full_name       | VARCHAR(255) | User's full name           |
-| role_id         | INT          | Foreign key to roles table |
-| profile_picture | VARCHAR(500) | URL to profile image       |
-| created_at      | DATETIME     | Account creation timestamp |
-| updated_at      | DATETIME     | Last update timestamp      |
+| Column        | Type         | Description                |
+| ------------- | ------------ | --------------------------- |
+| id            | INT          | Primary key                 |
+| email         | VARCHAR(120) | Unique email address        |
+| password_hash | VARCHAR(200) | Hashed password              |
+| full_name     | VARCHAR(120) | User's full name             |
+| created_at    | DATETIME     | Account creation timestamp  |
+| updated_at    | DATETIME     | Last update timestamp       |
 
 ### Roles
 
-Defines user roles and permissions.
+Named roles (`admin`, `teacher`, `student`, `parent`, ...). A role only carries meaning through
+the permissions mapped to it (`role_permissions`) and the scoped grants that assign it to a user
+(`iam_role_assignments`).
 
-| Column      | Type        | Description                                           |
-| ----------- | ----------- | ----------------------------------------------------- |
-| id          | INT         | Primary key                                           |
-| name        | VARCHAR(50) | Role name (`admin`, `teacher`, `student`, `parent`)   |
-| description | TEXT        | Role description                                      |
+| Column | Type        | Description |
+| ------ | ----------- | ------------ |
+| id     | INT         | Primary key  |
+| name   | VARCHAR(50) | Role name    |
 
 ### Courses
 
@@ -400,6 +402,104 @@ Versioned snapshots of a course's published content. Supports the DRAFT → REVI
 
 ---
 
+## IAM Tables
+
+See [IAM API docs](./api/iam) for the full authorization model. These tables hold identity,
+membership, and scoped role-assignment data — separate from `users`' bare login credentials.
+
+### IAM User Accounts
+
+One-to-one extension of `users` with login-related state.
+
+| Column         | Type         | Description                                    |
+| -------------- | ------------ | ----------------------------------------------- |
+| id             | INT          | Primary key                                     |
+| user_id        | INT          | FK to users (unique)                            |
+| username       | VARCHAR(100) | Optional unique username (nullable)             |
+| phone          | VARCHAR(30)  | Optional unique phone (nullable)                |
+| status         | ENUM         | `active`, `inactive`, `locked`, `suspended`, `deactivated` |
+| login_methods  | JSON         | Array of enabled login methods                  |
+| last_login_at  | DATETIME     | Last successful login (nullable)                |
+| created_at     | DATETIME     | Creation timestamp                              |
+| updated_at     | DATETIME     | Last update timestamp                           |
+
+### IAM Memberships
+
+Which tenants a user belongs to, and at what scope.
+
+| Column      | Type     | Description                                                        |
+| ----------- | -------- | -------------------------------------------------------------------|
+| id          | INT      | Primary key                                                        |
+| user_id     | INT      | FK to users                                                        |
+| tenant_id   | INT      | FK to tenants                                                      |
+| scope_type  | ENUM     | `tenant`, `branch`, `campus`, `location`                           |
+| branch_id   | INT      | FK to branches (nullable; set only when `scope_type = branch`)     |
+| campus_id   | INT      | FK to campuses (nullable; set only when `scope_type = campus`)     |
+| location_id | INT      | FK to locations (nullable; set only when `scope_type = location`)  |
+| status      | ENUM     | `active`, `inactive`, `revoked`, `expired`                         |
+| expires_at  | DATETIME | Optional expiry (nullable)                                         |
+| created_by  | INT      | FK to users                                                        |
+| updated_by  | INT      | FK to users                                                        |
+| created_at  | DATETIME | Creation timestamp                                                 |
+| updated_at  | DATETIME | Last update timestamp                                              |
+
+### IAM Role Assignments
+
+Which role a user holds, and at what scope — the source of truth for authorization (see
+[Authorization Model](./api/iam#authorization-model)). Assigning a different role at the same
+`(user, tenant, scope)` automatically revokes the prior active assignment there.
+
+| Column      | Type     | Description                                    |
+| ----------- | -------- | ----------------------------------------------- |
+| id          | INT      | Primary key                                    |
+| user_id     | INT      | FK to users                                    |
+| role_id     | INT      | FK to roles                                    |
+| tenant_id   | INT      | FK to tenants                                  |
+| scope_type  | ENUM     | `tenant`, `branch`, `campus`, `location`       |
+| branch_id   | INT      | FK to branches (nullable)                      |
+| campus_id   | INT      | FK to campuses (nullable)                      |
+| location_id | INT      | FK to locations (nullable)                     |
+| status      | ENUM     | `active`, `inactive`, `revoked`                |
+| expires_at  | DATETIME | Optional expiry (nullable)                     |
+| assigned_by | INT      | FK to users                                    |
+| created_at  | DATETIME | Creation timestamp                             |
+| updated_at  | DATETIME | Last update timestamp                          |
+
+### IAM Sessions
+
+One row per issued refresh token / login session.
+
+| Column           | Type     | Description                              |
+| ---------------- | -------- | ------------------------------------------|
+| id               | UUID     | Primary key                              |
+| user_id          | INT      | FK to users                              |
+| active_tenant_id | INT      | FK to tenants (nullable until selected)  |
+| refresh_token    | VARCHAR  | Unique refresh token                     |
+| status           | ENUM     | `active`, `revoked`, `expired`           |
+| expires_at       | DATETIME | Expiry timestamp                         |
+| last_used_at     | DATETIME | Last request timestamp (nullable)        |
+| created_at       | DATETIME | Creation timestamp                       |
+| updated_at       | DATETIME | Last update timestamp                    |
+
+### IAM Audit Logs
+
+Append-only log of IAM/org-structure actions (`iam.role_assignment.supersede`,
+`org.branch.create`, ...), consumed by `GET /api/v1/iam/audit-logs`.
+
+| Column        | Type     | Description                                     |
+| ------------- | -------- | ------------------------------------------------ |
+| id            | INT      | Primary key                                      |
+| actor_user_id | INT      | FK to users (who performed the action)          |
+| tenant_id     | INT      | FK to tenants                                    |
+| action        | VARCHAR  | Action code, e.g. `iam.user.create`             |
+| entity_type   | VARCHAR  | `user`, `membership`, `role_assignment`, `branch`, `campus`, `location`, `role`, `role_permission`, `session` |
+| entity_id     | VARCHAR  | ID of the affected entity                        |
+| status        | VARCHAR  | `success` (default) or an error status          |
+| details       | JSON     | Action-specific payload                          |
+| created_at    | DATETIME | Creation timestamp                               |
+
+---
+
 ## Profile Module Tables
 
 The Profile module stores **business profile data** separately from IAM user accounts. It is the canonical source of educational identity used by portals and downstream modules.
@@ -421,6 +521,20 @@ Represents a school or training center. All profile data is scoped to a tenant.
 | status      | ENUM         | `active`, `inactive`                 |
 | created_at  | DATETIME     | Creation timestamp                   |
 | updated_at  | DATETIME     | Last update timestamp                |
+
+### Branches, Campuses, Locations
+
+The physical org structure a tenant is divided into — see [Org Structure API](./api/org-structure)
+and how [IAM scope](./api/iam#scope-tenant--branch--campus--location) is checked against this
+hierarchy. `tenant_id` (and `branch_id` on campuses/locations) is denormalized onto child tables
+for cheap scope comparisons; the API always derives it from the parent record rather than
+trusting client input, so it can't drift from the true hierarchy.
+
+**`branches`** — `id`, `tenant_id` (FK), `branch_code`, `branch_name`, `status` (`active`/`inactive`). Unique on `(tenant_id, branch_code)`.
+
+**`campuses`** — `id`, `tenant_id` (FK, derived), `branch_id` (FK), `campus_code`, `campus_name`, `status`. Unique on `(branch_id, campus_code)`.
+
+**`locations`** — `id`, `tenant_id` (FK, derived), `branch_id` (FK, derived), `campus_id` (FK), `parent_location_id` (FK to `locations`, nullable, for nesting), `location_code`, `location_name`, `location_type` (`building`/`floor`/`room`/`hall`/`lab`/`outdoor`/`virtual`), `capacity`, `status`, `metadata` (JSON). Unique on `(campus_id, location_code)`.
 
 ### Profiles
 
