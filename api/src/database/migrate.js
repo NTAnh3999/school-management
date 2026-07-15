@@ -13,6 +13,7 @@ require("dotenv").config();
 const mysql = require("mysql2/promise");
 const fs = require("fs").promises;
 const path = require("path");
+const nodeCrypto = require("crypto");
 
 const config = {
   host: process.env.DB_HOST || "localhost",
@@ -94,7 +95,7 @@ class MigrationRunner {
   }
 
   calculateChecksum(content) {
-    return crypto.createHash("sha256").update(content).digest("hex");
+    return nodeCrypto.createHash("sha256").update(content).digest("hex");
   }
 
   async runMigration(migration) {
