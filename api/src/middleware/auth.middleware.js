@@ -59,7 +59,7 @@ const buildIamUser = async (payload) => {
   return {
     id: user.id,
     email: user.email,
-    role: authContext.roles?.[0]?.name || buildLegacyUser(payload).role,
+    role: authContext.roles?.[0]?.name || null,
     sessionId: session.id,
     activeTenantId: session.active_tenant_id,
     tenantContextRequired: !session.active_tenant_id,

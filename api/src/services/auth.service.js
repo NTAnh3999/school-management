@@ -9,7 +9,7 @@ const {
 } = require("../utils/error-responses");
 const { ROLES } = require("../constants/roles");
 const { SESSION_STATUSES } = require("../constants/iam");
-const { IamSession, Role, User } = require("../models");
+const { IamSession, User } = require("../models");
 const {
   assertUserAccountActive,
   buildUserResponse,
@@ -47,8 +47,7 @@ const signAccessToken = (user, session, authContext) => {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new InternalServerError("JWT configuration missing");
 
-  const primaryRole =
-    authContext?.roles?.[0]?.name || user.role?.name || user.role || ROLES.STUDENT;
+  const primaryRole = authContext?.roles?.[0]?.name || null;
 
   const payload = {
     id: user.id,
@@ -103,12 +102,12 @@ const register = async ({ email, password, fullName, roleName }, req) => {
   const existing = await User.findOne({ where: { email } });
   if (existing) throw new ConflictError("Email already in use");
 
-  const role = (await resolveRole({ roleName })) || (await resolveRole({ roleName: ROLES.STUDENT }));
+  const role =
+    (await resolveRole({ roleName })) || (await resolveRole({ roleName: ROLES.STUDENT }));
   const user = await User.create({
     email,
     password_hash: await bcrypt.hash(password, 10),
     full_name: fullName,
-    role_id: role.id,
   });
 
   await ensureIamAccount(user.id);
@@ -145,12 +144,10 @@ const login = async ({ email, password, tenantId }, req) => {
   if (!email || !password) throw new BadRequestError("Missing email or password");
   const user = await User.findOne({
     where: { email },
-    include: [
-      { model: Role, as: "role" },
-      { association: "iam_account" },
-    ],
+    include: [{ association: "iam_account" }],
   });
-  if (!user) throw new UnauthorizedError("Invalid credentials", { errorCode: "AUTH_INVALID_CREDENTIAL" });
+  if (!user)
+    throw new UnauthorizedError("Invalid credentials", { errorCode: "AUTH_INVALID_CREDENTIAL" });
 
   const match = await bcrypt.compare(password, user.password_hash);
   if (!match) {
@@ -272,7 +269,8 @@ const switchTenant = async ({ userId, sessionId, selectedTenantId }, req) => {
       status: SESSION_STATUSES.ACTIVE,
     },
   });
-  if (!session) throw new UnauthorizedError("Session revoked", { errorCode: "AUTH_SESSION_REVOKED" });
+  if (!session)
+    throw new UnauthorizedError("Session revoked", { errorCode: "AUTH_SESSION_REVOKED" });
 
   const user = await getUserWithIam(userId);
   await assertUserAccountActive(user);

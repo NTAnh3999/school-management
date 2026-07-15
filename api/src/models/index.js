@@ -56,10 +56,6 @@ const ScheduleChangeRecord = require("./schedule-change-record.model");
 const LiveSessionMetadata = require("./live-session-metadata.model");
 
 // Define associations
-// User - Role
-User.belongsTo(Role, { foreignKey: "role_id", as: "role" });
-Role.hasMany(User, { foreignKey: "role_id", as: "role_users" });
-
 // Role - Permission
 Role.belongsToMany(Permission, {
   through: RolePermission,

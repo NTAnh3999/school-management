@@ -122,7 +122,7 @@ const buildUserResponse = (
   if (!userInstance) return null;
   const user = toPlain(userInstance);
   const account = user.iam_account || user.iamAccount || null;
-  const role = normalizeRole(user.role?.name || user.role) || user.role?.name || user.role;
+  const role = roles[0]?.name || null;
 
   return {
     id: user.id,
@@ -178,18 +178,12 @@ const ensureIamAccount = async (userOrId, defaults = {}) => {
 
 const getUserWithIam = async (userId) => {
   const user = await User.findByPk(userId, {
-    include: [
-      { model: Role, as: "role" },
-      { model: IamUserAccount, as: "iam_account" },
-    ],
+    include: [{ model: IamUserAccount, as: "iam_account" }],
   });
   if (!user) throw new NotFoundError("User not found");
   await ensureIamAccount(user);
   return User.findByPk(userId, {
-    include: [
-      { model: Role, as: "role" },
-      { model: IamUserAccount, as: "iam_account" },
-    ],
+    include: [{ model: IamUserAccount, as: "iam_account" }],
   });
 };
 
@@ -288,11 +282,6 @@ const resolveAuthorizationContext = async (userInstanceOrId, activeTenantId = nu
     : [];
 
   const roles = [];
-  const baseRole = user.role
-    ? { id: user.role.id, name: normalizeRole(user.role.name) || user.role.name }
-    : null;
-
-  if (baseRole) roles.push(baseRole);
   for (const assignment of roleAssignments) {
     if (assignment.role) {
       roles.push({ id: assignment.role.id, name: normalizeRole(assignment.role.name) || assignment.role.name });
@@ -608,7 +597,6 @@ const updateUser = async (userId, payload, actor, req) => {
   }
 
   if (payload.fullName) user.full_name = payload.fullName;
-  if (role) user.role_id = role.id;
   if (payload.password) user.password_hash = await bcrypt.hash(payload.password, 10);
   await user.save();
 

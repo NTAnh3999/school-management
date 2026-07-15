@@ -22,15 +22,14 @@ CREATE TABLE IF NOT EXISTS departments (
 ) ENGINE=InnoDB;
 
 -- Users table
+-- Role is assigned per-tenant via iam_role_assignments (see migration 012), not a flat column here.
 CREATE TABLE IF NOT EXISTS users (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   email VARCHAR(120) NOT NULL UNIQUE,
   password_hash VARCHAR(200) NOT NULL,
   full_name VARCHAR(120) NOT NULL,
-  role_id INT UNSIGNED NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_users_role FOREIGN KEY (role_id) REFERENCES roles(id)
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
 -- Refresh tokens table

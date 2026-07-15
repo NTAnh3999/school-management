@@ -4,7 +4,9 @@ const asyncHandler = require("../utils/async-handler");
 
 const getMe = asyncHandler(async (req, res) => {
   const user = await UserService.getMe(req.user.id);
-  return new OKResponse({ metadata: { user } }).send(res);
+  return new OKResponse({
+    metadata: { user: { ...user.get({ plain: true }), role: req.user.role } },
+  }).send(res);
 });
 
 const updateMe = asyncHandler(async (req, res) => {

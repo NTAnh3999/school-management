@@ -1,11 +1,9 @@
 const { NotFoundError, BadRequestError } = require("../utils/error-responses");
 const { User } = require("../models");
-const Role = require("../models/role.model");
 
 const getMe = async (userId) => {
   const user = await User.findByPk(userId, {
     attributes: ["id", "email", "full_name"],
-    include: [{ model: Role, as: "role" }],
   });
   if (!user) throw new NotFoundError("User not found");
   return user;

@@ -8,11 +8,6 @@ const User = sequelize.define(
     email: { type: DataTypes.STRING(120), allowNull: false, unique: true },
     password_hash: { type: DataTypes.STRING(200), allowNull: false },
     full_name: { type: DataTypes.STRING(120), allowNull: false },
-    role_id: {
-      type: DataTypes.INTEGER.UNSIGNED,
-      allowNull: false,
-      references: { model: "roles", key: "id" },
-    },
   },
   {
     tableName: "users",
