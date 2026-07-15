@@ -22,6 +22,7 @@ const sidebars: SidebarsConfig = {
       items: [
         "api/authentication",
         "api/iam",
+        "api/org-structure",
         "api/profiles",
         "api/courses",
         "api/enrollments",

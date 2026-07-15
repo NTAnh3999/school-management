@@ -117,6 +117,48 @@ const IAM_PERMISSION_DEFINITIONS = Object.freeze([
     resource: "tenant",
     action: "switch",
   },
+  {
+    code: "org.branch.view",
+    description: "View branches",
+    module: "org",
+    resource: "branch",
+    action: "view",
+  },
+  {
+    code: "org.branch.manage",
+    description: "Create and update branches",
+    module: "org",
+    resource: "branch",
+    action: "manage",
+  },
+  {
+    code: "org.campus.view",
+    description: "View campuses",
+    module: "org",
+    resource: "campus",
+    action: "view",
+  },
+  {
+    code: "org.campus.manage",
+    description: "Create and update campuses",
+    module: "org",
+    resource: "campus",
+    action: "manage",
+  },
+  {
+    code: "org.location.view",
+    description: "View locations",
+    module: "org",
+    resource: "location",
+    action: "view",
+  },
+  {
+    code: "org.location.manage",
+    description: "Create and update locations",
+    module: "org",
+    resource: "location",
+    action: "manage",
+  },
 ]);
 
 module.exports = {

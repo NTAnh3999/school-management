@@ -64,7 +64,8 @@ curl -X GET http://localhost:8080/api/v1/courses \
 ## API Reference
 
 - **[Authentication](./api/authentication)** - register, login, refresh, logout
-- **[IAM](./api/iam)** - user accounts, memberships, permissions, authorization checks
+- **[IAM](./api/iam)** - user accounts, memberships, scoped role assignments, authorization checks
+- **[Org Structure](./api/org-structure)** - branches, campuses, and locations that IAM scope is checked against
 - **[Profiles](./api/profiles)** - business profile data for students, parents, teachers, and staff
 - **[Courses](./api/courses)** - course catalog and lifecycle
 - **[Enrollments](./api/enrollments)** - eligibility, enrollment state, activation, suspension, completion
@@ -112,5 +113,6 @@ Errors use the shared error format:
 | Admin   | admin@schoolhub.io   | Admin@123   |
 | Teacher | teacher@schoolhub.io | Teacher@123 |
 | Student | student@schoolhub.io | Student@123 |
+| Parent  | parent@schoolhub.io  | Parent@123  |
 
 Start with [Authentication](./api/authentication) if you need a token first.

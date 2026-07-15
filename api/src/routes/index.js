@@ -7,6 +7,7 @@ router.get("/health", (req, res) => res.json({ status: "ok" }));
 // Route groups
 router.use("/auth", require("./auth.routes"));
 router.use("/iam", require("./iam.routes"));
+router.use("/org", require("./org-structure.routes"));
 router.use("/users", require("./user.routes"));
 router.use("/courses", require("./course.routes"));
 router.use("/enrollments", require("./enrollment.routes"));

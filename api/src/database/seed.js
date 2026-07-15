@@ -1,8 +1,12 @@
 const bcrypt = require("bcryptjs");
-const { Role, User, Tenant, Permission, RolePermission } = require("../models");
+const { Role, User, Tenant, Permission, RolePermission, Branch, Campus } = require("../models");
 const { ROLES } = require("../constants/roles");
 const { IAM_PERMISSION_DEFINITIONS } = require("../constants/iam");
-const { ensureIamAccount, ensureMembership, ensureRoleAssignment } = require("../services/iam.service");
+const {
+  ensureIamAccount,
+  ensureMembership,
+  ensureRoleAssignment,
+} = require("../services/iam.service");
 
 const DEFAULT_ACCOUNTS = [
   {
@@ -54,7 +58,6 @@ const ensureDefaultAccounts = async () => {
       email: account.email,
       password_hash,
       full_name: account.fullName,
-      role_id: role.id,
     });
   }
 };
@@ -140,23 +143,47 @@ const ensureDefaultRolePermissions = async () => {
   }
 };
 
+const ensureDefaultOrgStructure = async () => {
+  const defaultTenant = await Tenant.findOne({ where: { tenant_code: "DEFAULT" } });
+  if (!defaultTenant) return;
+
+  const [branch] = await Branch.findOrCreate({
+    where: { tenant_id: defaultTenant.id, branch_code: "MAIN" },
+    defaults: {
+      tenant_id: defaultTenant.id,
+      branch_code: "MAIN",
+      branch_name: "Main Branch",
+    },
+  });
+
+  await Campus.findOrCreate({
+    where: { branch_id: branch.id, campus_code: "MAIN" },
+    defaults: {
+      tenant_id: defaultTenant.id,
+      branch_id: branch.id,
+      campus_code: "MAIN",
+      campus_name: "Main Campus",
+    },
+  });
+};
+
 const ensureDefaultIamIdentity = async () => {
   const defaultTenant = await Tenant.findOne({ where: { tenant_code: "DEFAULT" } });
   if (!defaultTenant) return;
 
   for (const account of DEFAULT_ACCOUNTS) {
-    const user = await User.findOne({
-      where: { email: account.email },
-      include: [{ model: Role, as: "role" }],
-    });
+    const user = await User.findOne({ where: { email: account.email } });
     if (!user) continue;
+
+    const role = await Role.findOne({ where: { name: account.roleName } });
+    if (!role) continue;
 
     await ensureIamAccount(user.id);
     await ensureMembership({ userId: user.id, tenantId: defaultTenant.id });
     await ensureRoleAssignment({
       userId: user.id,
       tenantId: defaultTenant.id,
-      roleId: user.role_id,
+      roleId: role.id,
     });
   }
 };
@@ -164,6 +191,7 @@ const ensureDefaultIamIdentity = async () => {
 const ensureSeedData = async () => {
   await ensureRoles();
   await ensureDefaultTenant();
+  await ensureDefaultOrgStructure();
   await ensureDefaultAccounts();
   await ensurePermissions();
   await ensureDefaultRolePermissions();

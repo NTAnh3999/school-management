@@ -6,6 +6,9 @@ const Permission = require("./permission.model");
 const RolePermission = require("./role-permission.model");
 const Department = require("./department.model");
 const Tenant = require("./tenant.model");
+const Branch = require("./branch.model");
+const Campus = require("./campus.model");
+const Location = require("./location.model");
 const IamUserAccount = require("./iam-user-account.model");
 const IamMembership = require("./iam-membership.model");
 const IamRoleAssignment = require("./iam-role-assignment.model");
@@ -91,6 +94,35 @@ Role.hasMany(IamRoleAssignment, { foreignKey: "role_id", as: "assignments" });
 IamRoleAssignment.belongsTo(Role, { foreignKey: "role_id", as: "role" });
 Tenant.hasMany(IamRoleAssignment, { foreignKey: "tenant_id", as: "role_assignments" });
 IamRoleAssignment.belongsTo(Tenant, { foreignKey: "tenant_id", as: "tenant" });
+
+// ---------------------------------------------------------------------------
+// Org structure: Tenant -> Branch -> Campus -> Location (self-referencing)
+// ---------------------------------------------------------------------------
+Tenant.hasMany(Branch, { foreignKey: "tenant_id", as: "branches" });
+Branch.belongsTo(Tenant, { foreignKey: "tenant_id", as: "tenant" });
+
+Branch.hasMany(Campus, { foreignKey: "branch_id", as: "campuses" });
+Campus.belongsTo(Branch, { foreignKey: "branch_id", as: "branch" });
+Tenant.hasMany(Campus, { foreignKey: "tenant_id", as: "campuses" });
+Campus.belongsTo(Tenant, { foreignKey: "tenant_id", as: "tenant" });
+
+Campus.hasMany(Location, { foreignKey: "campus_id", as: "locations" });
+Location.belongsTo(Campus, { foreignKey: "campus_id", as: "campus" });
+Branch.hasMany(Location, { foreignKey: "branch_id", as: "locations" });
+Location.belongsTo(Branch, { foreignKey: "branch_id", as: "branch" });
+Tenant.hasMany(Location, { foreignKey: "tenant_id", as: "locations" });
+Location.belongsTo(Tenant, { foreignKey: "tenant_id", as: "tenant" });
+
+Location.belongsTo(Location, { foreignKey: "parent_location_id", as: "parent_location" });
+Location.hasMany(Location, { foreignKey: "parent_location_id", as: "child_locations" });
+
+// IAM memberships / role assignments - org structure scope
+IamMembership.belongsTo(Branch, { foreignKey: "branch_id", as: "branch" });
+IamMembership.belongsTo(Campus, { foreignKey: "campus_id", as: "campus" });
+IamMembership.belongsTo(Location, { foreignKey: "location_id", as: "location" });
+IamRoleAssignment.belongsTo(Branch, { foreignKey: "branch_id", as: "branch" });
+IamRoleAssignment.belongsTo(Campus, { foreignKey: "campus_id", as: "campus" });
+IamRoleAssignment.belongsTo(Location, { foreignKey: "location_id", as: "location" });
 
 // User - IAM sessions
 User.hasMany(IamSession, { foreignKey: "user_id", as: "iam_sessions" });
@@ -409,6 +441,9 @@ module.exports = {
   Permission,
   RolePermission,
   Tenant,
+  Branch,
+  Campus,
+  Location,
   IamUserAccount,
   IamMembership,
   IamRoleAssignment,
