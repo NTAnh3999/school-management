@@ -7,11 +7,7 @@ const asyncHandler = require("../utils/async-handler");
 // ENR-01: Request Enrollment
 // ---------------------------------------------------------------------------
 const requestEnrollment = asyncHandler(async (req, res) => {
-  const enrollment = await EnrollmentService.requestEnrollment(
-    req.body,
-    req.user.id,
-    req.user.role
-  );
+  const enrollment = await EnrollmentService.requestEnrollment(req.body, req.user);
   return new CreatedResponse({
     message: "Enrollment request created",
     metadata: { enrollment },
@@ -27,6 +23,13 @@ const list = asyncHandler(async (req, res) => {
     course_id: req.query.course_id,
     learner_id: req.query.learner_id,
     request_source: req.query.request_source,
+    tenant_id: req.query.tenant_id,
+    classroom_id: req.query.classroom_id,
+    enrollment_level: req.query.enrollment_level,
+    learner_profile_id: req.query.learner_profile_id,
+    requested_from: req.query.requested_from,
+    requested_to: req.query.requested_to,
+    actor_tenant_id: req.user.activeTenantId,
     page: req.query.page,
     page_size: req.query.page_size,
   };
@@ -50,14 +53,23 @@ const detail = asyncHandler(async (req, res) => {
 // ENR-02: Validate Eligibility
 // ---------------------------------------------------------------------------
 const validateEligibility = asyncHandler(async (req, res) => {
-  const { learner_id, course_id } = req.query;
-  const result = await EnrollmentService.validateEligibility(
-    parseInt(learner_id),
-    parseInt(course_id),
-    req.user.id,
-    req.user.role
+  const payload = { ...req.query, ...req.body };
+  if (req.params.id && (!payload.learner_id || !payload.course_id)) {
+    const enrollment = await EnrollmentService.detail(
+      parseInt(req.params.id),
+      req.user.id,
+      req.user.role
+    );
+    payload.learner_id = enrollment.student_id;
+    payload.course_id = enrollment.course_id;
+    payload.classroom_id = enrollment.classroom_id;
+    payload.learner_profile_id = enrollment.learner_profile_id;
+    payload.tenant_id = enrollment.tenant_id;
+  }
+  const result = await EnrollmentService.validateEligibility(payload, req.user);
+  return new OKResponse({ message: "Eligibility checked", metadata: { eligibility: result } }).send(
+    res
   );
-  return new OKResponse({ message: "Eligibility checked", metadata: { eligibility: result } }).send(res);
 });
 
 // ---------------------------------------------------------------------------
@@ -144,14 +156,21 @@ const getHistory = asyncHandler(async (req, res) => {
 // ENR-08: Query Enrollment Access State
 // ---------------------------------------------------------------------------
 const queryAccessState = asyncHandler(async (req, res) => {
-  const { learner_id, course_id } = req.query;
-  const state = await EnrollmentService.queryAccessState(
-    parseInt(learner_id),
-    parseInt(course_id),
-    req.user.id,
-    req.user.role
-  );
+  const state = await EnrollmentService.queryAccessState(req.query, req.user);
   return new OKResponse({ metadata: { access: state } }).send(res);
+});
+
+// ---------------------------------------------------------------------------
+// ENR-09: Export Enrollment
+// ---------------------------------------------------------------------------
+const exportEnrollments = asyncHandler(async (req, res) => {
+  const buffer = await EnrollmentService.exportEnrollments(req.query, req.user);
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader("Content-Disposition", `attachment; filename="enrollments_${Date.now()}.xlsx"`);
+  return res.send(buffer);
 });
 
 // ---------------------------------------------------------------------------
@@ -190,6 +209,7 @@ module.exports = {
   completeEnrollment,
   getHistory,
   queryAccessState,
+  exportEnrollments,
   handlePaymentConfirmed,
   handlePaymentFailed,
 };

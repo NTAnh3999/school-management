@@ -30,10 +30,14 @@ router.get(
   validate([
     query("status").optional().isIn(VALID_STATUSES),
     query("course_id").optional().isInt({ min: 1 }),
+    query("classroom_id").optional().isInt({ min: 1 }),
     query("learner_id").optional().isInt({ min: 1 }),
-    query("request_source")
-      .optional()
-      .isIn(["student", "parent", "admin", "system", "import"]),
+    query("learner_profile_id").optional().isInt({ min: 1 }),
+    query("tenant_id").optional().isInt({ min: 1 }),
+    query("enrollment_level").optional().isIn(["course", "classroom"]),
+    query("request_source").optional().isIn(["student", "parent", "admin", "system", "import"]),
+    query("requested_from").optional().isISO8601(),
+    query("requested_to").optional().isISO8601(),
     query("page").optional().isInt({ min: 1 }),
     query("page_size").optional().isInt({ min: 1, max: 100 }),
   ]),
@@ -50,8 +54,10 @@ router.get(
   AuthMiddleware.verifyToken,
   RoleMiddleware.requireRole([ROLES.ADMIN, ROLES.TEACHER]),
   validate([
-    query("learner_id").isInt({ min: 1 }).withMessage("learner_id is required"),
+    query("learner_id").optional().isInt({ min: 1 }),
     query("course_id").isInt({ min: 1 }).withMessage("course_id is required"),
+    query("classroom_id").optional().isInt({ min: 1 }),
+    query("learner_profile_id").optional().isInt({ min: 1 }),
   ]),
   EnrollmentController.validateEligibility
 );
@@ -67,6 +73,7 @@ router.get(
   validate([
     query("learner_id").isInt({ min: 1 }).withMessage("learner_id is required"),
     query("course_id").isInt({ min: 1 }).withMessage("course_id is required"),
+    query("classroom_id").optional().isInt({ min: 1 }),
   ]),
   EnrollmentController.queryAccessState
 );
@@ -79,16 +86,42 @@ router.get(
 router.post(
   "/",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole([ROLES.ADMIN, ROLES.STUDENT]),
+  RoleMiddleware.requireRole([ROLES.ADMIN, ROLES.STUDENT, ROLES.PARENT]),
   validate([
-    body("learner_id").isInt({ min: 1 }).withMessage("learner_id is required"),
+    body("tenant_id").optional().isInt({ min: 1 }),
+    body("learner_id").optional().isInt({ min: 1 }),
+    body("learner_profile_id").optional().isInt({ min: 1 }),
     body("course_id").isInt({ min: 1 }).withMessage("course_id is required"),
-    body("request_source")
-      .optional()
-      .isIn(["student", "parent", "admin", "system", "import"]),
+    body("classroom_id").optional().isInt({ min: 1 }),
+    body("request_source").optional().isIn(["student", "parent", "admin", "system", "import"]),
     body("payment_reference").optional().isString().isLength({ max: 100 }),
+    body("idempotency_key").optional().isString().isLength({ max: 120 }),
   ]),
   EnrollmentController.requestEnrollment
+);
+
+// ---------------------------------------------------------------------------
+// ENR-12: Export Enrollment
+// GET /enrollments/export
+// Admin only
+// ---------------------------------------------------------------------------
+router.get(
+  "/export",
+  AuthMiddleware.verifyToken,
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
+  validate([
+    query("status").optional().isIn(VALID_STATUSES),
+    query("course_id").optional().isInt({ min: 1 }),
+    query("classroom_id").optional().isInt({ min: 1 }),
+    query("learner_id").optional().isInt({ min: 1 }),
+    query("learner_profile_id").optional().isInt({ min: 1 }),
+    query("tenant_id").optional().isInt({ min: 1 }),
+    query("enrollment_level").optional().isIn(["course", "classroom"]),
+    query("request_source").optional().isIn(["student", "parent", "admin", "system", "import"]),
+    query("requested_from").optional().isISO8601(),
+    query("requested_to").optional().isISO8601(),
+  ]),
+  EnrollmentController.exportEnrollments
 );
 
 // ---------------------------------------------------------------------------
@@ -145,11 +178,38 @@ router.get(
 );
 
 // ---------------------------------------------------------------------------
+// ENR-02: Validate Eligibility for an existing enrollment
+// POST /enrollments/:id/eligibility
+// Admin, Teacher only
+// ---------------------------------------------------------------------------
+router.post(
+  "/:id/eligibility",
+  AuthMiddleware.verifyToken,
+  RoleMiddleware.requireRole([ROLES.ADMIN, ROLES.TEACHER]),
+  validate([
+    param("id").isInt({ min: 1 }),
+    body("learner_id").optional().isInt({ min: 1 }),
+    body("course_id").optional().isInt({ min: 1 }),
+    body("classroom_id").optional().isInt({ min: 1 }),
+    body("learner_profile_id").optional().isInt({ min: 1 }),
+  ]),
+  EnrollmentController.validateEligibility
+);
+
+// ---------------------------------------------------------------------------
 // ENR-03: Activate Enrollment
 // PUT /enrollments/:id/activate
 // Admin only
 // ---------------------------------------------------------------------------
 router.put(
+  "/:id/activate",
+  AuthMiddleware.verifyToken,
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
+  validate([param("id").isInt({ min: 1 })]),
+  EnrollmentController.activateEnrollment
+);
+
+router.post(
   "/:id/activate",
   AuthMiddleware.verifyToken,
   RoleMiddleware.requireRole([ROLES.ADMIN]),
@@ -174,12 +234,32 @@ router.put(
   EnrollmentController.suspendEnrollment
 );
 
+router.post(
+  "/:id/suspend",
+  AuthMiddleware.verifyToken,
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
+  validate([
+    param("id").isInt({ min: 1 }),
+    body("reason_code").optional().isString().isLength({ max: 100 }),
+    body("reason_message").optional().isString(),
+  ]),
+  EnrollmentController.suspendEnrollment
+);
+
 // ---------------------------------------------------------------------------
 // ENR-04: Resume Enrollment
 // PUT /enrollments/:id/resume
 // Admin only
 // ---------------------------------------------------------------------------
 router.put(
+  "/:id/resume",
+  AuthMiddleware.verifyToken,
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
+  validate([param("id").isInt({ min: 1 })]),
+  EnrollmentController.resumeEnrollment
+);
+
+router.post(
   "/:id/resume",
   AuthMiddleware.verifyToken,
   RoleMiddleware.requireRole([ROLES.ADMIN]),
@@ -195,7 +275,19 @@ router.put(
 router.put(
   "/:id/cancel",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole([ROLES.ADMIN, ROLES.STUDENT]),
+  RoleMiddleware.requireRole([ROLES.ADMIN, ROLES.STUDENT, ROLES.PARENT]),
+  validate([
+    param("id").isInt({ min: 1 }),
+    body("reason_code").optional().isString().isLength({ max: 100 }),
+    body("reason_message").optional().isString(),
+  ]),
+  EnrollmentController.cancelEnrollment
+);
+
+router.post(
+  "/:id/cancel",
+  AuthMiddleware.verifyToken,
+  RoleMiddleware.requireRole([ROLES.ADMIN, ROLES.STUDENT, ROLES.PARENT]),
   validate([
     param("id").isInt({ min: 1 }),
     body("reason_code").optional().isString().isLength({ max: 100 }),
@@ -210,6 +302,14 @@ router.put(
 // Admin only
 // ---------------------------------------------------------------------------
 router.put(
+  "/:id/complete",
+  AuthMiddleware.verifyToken,
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
+  validate([param("id").isInt({ min: 1 })]),
+  EnrollmentController.completeEnrollment
+);
+
+router.post(
   "/:id/complete",
   AuthMiddleware.verifyToken,
   RoleMiddleware.requireRole([ROLES.ADMIN]),

@@ -48,6 +48,7 @@ const ContentAsset = require("./content-asset.model");
 const LearningItem = require("./learning-item.model");
 const ContentVersion = require("./content-version.model");
 const EnrollmentHistory = require("./enrollment-history.model");
+const EnrollmentEventOutbox = require("./enrollment-event-outbox.model");
 const EligibilityResult = require("./eligibility-result.model");
 const PaymentReference = require("./payment-reference.model");
 const Classroom = require("./classroom.model");
@@ -149,10 +150,16 @@ Lesson.belongsTo(CourseModule, { foreignKey: "module_id", as: "module" });
 CourseModule.hasMany(Lesson, { foreignKey: "module_id", as: "lessons" });
 
 // Enrollment - User (Student) & Course
+Enrollment.belongsTo(Tenant, { foreignKey: "tenant_id", as: "tenant" });
+Enrollment.belongsTo(Profile, { foreignKey: "learner_profile_id", as: "learner_profile" });
 Enrollment.belongsTo(User, { foreignKey: "student_id", as: "student" });
 Enrollment.belongsTo(Course, { foreignKey: "course_id", as: "course" });
+Enrollment.belongsTo(Classroom, { foreignKey: "classroom_id", as: "classroom" });
+Tenant.hasMany(Enrollment, { foreignKey: "tenant_id", as: "enrollments" });
+Profile.hasMany(Enrollment, { foreignKey: "learner_profile_id", as: "enrollments" });
 User.hasMany(Enrollment, { foreignKey: "student_id", as: "enrollments" });
 Course.hasMany(Enrollment, { foreignKey: "course_id", as: "enrollments" });
+Classroom.hasMany(Enrollment, { foreignKey: "classroom_id", as: "lifecycle_enrollments" });
 
 // LessonProgress - Enrollment & Lesson
 LessonProgress.belongsTo(Enrollment, { foreignKey: "enrollment_id", as: "enrollment" });
@@ -305,6 +312,16 @@ Course.hasMany(ContentVersion, { foreignKey: "course_id", as: "content_versions"
 Enrollment.hasMany(EnrollmentHistory, { foreignKey: "enrollment_id", as: "history" });
 EnrollmentHistory.belongsTo(Enrollment, { foreignKey: "enrollment_id", as: "enrollment" });
 EnrollmentHistory.belongsTo(User, { foreignKey: "changed_by", as: "changed_by_user" });
+
+// Enrollment event outbox
+Enrollment.hasMany(EnrollmentEventOutbox, {
+  foreignKey: "enrollment_id",
+  as: "event_outbox_entries",
+});
+EnrollmentEventOutbox.belongsTo(Enrollment, { foreignKey: "enrollment_id", as: "enrollment" });
+EnrollmentEventOutbox.belongsTo(User, { foreignKey: "learner_id", as: "learner" });
+EnrollmentEventOutbox.belongsTo(Course, { foreignKey: "course_id", as: "course" });
+EnrollmentEventOutbox.belongsTo(Classroom, { foreignKey: "classroom_id", as: "classroom" });
 
 // EligibilityResult - Enrollment, User (learner), Course
 EligibilityResult.belongsTo(User, { foreignKey: "learner_id", as: "learner" });
@@ -484,6 +501,7 @@ module.exports = {
   LearningItem,
   ContentVersion,
   EnrollmentHistory,
+  EnrollmentEventOutbox,
   EligibilityResult,
   PaymentReference,
   Classroom,
