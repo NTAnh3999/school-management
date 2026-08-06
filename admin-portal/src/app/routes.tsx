@@ -46,6 +46,13 @@ const ContentApprovalQueue = lazy(() =>
   import("./pages/courses/ContentApprovalQueue").then((m) => ({ default: m.ContentApprovalQueue })),
 );
 
+const DepartmentList = lazy(() =>
+  import("./pages/academic/DepartmentList").then((m) => ({ default: m.DepartmentList })),
+);
+const DepartmentForm = lazy(() =>
+  import("./pages/academic/DepartmentForm").then((m) => ({ default: m.DepartmentForm })),
+);
+
 const ClassroomList = lazy(() =>
   import("./pages/classrooms/ClassroomList").then((m) => ({ default: m.ClassroomList })),
 );
@@ -156,6 +163,10 @@ export const router = createBrowserRouter([
           { path: "profiles", element: <PageSuspense><ProfileList /></PageSuspense> },
           { path: "profiles/:id", element: <PageSuspense><ProfileDetail /></PageSuspense> },
           { path: "relationships", element: <PageSuspense><RelationshipsHome /></PageSuspense> },
+
+          { path: "departments", element: <PageSuspense><DepartmentList /></PageSuspense> },
+          { path: "departments/new", element: <PageSuspense><DepartmentForm /></PageSuspense> },
+          { path: "departments/:id/edit", element: <PageSuspense><DepartmentForm /></PageSuspense> },
 
           { path: "courses", element: <PageSuspense><CourseList /></PageSuspense> },
           { path: "courses/new", element: <PageSuspense><CourseForm /></PageSuspense> },
