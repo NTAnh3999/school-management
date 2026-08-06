@@ -80,7 +80,7 @@ class MigrationRunner {
   async getMigrationFiles() {
     const files = await fs.readdir(MIGRATIONS_DIR);
     return files
-      .filter((file) => file.endsWith(".sql"))
+      .filter((file) => file.endsWith(".sql") && !file.endsWith(".down.sql"))
       .sort()
       .map((file) => ({
         name: file.replace(".sql", ""),
@@ -111,9 +111,13 @@ class MigrationRunner {
 
       const executionTime = Date.now() - startTime;
 
-      // Record the migration
+      // Record the migration. ON DUPLICATE KEY UPDATE because 000_create_migrations_table.sql
+      // self-registers its own row (it has to exist before any migration can be tracked) --
+      // this just fills in the real execution_time_ms/checksum for that row instead of
+      // colliding with it.
       await this.connection.query(
-        `INSERT INTO ${MIGRATIONS_TABLE} (migration_name, execution_time_ms, checksum) VALUES (?, ?, ?)`,
+        `INSERT INTO ${MIGRATIONS_TABLE} (migration_name, execution_time_ms, checksum) VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE execution_time_ms = VALUES(execution_time_ms), checksum = VALUES(checksum)`,
         [migration.name, executionTime, checksum]
       );
 
