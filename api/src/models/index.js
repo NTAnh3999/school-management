@@ -281,6 +281,12 @@ User.hasMany(Notification, { foreignKey: "user_id", as: "notifications" });
 Department.hasMany(Course, { foreignKey: "department_id", as: "courses" });
 Course.belongsTo(Department, { foreignKey: "department_id", as: "department" });
 
+// Tenant - Department
+Tenant.hasMany(Department, { foreignKey: "tenant_id", as: "departments" });
+Department.belongsTo(Tenant, { foreignKey: "tenant_id", as: "tenant" });
+Department.belongsTo(User, { foreignKey: "created_by", as: "creator" });
+Department.belongsTo(User, { foreignKey: "updated_by", as: "updater" });
+
 // CoursePrerequisite - Course (main course)
 Course.hasMany(CoursePrerequisite, { foreignKey: "course_id", as: "prerequisites" });
 CoursePrerequisite.belongsTo(Course, { foreignKey: "course_id", as: "course" });

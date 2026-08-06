@@ -159,6 +159,20 @@ const IAM_PERMISSION_DEFINITIONS = Object.freeze([
     resource: "location",
     action: "manage",
   },
+  {
+    code: "academic.department.view",
+    description: "View departments",
+    module: "academic",
+    resource: "department",
+    action: "view",
+  },
+  {
+    code: "academic.department.manage",
+    description: "Create, update, and delete departments",
+    module: "academic",
+    resource: "department",
+    action: "manage",
+  },
 ]);
 
 module.exports = {

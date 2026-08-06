@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "start": "node server.js",
     "dev": "nodemon server.js",
     "lint": "eslint .",
@@ -37,6 +37,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
     "globals": "^16.4.0",
+    "jest": "^30.4.2",
     "nodemon": "^3.1.14",
     "prettier": "^3.6.2"
   }

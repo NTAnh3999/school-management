@@ -20,6 +20,14 @@ module.exports = [
   js.configs.recommended,
   eslintConfigPrettier,
   {
+    files: ["tests/**/*.js", "**/*.test.js"],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+      },
+    },
+  },
+  {
     files: ["**/*.{js,cjs}"],
     plugins: {
       prettier,

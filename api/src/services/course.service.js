@@ -117,7 +117,9 @@ const create = async (payload, userId) => {
     throw new ConflictError(`course_code '${course_code}' already exists`);
   }
 
-  // Validate department
+  // Validate department. Departments are now tenant-scoped, but courses aren't, so this only
+  // checks the department exists (and isn't soft-deleted) -- not that it belongs to any
+  // particular tenant.
   const dept = await Department.findByPk(department_id);
   if (!dept) throw new BadRequestError(`Department ${department_id} not found`);
 
