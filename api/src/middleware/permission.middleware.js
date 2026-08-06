@@ -35,6 +35,12 @@ const requirePermission = (permissionCode, resolveScope) => (req, res, next) => 
 
   Promise.resolve(resolveScope(req))
     .then(async (result) => {
+      if (Array.isArray(result) && result.length === 0) {
+        return next(
+          new ForbiddenError("Scope access denied", { errorCode: "IAM_SCOPE_ACCESS_DENIED" })
+        );
+      }
+
       const targets = Array.isArray(result) ? result : [result];
 
       for (const target of targets) {

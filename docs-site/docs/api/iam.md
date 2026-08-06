@@ -6,6 +6,12 @@ sidebar_position: 3
 
 The IAM module manages login-adjacent identity data that sits below business profiles: user accounts, tenant memberships, scoped role assignments, permission checks, and session revocation.
 
+## Implementation Status
+
+This page documents the IAM backend implemented in `api/`. It covers the core FSD IAM flows for local authentication, tenant membership resolution, active tenant context, scoped role assignments, permission checks, session revocation, and IAM audit logging.
+
+The broader Notion FSD also describes platform-level roles, SSO / External IdP integration, service-to-service authentication, and domain event publication. Those are not exposed by the current backend yet. Current role records are `admin`, `teacher`, `student`, and `parent`; tenant/platform-specific role naming such as Platform Admin or School Admin should be modeled as role records and permission mappings until first-class platform/SSO/service-client support is added.
+
 ## Base URL
 
 ```text
@@ -31,7 +37,8 @@ This hierarchy is enforced everywhere scope matters — not just `POST /authoriz
 | Endpoint | What's scope-checked |
 | --- | --- |
 | `POST /memberships` | The scope being **granted** must be covered by one of the actor's own granting role assignments (a branch-scoped admin can't hand out tenant-wide or different-branch access). |
-| `PATCH` / `DELETE /memberships/:id` | The **existing** membership's scope must be covered. |
+| `PATCH /memberships/:id` | Both the **existing** membership scope and the requested next scope must be covered, so a scoped admin cannot widen a membership while updating it. |
+| `DELETE /memberships/:id` | The **existing** membership's scope must be covered. |
 | `POST /users` | Same as granting a membership — the initial scope given to the new user must be covered. |
 | `PATCH /users/:id` | A user can hold memberships at several scopes at once; **every** scope the target currently holds (within the actor's tenant) must be covered, since a role change propagates to all of them. |
 | `POST /sessions/revoke` | Every scope the session owner holds must be covered. |
@@ -69,6 +76,12 @@ IAM routes are guarded by fine-grained permissions rather than role-only checks.
 | `auth.tenant.switch` | Switch the session's active tenant |
 
 `org.*` permissions (branches/campuses/locations) are documented under [Org Structure](./org-structure).
+
+### Current role model
+
+The backend seeds four role names: `admin`, `teacher`, `student`, and `parent`. `admin` receives all registered permissions by default, while the other seeded roles receive `auth.tenant.switch`. Additional administrative roles can be created through `POST /roles` and configured through `/role-permissions`.
+
+The Notion FSD names actor groups such as Platform Admin and School Admin. In the current backend, those are operational actor concepts, not hard-coded role constants. Represent them as role records with appropriate permission mappings and IAM scope until platform-level and tenant-level role policy is implemented.
 
 ## Endpoint Summary
 

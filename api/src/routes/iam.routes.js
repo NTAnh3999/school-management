@@ -29,6 +29,33 @@ const resolveRequestedGrantScope = (req) => ({
 // The scope of an EXISTING membership, for PATCH/DELETE /memberships/:id.
 const resolveExistingMembershipScope = (req) => getMembershipScope(req.params.id);
 
+const hasBodyField = (body, field) => Object.prototype.hasOwnProperty.call(body || {}, field);
+
+// Updating a membership can grant access at a different scope, so both the current scope and the
+// requested next scope must be covered by the actor.
+const resolveMembershipUpdateScopes = async (req) => {
+  const existingScope = await getMembershipScope(req.params.id);
+  if (!existingScope) return [];
+
+  const nextScope = {
+    tenantId: existingScope.tenantId,
+    scopeType: hasBodyField(req.body, "scopeType") ? req.body.scopeType : existingScope.scopeType,
+    branchId: hasBodyField(req.body, "branchId") ? req.body.branchId : existingScope.branchId,
+    campusId: hasBodyField(req.body, "campusId") ? req.body.campusId : existingScope.campusId,
+    locationId: hasBodyField(req.body, "locationId")
+      ? req.body.locationId
+      : existingScope.locationId,
+  };
+
+  const scopeChanged =
+    nextScope.scopeType !== existingScope.scopeType ||
+    Number(nextScope.branchId || 0) !== Number(existingScope.branchId || 0) ||
+    Number(nextScope.campusId || 0) !== Number(existingScope.campusId || 0) ||
+    Number(nextScope.locationId || 0) !== Number(existingScope.locationId || 0);
+
+  return scopeChanged ? [existingScope, nextScope] : [existingScope];
+};
+
 // A target user can hold memberships at several different scopes at once (e.g. tenant-wide
 // AND a specific branch) -- updateUser() propagates a role change to ALL of them, so every
 // one of the target's existing scopes (within the actor's own active tenant) must be covered.
@@ -81,7 +108,7 @@ router.post(
 );
 router.patch(
   "/memberships/:id",
-  requirePermission("iam.membership.manage", resolveExistingMembershipScope),
+  requirePermission("iam.membership.manage", resolveMembershipUpdateScopes),
   IamController.updateMembership
 );
 router.delete(

@@ -466,6 +466,7 @@ const getMembershipScope = async (membershipId) => {
   const membership = await IamMembership.findByPk(membershipId);
   if (!membership) return null;
   return {
+    tenantId: membership.tenant_id,
     scopeType: membership.scope_type,
     branchId: membership.branch_id,
     campusId: membership.campus_id,
@@ -481,6 +482,7 @@ const resolveUserTenantScopes = async (userId, tenantId) => {
   return memberships
     .filter((membership) => Number(membership.tenant_id) === Number(tenantId))
     .map((membership) => ({
+      tenantId: membership.tenant_id,
       scopeType: membership.scope_type,
       branchId: membership.branch_id,
       campusId: membership.campus_id,
@@ -1125,6 +1127,11 @@ const updateMembership = async (membershipId, payload, actor, req) => {
   if (typeof payload.locationId !== "undefined") membership.location_id = payload.locationId;
   if (payload.status) membership.status = payload.status;
   if (typeof payload.expiresAt !== "undefined") membership.expires_at = payload.expiresAt;
+  validateScopeColumns(membership.scope_type, {
+    branchId: membership.branch_id,
+    campusId: membership.campus_id,
+    locationId: membership.location_id,
+  });
   membership.updated_by = actor.id;
   await membership.save();
 
