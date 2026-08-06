@@ -1,60 +1,33 @@
 import { baseApi } from "./baseApi";
-import type {
-  DashboardStats,
-  PaginatedResponse,
-  PaginationParams,
-  User,
-} from "@/types";
+import type { ApiEnvelope } from "./baseApi";
 
+// /users/me is the lightweight "current account" endpoint (api/src/controllers/user.controller.js)
+// — distinct from the IAM user-management endpoints in iamApi.ts and the business Profile in
+// profilesApi.ts. Used for the Account / My Profile screen (ADM-43).
+export interface MeUser {
+  id: number;
+  email: string;
+  full_name: string;
+  role: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// user.routes.js validates the update body as camelCase: body("fullName").
 export const usersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getUsers: builder.query<
-      PaginatedResponse<User>,
-      PaginationParams & { role?: string }
-    >({
-      query: (params) => ({ url: "/users", params }),
-      providesTags: ["User"],
+    getMe: builder.query<MeUser, void>({
+      query: () => "/users/me",
+      transformResponse: (res: ApiEnvelope<{ user: MeUser }>) => res.metadata.user,
+      providesTags: ["IamUser"],
     }),
 
-    getUserById: builder.query<User, number>({
-      query: (id) => `/users/${id}`,
-      providesTags: (_result, _error, id) => [{ type: "User", id }],
-    }),
-
-    createUser: builder.mutation<User, Partial<User>>({
-      query: (body) => ({ url: "/users", method: "POST", body }),
-      invalidatesTags: ["User"],
-    }),
-
-    updateUser: builder.mutation<User, { id: number } & Partial<User>>({
-      query: ({ id, ...body }) => ({
-        url: `/users/${id}`,
-        method: "PUT",
-        body,
-      }),
-      invalidatesTags: (_result, _error, { id }) => [
-        { type: "User", id },
-        "User",
-      ],
-    }),
-
-    deleteUser: builder.mutation<void, number>({
-      query: (id) => ({ url: `/users/${id}`, method: "DELETE" }),
-      invalidatesTags: ["User"],
-    }),
-
-    getDashboardStats: builder.query<DashboardStats, void>({
-      query: () => "/dashboard/stats",
-      providesTags: ["DashboardStats"],
+    updateMe: builder.mutation<MeUser, { fullName: string }>({
+      query: (body) => ({ url: "/users/me", method: "PUT", body }),
+      transformResponse: (res: ApiEnvelope<{ user: MeUser }>) => res.metadata.user,
+      invalidatesTags: ["IamUser"],
     }),
   }),
 });
 
-export const {
-  useGetUsersQuery,
-  useGetUserByIdQuery,
-  useCreateUserMutation,
-  useUpdateUserMutation,
-  useDeleteUserMutation,
-  useGetDashboardStatsQuery,
-} = usersApi;
+export const { useGetMeQuery, useUpdateMeMutation } = usersApi;
