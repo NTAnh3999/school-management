@@ -3,7 +3,7 @@ const ContentAssetService = require("../services/content-asset.service");
 const asyncHandler = require("../utils/async-handler");
 
 const create = asyncHandler(async (req, res) => {
-  const asset = await ContentAssetService.create(req.body, req.user.id);
+  const asset = await ContentAssetService.create(req.body, req.user.id, req.user.activeTenantId);
   return new CreatedResponse({ message: "Content asset created", metadata: { asset } }).send(res);
 });
 
@@ -30,4 +30,11 @@ const update = asyncHandler(async (req, res) => {
   return new OKResponse({ message: "Content asset updated", metadata: { asset } }).send(res);
 });
 
-module.exports = { create, list, detail, update };
+const updateProcessingStatus = asyncHandler(async (req, res) => {
+  const asset = await ContentAssetService.updateProcessingStatus(req.params.id, req.body, req.user.id);
+  return new OKResponse({ message: "Asset processing status updated", metadata: { asset } }).send(
+    res
+  );
+});
+
+module.exports = { create, list, detail, update, updateProcessingStatus };

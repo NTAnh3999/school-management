@@ -3,14 +3,19 @@ const { body, param, query } = require("express-validator");
 const { validate } = require("../middleware/validation.middleware");
 const router = express.Router();
 const AuthMiddleware = require("../middleware/auth.middleware");
-const RoleMiddleware = require("../middleware/role.middleware");
+const { requirePermission } = require("../middleware/permission.middleware");
+const { SCOPE_TYPES } = require("../constants/iam");
 const ContentAssetController = require("../controllers/content-asset.controller");
-const { STAFF_ROLES } = require("../constants/roles");
+
+const resolveTenantScope = (req) => ({
+  scopeType: SCOPE_TYPES.TENANT,
+  tenantId: req.user?.activeTenantId,
+});
 
 router.get(
   "/",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  requirePermission("content.version.view", resolveTenantScope),
   validate([
     query("mediaType").optional().isString(),
     query("uploadedBy").optional().isInt({ min: 1 }),
@@ -21,7 +26,7 @@ router.get(
 router.get(
   "/:id",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  requirePermission("content.version.view", resolveTenantScope),
   validate([param("id").isInt({ min: 1 })]),
   ContentAssetController.detail
 );
@@ -30,7 +35,7 @@ router.get(
 router.post(
   "/",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  requirePermission("content.asset.manage", resolveTenantScope),
   validate([
     body("filename").isString().notEmpty(),
     body("mediaType").isString().notEmpty(),
@@ -46,13 +51,27 @@ router.post(
 router.patch(
   "/:id",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  requirePermission("content.asset.manage", resolveTenantScope),
   validate([
     param("id").isInt({ min: 1 }),
     body("filename").optional().isString().notEmpty(),
     body("thumbnailUrl").optional().isURL(),
   ]),
   ContentAssetController.update
+);
+
+// Metadata-only readiness signal -- this module never uploads/transcodes; an external pipeline
+// (or, in this codebase's current no-pipeline state, the client) PATCHes this once ready.
+router.patch(
+  "/:id/processing-status",
+  AuthMiddleware.verifyToken,
+  requirePermission("content.asset.manage", resolveTenantScope),
+  validate([
+    param("id").isInt({ min: 1 }),
+    body("processingStatus").isIn(["pending", "processing", "ready", "failed"]),
+    body("checksum").optional().isString(),
+  ]),
+  ContentAssetController.updateProcessingStatus
 );
 
 module.exports = router;

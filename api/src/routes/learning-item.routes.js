@@ -3,15 +3,52 @@ const { body, param } = require("express-validator");
 const { validate } = require("../middleware/validation.middleware");
 const router = express.Router();
 const AuthMiddleware = require("../middleware/auth.middleware");
-const RoleMiddleware = require("../middleware/role.middleware");
+const { requirePermission } = require("../middleware/permission.middleware");
+const { requireCourseAuthor } = require("../middleware/course-author.middleware");
 const LearningItemController = require("../controllers/learning-item.controller");
-const { STAFF_ROLES } = require("../constants/roles");
+const { Course, Department, CourseModule, Lesson, LearningItem } = require("../models");
+const { SCOPE_TYPES } = require("../constants/iam");
 
-// List learning items for a lesson (authoring roles only for draft)
+const resolveCourseTenantScopeById = async (courseId) => {
+  if (!courseId) return { scopeType: SCOPE_TYPES.TENANT, tenantId: null };
+  const course = await Course.findByPk(courseId, {
+    include: [{ model: Department, as: "department" }],
+  });
+  return { scopeType: SCOPE_TYPES.TENANT, tenantId: course?.department?.tenant_id ?? null };
+};
+
+const resolveTenantScopeFromLessonParam = async (req) => {
+  const lesson = await Lesson.findByPk(req.params.lessonId, {
+    include: [{ model: CourseModule, as: "module" }],
+  });
+  return resolveCourseTenantScopeById(lesson?.module?.course_id);
+};
+
+const resolveTenantScopeFromItemParam = async (req) => {
+  const item = await LearningItem.findByPk(req.params.id, {
+    include: [{ model: Lesson, as: "lesson", include: [{ model: CourseModule, as: "module" }] }],
+  });
+  return resolveCourseTenantScopeById(item?.lesson?.module?.course_id);
+};
+
+const resolveCourseIdFromLesson = async (req) => {
+  const lesson = await Lesson.findByPk(req.params.lessonId, {
+    include: [{ model: CourseModule, as: "module" }],
+  });
+  return lesson?.module?.course_id;
+};
+
+const resolveCourseIdFromItem = async (req) => {
+  const item = await LearningItem.findByPk(req.params.id, {
+    include: [{ model: Lesson, as: "lesson", include: [{ model: CourseModule, as: "module" }] }],
+  });
+  return item?.lesson?.module?.course_id;
+};
+
 router.get(
   "/lesson/:lessonId",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  requirePermission("content.version.view", resolveTenantScopeFromLessonParam),
   validate([param("lessonId").isInt({ min: 1 })]),
   LearningItemController.list
 );
@@ -19,16 +56,16 @@ router.get(
 router.get(
   "/:id",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  requirePermission("content.version.view", resolveTenantScopeFromItemParam),
   validate([param("id").isInt({ min: 1 })]),
   LearningItemController.detail
 );
 
-// Create learning item in a lesson
 router.post(
   "/lesson/:lessonId",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  requirePermission("content.version.manage", resolveTenantScopeFromLessonParam),
+  requireCourseAuthor(resolveCourseIdFromLesson),
   validate([
     param("lessonId").isInt({ min: 1 }),
     body("itemType").isString().notEmpty(),
@@ -42,11 +79,11 @@ router.post(
   LearningItemController.create
 );
 
-// Update learning item
 router.patch(
   "/:id",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  requirePermission("content.version.manage", resolveTenantScopeFromItemParam),
+  requireCourseAuthor(resolveCourseIdFromItem),
   validate([
     param("id").isInt({ min: 1 }),
     body("title").optional().isString().notEmpty(),
@@ -55,24 +92,25 @@ router.patch(
     body("displayOrder").optional().isInt({ min: 0 }),
     body("estimatedDuration").optional().isFloat({ min: 0 }),
     body("isRequired").optional().isBoolean(),
+    body("revision").isInt({ min: 1 }),
   ]),
   LearningItemController.update
 );
 
-// Archive learning item (Admin only)
 router.patch(
   "/:id/archive",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  requirePermission("content.version.manage", resolveTenantScopeFromItemParam),
+  requireCourseAuthor(resolveCourseIdFromItem),
   validate([param("id").isInt({ min: 1 })]),
   LearningItemController.archive
 );
 
-// Reorder learning items within a lesson
 router.patch(
   "/lesson/:lessonId/reorder",
   AuthMiddleware.verifyToken,
-  RoleMiddleware.requireRole(STAFF_ROLES),
+  requirePermission("content.version.manage", resolveTenantScopeFromLessonParam),
+  requireCourseAuthor(resolveCourseIdFromLesson),
   validate([param("lessonId").isInt({ min: 1 }), body("orderedIds").isArray({ min: 1 })]),
   LearningItemController.reorder
 );

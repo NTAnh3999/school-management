@@ -173,6 +173,48 @@ const IAM_PERMISSION_DEFINITIONS = Object.freeze([
     resource: "department",
     action: "manage",
   },
+  {
+    code: "content.version.view",
+    description: "View course content structure, versions, and drafts",
+    module: "content",
+    resource: "version",
+    action: "view",
+  },
+  {
+    code: "content.version.manage",
+    description: "Create/edit content versions, modules, lessons, and learning items on assigned courses",
+    module: "content",
+    resource: "version",
+    action: "manage",
+  },
+  {
+    code: "content.version.manage.any",
+    description: "Manage content versions on any course, bypassing the assigned-author check",
+    module: "content",
+    resource: "version",
+    action: "manage_any",
+  },
+  {
+    code: "content.review.decide",
+    description: "Approve or request changes on a content version submitted for review",
+    module: "content",
+    resource: "review",
+    action: "decide",
+  },
+  {
+    code: "content.version.publish",
+    description: "Publish or archive a content version",
+    module: "content",
+    resource: "version",
+    action: "publish",
+  },
+  {
+    code: "content.asset.manage",
+    description: "Register and update content asset metadata",
+    module: "content",
+    resource: "asset",
+    action: "manage",
+  },
 ]);
 
 module.exports = {

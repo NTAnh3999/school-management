@@ -112,7 +112,11 @@ const ensureDefaultRolePermissions = async () => {
   }
 
   if (teacherRole) {
-    const teacherPermissionCodes = ["auth.tenant.switch"];
+    const teacherPermissionCodes = [
+      "auth.tenant.switch",
+      "content.version.view",
+      "content.version.manage",
+    ];
     const permissions = await Permission.findAll({ where: { code: teacherPermissionCodes } });
     for (const permission of permissions) {
       await RolePermission.findOrCreate({

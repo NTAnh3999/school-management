@@ -11,6 +11,7 @@ router.use("/org", require("./org-structure.routes"));
 router.use("/users", require("./user.routes"));
 router.use("/departments", require("./department.routes"));
 router.use("/courses", require("./course.routes"));
+router.use("/courses", require("./course-author.routes"));
 router.use("/enrollments", require("./enrollment.routes"));
 router.use("/modules", require("./module.routes"));
 router.use("/lessons", require("./lesson.routes"));

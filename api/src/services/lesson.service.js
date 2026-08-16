@@ -1,31 +1,48 @@
-const { BadRequestError, NotFoundError, ForbiddenError } = require("../utils/error-responses");
-const { Lesson, CourseModule, Course, Quiz, LessonFeedback, AuditLog } = require("../models");
-const { ROLES, isRole } = require("../constants/roles");
+const { BadRequestError, NotFoundError, ConflictError } = require("../utils/error-responses");
+const {
+  Lesson,
+  CourseModule,
+  Course,
+  Quiz,
+  LessonFeedback,
+  ContentVersion,
+  AuditLog,
+} = require("../models");
+const { CONTENT_VERSION_EDITABLE_STATUSES, CONTENT_ERROR_CODES } = require("../constants/content");
 
-const create = async (moduleId, payload, userId, userRole) => {
-  const { title, lessonSummary, content, lessonType, videoUrl, durationMinutes, displayOrder } =
-    payload;
+const _assertVersionEditable = async (contentVersionId) => {
+  const version = await ContentVersion.findByPk(contentVersionId);
+  if (!version)
+    throw new NotFoundError("Content version not found", {
+      errorCode: CONTENT_ERROR_CODES.VERSION_NOT_FOUND,
+    });
+  if (!CONTENT_VERSION_EDITABLE_STATUSES.includes(version.status)) {
+    throw new ConflictError("This content version is no longer editable", {
+      errorCode: CONTENT_ERROR_CODES.PUBLISHED_IMMUTABLE,
+    });
+  }
+  return version;
+};
+
+const create = async (moduleId, payload, userId) => {
+  const { title, objective, lessonSummary, durationMinutes, displayOrder } = payload;
   if (!title) throw new BadRequestError("Missing title");
 
-  const courseModule = await CourseModule.findByPk(moduleId, {
-    include: [{ model: Course, as: "course" }],
-  });
+  const courseModule = await CourseModule.findByPk(moduleId);
   if (!courseModule) throw new NotFoundError("Module not found");
 
-  if (!isRole(userRole, ROLES.ADMIN)) {
-    throw new ForbiddenError("Not authorized to add lessons to this module");
-  }
+  const version = await _assertVersionEditable(courseModule.content_version_id);
 
   const lesson = await Lesson.create({
     module_id: moduleId,
+    content_version_id: courseModule.content_version_id,
     title,
+    objective: objective || null,
     lesson_summary: lessonSummary,
-    content,
-    lesson_type: lessonType || "Standard",
-    video_url: videoUrl,
     duration_minutes: durationMinutes || 0,
     display_order: displayOrder || 0,
     status: "draft",
+    revision: 1,
     created_by: userId,
     updated_by: userId,
   });
@@ -33,11 +50,12 @@ const create = async (moduleId, payload, userId, userRole) => {
   await AuditLog.create({
     entity_name: "Lesson",
     entity_id: lesson.id,
-    course_id: courseModule.course_id,
+    course_id: version.course_id,
     action: "CREATE",
-    new_values: { title, lessonType },
+    new_values: { title },
     changed_by: userId,
     source: "api",
+    version_ref: version.id,
   });
 
   return lesson;
@@ -63,68 +81,69 @@ const detail = async (id) => {
   return lesson;
 };
 
-const update = async (id, payload, userId, userRole) => {
-  const lesson = await Lesson.findByPk(id, {
-    include: [{ model: CourseModule, as: "module", include: [{ model: Course, as: "course" }] }],
-  });
+const update = async (id, payload, userId) => {
+  const lesson = await Lesson.findByPk(id);
   if (!lesson) throw new NotFoundError("Lesson not found");
 
-  if (!isRole(userRole, ROLES.ADMIN)) {
-    throw new ForbiddenError("Not authorized to update this lesson");
+  await _assertVersionEditable(lesson.content_version_id);
+
+  const { title, objective, lessonSummary, durationMinutes, displayOrder, revision } = payload;
+  if (revision === undefined) {
+    throw new BadRequestError("revision is required for optimistic locking");
   }
 
-  const { title, lessonSummary, content, lessonType, videoUrl, durationMinutes, displayOrder } =
-    payload;
-  lesson.title = title ?? lesson.title;
-  lesson.lesson_summary = lessonSummary ?? lesson.lesson_summary;
-  lesson.content = content ?? lesson.content;
-  lesson.lesson_type = lessonType ?? lesson.lesson_type;
-  lesson.video_url = videoUrl ?? lesson.video_url;
-  lesson.duration_minutes = durationMinutes ?? lesson.duration_minutes;
-  lesson.display_order = displayOrder ?? lesson.display_order;
-  lesson.updated_by = userId;
+  const [affected] = await Lesson.update(
+    {
+      title: title ?? lesson.title,
+      objective: objective ?? lesson.objective,
+      lesson_summary: lessonSummary ?? lesson.lesson_summary,
+      duration_minutes: durationMinutes ?? lesson.duration_minutes,
+      display_order: displayOrder ?? lesson.display_order,
+      updated_by: userId,
+      revision: lesson.revision + 1,
+    },
+    { where: { id, revision } }
+  );
+  if (affected === 0) {
+    throw new ConflictError("Lesson was updated by someone else, please reload", {
+      errorCode: CONTENT_ERROR_CODES.CONCURRENT_UPDATE,
+    });
+  }
 
-  await lesson.save();
-  return lesson;
+  return Lesson.findByPk(id);
 };
 
-const remove = async (id, userId, userRole) => {
-  const lesson = await Lesson.findByPk(id, {
-    include: [{ model: CourseModule, as: "module", include: [{ model: Course, as: "course" }] }],
-  });
+const remove = async (id) => {
+  const lesson = await Lesson.findByPk(id);
   if (!lesson) throw new NotFoundError("Lesson not found");
 
-  if (!isRole(userRole, ROLES.ADMIN)) {
-    throw new ForbiddenError("Not authorized to delete this lesson");
-  }
+  await _assertVersionEditable(lesson.content_version_id);
 
   await lesson.destroy();
   return true;
 };
 
-const archive = async (id, userId, userRole) => {
-  const lesson = await Lesson.findByPk(id, {
-    include: [{ model: CourseModule, as: "module", include: [{ model: Course, as: "course" }] }],
-  });
+const archive = async (id, userId) => {
+  const lesson = await Lesson.findByPk(id);
   if (!lesson) throw new NotFoundError("Lesson not found");
   if (lesson.status === "archived") throw new BadRequestError("Lesson is already archived");
 
-  if (!isRole(userRole, ROLES.ADMIN)) {
-    throw new ForbiddenError("Not authorized to archive this lesson");
-  }
+  const version = await _assertVersionEditable(lesson.content_version_id);
 
   lesson.status = "archived";
   lesson.updated_by = userId;
+  lesson.revision += 1;
   await lesson.save();
 
   await AuditLog.create({
     entity_name: "Lesson",
     entity_id: lesson.id,
-    course_id: lesson.module.course_id,
+    course_id: version.course_id,
     action: "CHANGE_STATUS",
     new_values: { status: "archived" },
     changed_by: userId,
     source: "api",
+    version_ref: version.id,
   });
 
   return lesson;

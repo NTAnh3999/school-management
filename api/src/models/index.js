@@ -58,6 +58,10 @@ const ClassroomEnrollment = require("./classroom-enrollment.model");
 const ScheduleSeries = require("./schedule-series.model");
 const ScheduleChangeRecord = require("./schedule-change-record.model");
 const LiveSessionMetadata = require("./live-session-metadata.model");
+const CourseContentRoot = require("./course-content-root.model");
+const ContentReview = require("./content-review.model");
+const ContentVersionEventOutbox = require("./content-version-event-outbox.model");
+const CourseAuthor = require("./course-author.model");
 
 // Define associations
 // Role - Permission
@@ -312,7 +316,65 @@ ContentAsset.hasMany(LearningItem, { foreignKey: "asset_id", as: "learning_items
 ContentVersion.belongsTo(Course, { foreignKey: "course_id", as: "course" });
 ContentVersion.belongsTo(User, { foreignKey: "published_by", as: "publisher" });
 ContentVersion.belongsTo(User, { foreignKey: "created_by", as: "creator" });
+ContentVersion.belongsTo(User, { foreignKey: "submitted_for_review_by", as: "review_submitter" });
+ContentVersion.belongsTo(User, { foreignKey: "approved_by", as: "approver" });
 Course.hasMany(ContentVersion, { foreignKey: "course_id", as: "content_versions" });
+
+// CourseContentRoot - Course, Tenant, ContentVersion (current published pointer)
+CourseContentRoot.belongsTo(Course, { foreignKey: "course_id", as: "course" });
+Course.hasOne(CourseContentRoot, { foreignKey: "course_id", as: "content_root" });
+CourseContentRoot.belongsTo(Tenant, { foreignKey: "tenant_id", as: "tenant" });
+CourseContentRoot.belongsTo(ContentVersion, {
+  foreignKey: "current_published_version_id",
+  as: "current_published_version",
+});
+CourseContentRoot.belongsTo(User, { foreignKey: "created_by", as: "creator" });
+
+// ContentVersion - CourseContentRoot, ContentVersion (self, based_on)
+ContentVersion.belongsTo(CourseContentRoot, { foreignKey: "content_root_id", as: "content_root" });
+CourseContentRoot.hasMany(ContentVersion, { foreignKey: "content_root_id", as: "versions" });
+ContentVersion.belongsTo(ContentVersion, {
+  foreignKey: "based_on_version_id",
+  as: "based_on_version",
+});
+
+// CourseModule / Lesson / LearningItem - ContentVersion (version-scoped authoring rows)
+CourseModule.belongsTo(ContentVersion, { foreignKey: "content_version_id", as: "content_version" });
+ContentVersion.hasMany(CourseModule, { foreignKey: "content_version_id", as: "modules" });
+Lesson.belongsTo(ContentVersion, { foreignKey: "content_version_id", as: "content_version" });
+ContentVersion.hasMany(Lesson, { foreignKey: "content_version_id", as: "lessons" });
+LearningItem.belongsTo(ContentVersion, {
+  foreignKey: "content_version_id",
+  as: "content_version",
+});
+ContentVersion.hasMany(LearningItem, { foreignKey: "content_version_id", as: "learning_items" });
+
+// ContentReview - ContentVersion & User
+ContentReview.belongsTo(ContentVersion, { foreignKey: "content_version_id", as: "content_version" });
+ContentVersion.hasMany(ContentReview, { foreignKey: "content_version_id", as: "reviews" });
+ContentReview.belongsTo(User, { foreignKey: "decided_by", as: "reviewer" });
+
+// ContentVersionEventOutbox - ContentVersion, ContentAsset, Course
+ContentVersion.hasMany(ContentVersionEventOutbox, {
+  foreignKey: "content_version_id",
+  as: "event_outbox_entries",
+});
+ContentVersionEventOutbox.belongsTo(ContentVersion, {
+  foreignKey: "content_version_id",
+  as: "content_version",
+});
+ContentVersionEventOutbox.belongsTo(ContentAsset, {
+  foreignKey: "content_asset_id",
+  as: "content_asset",
+});
+ContentVersionEventOutbox.belongsTo(Course, { foreignKey: "course_id", as: "course" });
+
+// CourseAuthor - Course & User
+CourseAuthor.belongsTo(Course, { foreignKey: "course_id", as: "course" });
+Course.hasMany(CourseAuthor, { foreignKey: "course_id", as: "authors" });
+CourseAuthor.belongsTo(User, { foreignKey: "user_id", as: "user" });
+CourseAuthor.belongsTo(User, { foreignKey: "assigned_by", as: "assigner" });
+User.hasMany(CourseAuthor, { foreignKey: "user_id", as: "course_author_roles" });
 
 // EnrollmentHistory - Enrollment & User
 Enrollment.hasMany(EnrollmentHistory, { foreignKey: "enrollment_id", as: "history" });
@@ -517,5 +579,9 @@ module.exports = {
   ScheduleSeries,
   ScheduleChangeRecord,
   LiveSessionMetadata,
+  CourseContentRoot,
+  ContentReview,
+  ContentVersionEventOutbox,
+  CourseAuthor,
   sync,
 };

@@ -3,12 +3,7 @@ const LessonService = require("../services/lesson.service");
 const asyncHandler = require("../utils/async-handler");
 
 const create = asyncHandler(async (req, res) => {
-  const lesson = await LessonService.create(
-    req.params.moduleId,
-    req.body,
-    req.user.id,
-    req.user.role
-  );
+  const lesson = await LessonService.create(req.params.moduleId, req.body, req.user.id);
   return new CreatedResponse({ message: "Lesson created", metadata: { lesson } }).send(res);
 });
 
@@ -23,17 +18,17 @@ const detail = asyncHandler(async (req, res) => {
 });
 
 const update = asyncHandler(async (req, res) => {
-  const lesson = await LessonService.update(req.params.id, req.body, req.user.id, req.user.role);
+  const lesson = await LessonService.update(req.params.id, req.body, req.user.id);
   return new OKResponse({ message: "Lesson updated", metadata: { lesson } }).send(res);
 });
 
 const remove = asyncHandler(async (req, res) => {
-  await LessonService.remove(req.params.id, req.user.id, req.user.role);
+  await LessonService.remove(req.params.id);
   return new OKResponse({ message: "Lesson deleted" }).send(res);
 });
 
 const archive = asyncHandler(async (req, res) => {
-  const lesson = await LessonService.archive(req.params.id, req.user.id, req.user.role);
+  const lesson = await LessonService.archive(req.params.id, req.user.id);
   return new OKResponse({ message: "Lesson archived", metadata: { lesson } }).send(res);
 });
 
