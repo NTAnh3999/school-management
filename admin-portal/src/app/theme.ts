@@ -122,5 +122,8 @@ export const antTheme: ThemeConfig = {
     },
     Modal: { borderRadiusLG: 14 },
     Badge: { colorError: "#DC2626" },
+    // Default vertical-layout label padding is "0 0 8px" — tightened ~30% to bring
+    // labels closer to their inputs across every form in the portal.
+    Form: { verticalLabelPadding: "0 0 5px" },
   },
 };
