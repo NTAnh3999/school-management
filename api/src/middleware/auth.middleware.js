@@ -86,16 +86,24 @@ const verifyToken = async (req, res, next) => {
 };
 
 const optionalToken = async (req, res, next) => {
+  void res;
+  const token = getTokenFromHeader(req);
+  if (!token) return next();
+
   try {
-    void res;
-    const token = getTokenFromHeader(req);
-    if (!token) return next();
     const payload = decodeToken(token);
     req.user = await buildIamUser(payload);
-  } catch {
-    // Ignore invalid optional tokens
+    return next();
+  } catch (err) {
+    // A token was presented but is invalid/expired/revoked — this must surface as 401
+    // so the client's refresh-and-retry flow kicks in. Silently downgrading to
+    // "anonymous" here would make authenticated requests look like public ones (e.g.
+    // draft courses vanishing from the list instead of prompting a token refresh).
+    if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") {
+      return next(new UnauthorizedError("Invalid or expired token"));
+    }
+    return next(err);
   }
-  return next();
 };
 
 module.exports = { verifyToken, optionalToken };
