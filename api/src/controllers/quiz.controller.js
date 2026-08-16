@@ -1,7 +1,6 @@
 const { OKResponse, CreatedResponse } = require("../utils/success-responses");
 const QuizService = require("../services/quiz.service");
 const asyncHandler = require("../utils/async-handler");
-const { STAFF_ROLES } = require("../constants/roles");
 
 const createQuiz = asyncHandler(async (req, res) => {
   const quiz = await QuizService.createQuiz(
@@ -29,7 +28,11 @@ const getQuiz = asyncHandler(async (req, res) => {
 });
 
 const startAttempt = asyncHandler(async (req, res) => {
-  const attempt = await QuizService.startAttempt(req.params.quizId, req.body.enrollmentId, req.user);
+  const attempt = await QuizService.startAttempt(
+    req.params.quizId,
+    req.body.enrollmentId,
+    req.user
+  );
   return new CreatedResponse({ message: "Attempt started", metadata: { attempt } }).send(res);
 });
 
