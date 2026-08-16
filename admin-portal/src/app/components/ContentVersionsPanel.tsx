@@ -1,16 +1,19 @@
 import { useState } from "react";
-import { Card, Table, Button, Space, Modal, Form, Input, Popconfirm, message, Empty, Typography } from "antd";
+import { Card, Table, Button, Space, Modal, Form, Input, Popconfirm, message, Empty, Typography, List } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { PlusOutlined, EyeOutlined } from "@ant-design/icons";
 import { StatusTag } from "./StatusTag";
 import { ContentStructureTree } from "./ContentStructureTree";
+import { ContentReviewPanel } from "./ContentReviewPanel";
 import { PermissionGate } from "./PermissionGate";
 import {
   useListContentVersionsQuery,
   useCreateContentVersionMutation,
   usePublishContentVersionMutation,
   useArchiveContentVersionMutation,
+  useSubmitContentVersionForReviewMutation,
   useLazyPreviewDraftQuery,
+  useLazyValidateContentVersionQuery,
 } from "@/store/api/courseContentApi";
 import type { ContentVersion } from "@/types";
 import { getErrorMessage } from "@/lib/error";
@@ -19,26 +22,30 @@ interface ContentVersionsPanelProps {
   courseId: number;
 }
 
-// ADM-14/15 — Content Approval Queue / Review Detail. The "REVIEW" status in ContentVersionStatus
-// is unused by the backend (see types/index.ts) — publish() moves DRAFT straight to PUBLISHED —
-// so "approval" here means: preview the current draft, snapshot it as a version, then publish or
-// archive it. There's no separate reviewer/approver step to represent.
+// ADM-14/15 — Content Approval Queue / Review Detail, implementing the FSD 6-state lifecycle:
+// Draft -> InReview -> ChangesRequested (loops back to InReview) -> Approved -> Published, with
+// Draft -> Published direct only when a tenant/course disables the approval workflow. Archive is
+// only reachable from Published. See api/src/constants/content.js's CONTENT_VERSION_TRANSITIONS
+// for the enforced source of truth this UI mirrors.
 export function ContentVersionsPanel({ courseId }: ContentVersionsPanelProps) {
   const { data: versions, isLoading } = useListContentVersionsQuery(courseId);
   const [createVersion, { isLoading: creating }] = useCreateContentVersionMutation();
+  const [submitForReview] = useSubmitContentVersionForReviewMutation();
   const [publish] = usePublishContentVersionMutation();
   const [archive] = useArchiveContentVersionMutation();
   const [triggerPreview, { data: preview, isFetching: previewLoading }] = useLazyPreviewDraftQuery();
+  const [triggerValidate, { data: validation }] = useLazyValidateContentVersionQuery();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [form] = Form.useForm<{ versionLabel: string; changelog?: string }>();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [snapshotView, setSnapshotView] = useState<ContentVersion | null>(null);
+  const [reviewVersionId, setReviewVersionId] = useState<number | null>(null);
 
   const handleCreate = async (values: { versionLabel: string; changelog?: string }) => {
     try {
       await createVersion({ courseId, ...values }).unwrap();
-      message.success("Content version created from the current draft");
+      message.success("Content version created" + (preview?.version_id ? "" : " from the published structure"));
       setCreateOpen(false);
       form.resetFields();
     } catch (err) {
@@ -50,6 +57,15 @@ export function ContentVersionsPanel({ courseId }: ContentVersionsPanelProps) {
     setSnapshotView(null);
     setPreviewOpen(true);
     triggerPreview(courseId);
+  };
+
+  const handleSubmitForReview = async (id: number) => {
+    try {
+      await submitForReview(id).unwrap();
+      message.success("Submitted for review");
+    } catch (err) {
+      message.error(getErrorMessage(err, "Failed to submit for review — check publish readiness"));
+    }
   };
 
   const handlePublish = async (id: number) => {
@@ -68,6 +84,10 @@ export function ContentVersionsPanel({ courseId }: ContentVersionsPanelProps) {
     } catch (err) {
       message.error(getErrorMessage(err, "Failed to archive content version"));
     }
+  };
+
+  const handleValidate = (id: number) => {
+    triggerValidate(id);
   };
 
   const columns: ColumnsType<ContentVersion> = [
@@ -101,9 +121,27 @@ export function ContentVersionsPanel({ courseId }: ContentVersionsPanelProps) {
           >
             View
           </Button>
-          <PermissionGate permission="iam.user.manage">
+          <PermissionGate permission="content.version.manage">
             <Space>
-              {record.status !== "PUBLISHED" && record.status !== "ARCHIVED" && (
+              {record.status === "DRAFT" && (
+                <>
+                  <Button size="small" onClick={() => handleValidate(record.id)}>
+                    Check readiness
+                  </Button>
+                  <Popconfirm
+                    title="Submit this draft for review?"
+                    onConfirm={() => handleSubmitForReview(record.id)}
+                  >
+                    <Button size="small">Submit for review</Button>
+                  </Popconfirm>
+                </>
+              )}
+              {record.status === "CHANGES_REQUESTED" && (
+                <Popconfirm title="Resubmit this version for review?" onConfirm={() => handleSubmitForReview(record.id)}>
+                  <Button size="small">Resubmit</Button>
+                </Popconfirm>
+              )}
+              {(record.status === "DRAFT" || record.status === "APPROVED") && (
                 <Popconfirm
                   title="Publish this content version?"
                   description="This becomes the live structure for the course; any previously published version is archived."
@@ -114,13 +152,20 @@ export function ContentVersionsPanel({ courseId }: ContentVersionsPanelProps) {
                   </Button>
                 </Popconfirm>
               )}
-              {record.status !== "ARCHIVED" && (
+              {record.status === "PUBLISHED" && (
                 <Popconfirm title="Archive this content version?" onConfirm={() => handleArchive(record.id)}>
                   <Button size="small">Archive</Button>
                 </Popconfirm>
               )}
             </Space>
           </PermissionGate>
+          {record.status === "IN_REVIEW" && (
+            <PermissionGate permission="content.review.decide">
+              <Button size="small" onClick={() => setReviewVersionId(record.id)}>
+                Review
+              </Button>
+            </PermissionGate>
+          )}
         </Space>
       ),
     },
@@ -134,7 +179,7 @@ export function ContentVersionsPanel({ courseId }: ContentVersionsPanelProps) {
           <Button icon={<EyeOutlined />} onClick={handlePreviewDraft}>
             Preview current draft
           </Button>
-          <PermissionGate permission="iam.user.manage">
+          <PermissionGate permission="content.version.manage">
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
               Create version
             </Button>
@@ -142,6 +187,21 @@ export function ContentVersionsPanel({ courseId }: ContentVersionsPanelProps) {
         </Space>
       }
     >
+      {validation && (
+        <div style={{ marginBottom: 16 }}>
+          {validation.ready ? (
+            <Typography.Text type="success">Ready to publish.</Typography.Text>
+          ) : (
+            <List
+              size="small"
+              header={<Typography.Text type="warning">Not ready to publish:</Typography.Text>}
+              dataSource={validation.issues}
+              renderItem={(issue) => <List.Item>{issue}</List.Item>}
+            />
+          )}
+        </div>
+      )}
+
       <Table<ContentVersion>
         dataSource={versions}
         columns={columns}
@@ -161,8 +221,8 @@ export function ContentVersionsPanel({ courseId }: ContentVersionsPanelProps) {
         destroyOnClose
       >
         <Typography.Paragraph type="secondary" style={{ fontSize: 13 }}>
-          Snapshots the course's current draft modules and lessons into a new version. Publish it
-          afterward to make it live.
+          Starts a new Draft, cloned from the course's currently published version (or empty if
+          none exists yet). Editing this draft never affects what's live until you publish it.
         </Typography.Paragraph>
         <Form form={form} layout="vertical">
           <Form.Item
@@ -193,6 +253,14 @@ export function ContentVersionsPanel({ courseId }: ContentVersionsPanelProps) {
           <ContentStructureTree modules={preview?.structure ?? []} />
         )}
       </Modal>
+
+      {reviewVersionId !== null && (
+        <ContentReviewPanel
+          versionId={reviewVersionId}
+          open={reviewVersionId !== null}
+          onClose={() => setReviewVersionId(null)}
+        />
+      )}
     </Card>
   );
 }

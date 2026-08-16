@@ -240,16 +240,20 @@ export interface Course {
 }
 
 // ─── Course Content (modules, lessons, content versions, assets) ────────────
-// Modules/lessons/content-version create+publish+archive are gated to ROLES.ADMIN in the
-// backend (module.routes.js, and content-version.service.js re-checks admin internally even
-// though its routes accept STAFF_ROLES) — this is School Admin territory, not Teacher's daily
-// authoring, in the current implementation.
+// Content authoring follows the FSD "Course Content Authoring" 6-state version lifecycle
+// (see api/src/constants/content.js's CONTENT_VERSION_TRANSITIONS for the source of truth).
+// Module/Lesson/LearningItem are version-scoped: each ContentVersion has its own tree, cloned
+// from the currently Published version when a new Draft is created, so editing a Draft never
+// touches what's live. Editing is gated to the course's assigned Content Author(s)
+// (course-author.routes.js) or an Admin/Academic-Admin holding content.version.manage.any.
 
 export type ModuleStatus = "draft" | "archived";
 
 export interface CourseModule {
   id: number;
   course_id: number;
+  content_version_id: number;
+  revision: number;
   title: string;
   description: string | null;
   display_order: number;
@@ -259,38 +263,106 @@ export interface CourseModule {
   updated_at: string;
 }
 
-export type LessonType = "Standard" | "Microlearning" | "QuizOnly";
 export type LessonStatus = "draft" | "archived";
 
+// FSD 7.2 core fields: title, objective, estimated_duration, order_no, status. Video/interactive
+// content lives on LearningItem now (item_type=Video etc.), not directly on Lesson.
 export interface Lesson {
   id: number;
   module_id: number;
+  content_version_id: number;
+  revision: number;
   title: string;
+  objective: string | null;
   lesson_summary: string | null;
-  content: string | null;
-  lesson_type: LessonType;
-  video_url: string | null;
   duration_minutes: number;
   display_order: number;
   status: LessonStatus;
+  learning_items?: LearningItem[];
   created_at: string;
   updated_at: string;
 }
 
-// Snapshot enum includes "REVIEW", but no backend code path ever sets it — create() always
-// starts a version at DRAFT and publish() moves DRAFT straight to PUBLISHED. There is no
-// submit-for-review or approve/reject action, so "Content Approval Queue" in the UI reflects
-// DRAFT-awaiting-publish rather than a distinct reviewer workflow.
-export type ContentVersionStatus = "DRAFT" | "REVIEW" | "PUBLISHED" | "ARCHIVED";
+// FSD 5.3 CCA-05 / 5.4: Text, Video, Document, Infographic, ExternalLink, KnowledgeCheck,
+// AssessmentReference, Model3D, InteractivePackage.
+export type LearningItemType =
+  | "Text"
+  | "Video"
+  | "Document"
+  | "Infographic"
+  | "ExternalLink"
+  | "KnowledgeCheck"
+  | "AssessmentReference"
+  | "Model3D"
+  | "InteractivePackage";
+export type LearningItemStatus = "draft" | "archived";
+
+// FSD 5.4: one fixed completion_rule per item_type (see backend's COMPLETION_RULE_BY_ITEM_TYPE).
+export type LearningItemCompletionRule =
+  | "dwell_time"
+  | "watch_percentage"
+  | "opened"
+  | "clicked"
+  | "submitted"
+  | "delegated"
+  | "interacted"
+  | "xapi_statement";
+
+// Only meaningful when item_type = "Video": uploaded -> asset_id/ContentAsset; external ->
+// content_payload.url (+ optional provider).
+export type LearningItemVideoSource = "uploaded" | "external";
+
+export interface LearningItem {
+  id: number;
+  lesson_id: number;
+  content_version_id: number;
+  revision: number;
+  item_type: LearningItemType;
+  title: string;
+  // Shape of content_payload varies per item_type per FSD 5.4:
+  // Text -> { body: string }; ExternalLink -> { url, open_in_new_tab? };
+  // Video (external) -> { url, provider? }; AssessmentReference -> { assessment_id: number };
+  // KnowledgeCheck -> { questions[], pass_threshold?, shuffle?, allow_retry? };
+  // Document/Infographic/Model3D/InteractivePackage/Video(uploaded) -> reference via asset_id
+  // instead, content_payload unused.
+  content_payload: Record<string, unknown> | null;
+  asset_id: number | null;
+  asset?: ContentAsset;
+  source: LearningItemVideoSource | null;
+  completion_rule: LearningItemCompletionRule | null;
+  display_order: number;
+  estimated_duration: number | null;
+  is_required: boolean;
+  status: LearningItemStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+// FSD 6.1: Draft -> InReview -> ChangesRequested (loops back to InReview) -> Approved -> Published
+// -> Archived, with Draft -> Published direct only when the course's approval policy is off.
+export type ContentVersionStatus =
+  | "DRAFT"
+  | "IN_REVIEW"
+  | "CHANGES_REQUESTED"
+  | "APPROVED"
+  | "PUBLISHED"
+  | "ARCHIVED";
 
 export interface ContentVersion {
   id: number;
   course_id: number;
+  content_root_id: number | null;
+  based_on_version_id: number | null;
   version_label: string;
   version_no: number;
   status: ContentVersionStatus;
+  revision: number;
   changelog: string | null;
   snapshot_ref: CourseModule[] | null;
+  submitted_for_review_by: number | null;
+  submitted_for_review_at: string | null;
+  approved_by: number | null;
+  approved_at: string | null;
   published_at: string | null;
   published_by: number | null;
   created_by: number | null;
@@ -299,8 +371,22 @@ export interface ContentVersion {
   updated_at: string;
 }
 
+export type ContentReviewDecision = "APPROVED" | "CHANGES_REQUESTED";
+
+export interface ContentReview {
+  id: number;
+  content_version_id: number;
+  decided_by: number;
+  decision: ContentReviewDecision;
+  comment: string | null;
+  decided_at: string;
+}
+
+export type ContentAssetProcessingStatus = "pending" | "processing" | "ready" | "failed";
+
 export interface ContentAsset {
   id: number;
+  tenant_id: number | null;
   filename: string;
   media_type: string;
   mime_type: string;
@@ -308,8 +394,23 @@ export interface ContentAsset {
   duration_seconds: number | null;
   storage_key: string;
   thumbnail_url: string | null;
+  processing_status: ContentAssetProcessingStatus;
+  checksum: string | null;
   uploaded_by: number;
   uploaded_at: string;
+}
+
+export type CourseAuthorRole = "primary_author" | "co_author";
+
+export interface CourseAuthorAssignment {
+  id: number;
+  course_id: number;
+  user_id: number;
+  role_in_course: CourseAuthorRole;
+  assigned_at: string;
+  assigned_by: number | null;
+  active_flag: boolean;
+  user?: { id: number; full_name: string; email: string };
 }
 
 // ─── Classrooms ──────────────────────────────────────────────────────────────

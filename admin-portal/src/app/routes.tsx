@@ -52,6 +52,9 @@ const DepartmentList = lazy(() =>
 const DepartmentForm = lazy(() =>
   import("./pages/academic/DepartmentForm").then((m) => ({ default: m.DepartmentForm })),
 );
+const ContentAssets = lazy(() =>
+  import("./pages/academic/ContentAssets").then((m) => ({ default: m.ContentAssets })),
+);
 
 const ClassroomList = lazy(() =>
   import("./pages/classrooms/ClassroomList").then((m) => ({ default: m.ClassroomList })),
@@ -167,6 +170,7 @@ export const router = createBrowserRouter([
           { path: "departments", element: <PageSuspense><DepartmentList /></PageSuspense> },
           { path: "departments/new", element: <PageSuspense><DepartmentForm /></PageSuspense> },
           { path: "departments/:id/edit", element: <PageSuspense><DepartmentForm /></PageSuspense> },
+          { path: "content-assets", element: <PageSuspense><ContentAssets /></PageSuspense> },
 
           { path: "courses", element: <PageSuspense><CourseList /></PageSuspense> },
           { path: "courses/new", element: <PageSuspense><CourseForm /></PageSuspense> },

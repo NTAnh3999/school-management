@@ -8,28 +8,31 @@ import {
   Form,
   Input,
   InputNumber,
-  Select,
   List,
   Tag,
   Popconfirm,
   message,
   Typography,
   Empty,
+  Alert,
+  Divider,
 } from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined, InboxOutlined } from "@ant-design/icons";
 import { PermissionGate } from "./PermissionGate";
+import { LearningItemManager } from "./LearningItemEditor";
 import {
   useListModulesQuery,
   useCreateModuleMutation,
   useUpdateModuleMutation,
   useArchiveModuleMutation,
   useDeleteModuleMutation,
+  useReorderModulesMutation,
   useCreateLessonMutation,
   useUpdateLessonMutation,
   useArchiveLessonMutation,
   useDeleteLessonMutation,
 } from "@/store/api/courseContentApi";
-import type { CourseModule, Lesson, LessonType } from "@/types";
+import type { CourseModule, Lesson } from "@/types";
 import { getErrorMessage } from "@/lib/error";
 
 interface ModuleFormValues {
@@ -39,9 +42,8 @@ interface ModuleFormValues {
 
 interface LessonFormValues {
   title: string;
+  objective?: string;
   lessonSummary?: string;
-  lessonType: LessonType;
-  videoUrl?: string;
   durationMinutes?: number;
 }
 
@@ -49,9 +51,11 @@ interface ModuleLessonEditorProps {
   courseId: number;
 }
 
-// Authoring surface for a course's draft content structure — feeds ContentVersionsPanel's
-// "Create version" snapshot. Create/update/archive/delete are all ROLES.ADMIN-only on the
-// backend (module.routes.js, lesson.routes.js), so gated the same as other admin actions here.
+// Authoring surface for a course's current open Draft (or, when no Draft is open, its Published
+// version rendered read-only-in-effect since the backend rejects edits against a non-editable
+// version — see module.service.js's _assertVersionEditable). Create/update/archive/delete are
+// gated to the course's assigned Content Author(s) or an Admin/Academic-Admin holding
+// content.version.manage.any (course-author.middleware.js + content.version.manage permission).
 export function ModuleLessonEditor({ courseId }: ModuleLessonEditorProps) {
   const { data: modules, isLoading } = useListModulesQuery(courseId);
 
@@ -59,6 +63,7 @@ export function ModuleLessonEditor({ courseId }: ModuleLessonEditorProps) {
   const [updateModule] = useUpdateModuleMutation();
   const [archiveModule] = useArchiveModuleMutation();
   const [deleteModule] = useDeleteModuleMutation();
+  const [reorderModules] = useReorderModulesMutation();
 
   const [createLesson, { isLoading: creatingLesson }] = useCreateLessonMutation();
   const [updateLesson] = useUpdateLessonMutation();
@@ -68,8 +73,14 @@ export function ModuleLessonEditor({ courseId }: ModuleLessonEditorProps) {
   const [moduleModal, setModuleModal] = useState<{ mode: "create" | "edit"; module?: CourseModule } | null>(null);
   const [moduleForm] = Form.useForm<ModuleFormValues>();
 
+  // Add lesson (no id yet -> no Learning Items section) vs. Edit lesson (has an id -> Learning
+  // Items are managed inline in the same modal, matching the FSD-aligned mockup).
   const [lessonModal, setLessonModal] = useState<{ moduleId: number; lesson?: Lesson } | null>(null);
   const [lessonForm] = Form.useForm<LessonFormValues>();
+
+  // All modules returned for a course share the same open content_version_id (the backend
+  // resolves them together) — safe to read off the first one for create/reorder calls.
+  const contentVersionId = modules?.[0]?.content_version_id;
 
   const openCreateModule = () => {
     moduleForm.resetFields();
@@ -83,10 +94,14 @@ export function ModuleLessonEditor({ courseId }: ModuleLessonEditorProps) {
   const submitModule = async (values: ModuleFormValues) => {
     try {
       if (moduleModal?.mode === "edit" && moduleModal.module) {
-        await updateModule({ id: moduleModal.module.id, ...values }).unwrap();
+        await updateModule({ id: moduleModal.module.id, revision: moduleModal.module.revision, ...values }).unwrap();
         message.success("Module updated");
       } else {
-        await createModule({ courseId, ...values }).unwrap();
+        if (!contentVersionId) {
+          message.error("No open draft content version — create one from the Content versions panel first.");
+          return;
+        }
+        await createModule({ versionId: contentVersionId, ...values }).unwrap();
         message.success("Module created");
       }
       setModuleModal(null);
@@ -95,17 +110,29 @@ export function ModuleLessonEditor({ courseId }: ModuleLessonEditorProps) {
     }
   };
 
+  const moveModule = async (moduleId: number, direction: -1 | 1) => {
+    if (!modules || !contentVersionId) return;
+    const ordered = [...modules].sort((a, b) => a.display_order - b.display_order);
+    const index = ordered.findIndex((m) => m.id === moduleId);
+    const swapWith = index + direction;
+    if (index < 0 || swapWith < 0 || swapWith >= ordered.length) return;
+    [ordered[index], ordered[swapWith]] = [ordered[swapWith], ordered[index]];
+    try {
+      await reorderModules({ versionId: contentVersionId, orderedIds: ordered.map((m) => m.id) }).unwrap();
+    } catch (err) {
+      message.error(getErrorMessage(err, "Failed to reorder modules"));
+    }
+  };
+
   const openCreateLesson = (moduleId: number) => {
     lessonForm.resetFields();
-    lessonForm.setFieldsValue({ lessonType: "Standard" });
     setLessonModal({ moduleId });
   };
   const openEditLesson = (moduleId: number, lesson: Lesson) => {
     lessonForm.setFieldsValue({
       title: lesson.title,
+      objective: lesson.objective ?? undefined,
       lessonSummary: lesson.lesson_summary ?? undefined,
-      lessonType: lesson.lesson_type,
-      videoUrl: lesson.video_url ?? undefined,
       durationMinutes: lesson.duration_minutes,
     });
     setLessonModal({ moduleId, lesson });
@@ -115,7 +142,7 @@ export function ModuleLessonEditor({ courseId }: ModuleLessonEditorProps) {
     if (!lessonModal) return;
     try {
       if (lessonModal.lesson) {
-        await updateLesson({ id: lessonModal.lesson.id, ...values }).unwrap();
+        await updateLesson({ id: lessonModal.lesson.id, revision: lessonModal.lesson.revision, ...values }).unwrap();
         message.success("Lesson updated");
       } else {
         await createLesson({ moduleId: lessonModal.moduleId, ...values }).unwrap();
@@ -131,19 +158,30 @@ export function ModuleLessonEditor({ courseId }: ModuleLessonEditorProps) {
     <Card
       title="Modules & lessons"
       extra={
-        <PermissionGate permission="iam.user.manage">
-          <Button icon={<PlusOutlined />} onClick={openCreateModule}>
+        <PermissionGate permission="content.version.manage">
+          <Button icon={<PlusOutlined />} onClick={openCreateModule} disabled={!contentVersionId}>
             Add module
           </Button>
         </PermissionGate>
       }
       loading={isLoading}
     >
+      {!isLoading && !contentVersionId && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="No open draft content version"
+          description="Create a content version from the panel below to start authoring modules and lessons."
+        />
+      )}
       {!modules || modules.length === 0 ? (
         <Empty description="No modules yet. Add one to start building this course's content." />
       ) : (
         <Collapse
-          items={modules.map((m) => ({
+          items={[...modules]
+            .sort((a, b) => a.display_order - b.display_order)
+            .map((m, index) => ({
             key: m.id,
             label: (
               <Space>
@@ -152,8 +190,14 @@ export function ModuleLessonEditor({ courseId }: ModuleLessonEditorProps) {
               </Space>
             ),
             extra: (
-              <PermissionGate permission="iam.user.manage">
+              <PermissionGate permission="content.version.manage">
                 <Space onClick={(e) => e.stopPropagation()}>
+                  <Button size="small" disabled={index === 0} onClick={() => moveModule(m.id, -1)}>
+                    ↑
+                  </Button>
+                  <Button size="small" disabled={index === modules.length - 1} onClick={() => moveModule(m.id, 1)}>
+                    ↓
+                  </Button>
                   <Button size="small" icon={<EditOutlined />} onClick={() => openEditModule(m)} />
                   <Popconfirm title="Archive this module?" onConfirm={() => archiveModule(m.id)}>
                     <Button size="small" icon={<InboxOutlined />} disabled={m.status === "archived"} />
@@ -170,7 +214,7 @@ export function ModuleLessonEditor({ courseId }: ModuleLessonEditorProps) {
             ),
             children: (
               <Space direction="vertical" style={{ width: "100%" }}>
-                <PermissionGate permission="iam.user.manage">
+                <PermissionGate permission="content.version.manage">
                   <Button size="small" icon={<PlusOutlined />} onClick={() => openCreateLesson(m.id)}>
                     Add lesson
                   </Button>
@@ -183,9 +227,11 @@ export function ModuleLessonEditor({ courseId }: ModuleLessonEditorProps) {
                     dataSource={m.lessons}
                     renderItem={(lesson) => (
                       <List.Item
+                        onClick={() => openEditLesson(m.id, lesson)}
+                        style={{ cursor: "pointer" }}
                         actions={[
-                          <PermissionGate key="actions" permission="iam.user.manage">
-                            <Space>
+                          <PermissionGate key="actions" permission="content.version.manage">
+                            <Space onClick={(e) => e.stopPropagation()}>
                               <Button
                                 size="small"
                                 type="text"
@@ -209,7 +255,7 @@ export function ModuleLessonEditor({ courseId }: ModuleLessonEditorProps) {
                               {lesson.status === "archived" && <Tag>archived</Tag>}
                             </Space>
                           }
-                          description={`${lesson.lesson_type} · ${lesson.duration_minutes} min`}
+                          description={lesson.objective || `${lesson.duration_minutes} min`}
                         />
                       </List.Item>
                     )}
@@ -246,28 +292,29 @@ export function ModuleLessonEditor({ courseId }: ModuleLessonEditorProps) {
         onOk={() => lessonForm.validateFields().then(submitLesson)}
         confirmLoading={creatingLesson}
         destroyOnClose
+        width={lessonModal?.lesson ? 640 : 520}
       >
         <Form form={lessonForm} layout="vertical">
           <Form.Item name="title" label="Title" rules={[{ required: true, message: "Title is required." }]}>
             <Input placeholder="e.g. Lesson 1.1 — Introduction" />
           </Form.Item>
-          <Form.Item name="lessonSummary" label="Summary">
+          <Form.Item name="objective" label="Objective (mục tiêu bài học)">
+            <Input.TextArea rows={2} placeholder="What should learners be able to do after this lesson?" />
+          </Form.Item>
+          <Form.Item name="lessonSummary" label="Summary (optional)">
             <Input.TextArea rows={2} />
           </Form.Item>
-          <Space size={16} style={{ display: "flex" }}>
-            <Form.Item name="lessonType" label="Type" style={{ flex: 1 }} rules={[{ required: true }]}>
-              <Select
-                options={["Standard", "Microlearning", "QuizOnly"].map((t) => ({ label: t, value: t }))}
-              />
-            </Form.Item>
-            <Form.Item name="durationMinutes" label="Duration (min)" style={{ flex: 1 }}>
-              <InputNumber style={{ width: "100%" }} min={0} />
-            </Form.Item>
-          </Space>
-          <Form.Item name="videoUrl" label="Video URL (optional)">
-            <Input placeholder="https://..." />
+          <Form.Item name="durationMinutes" label="Duration (min)">
+            <InputNumber style={{ width: "100%" }} min={0} />
           </Form.Item>
         </Form>
+
+        {lessonModal?.lesson && (
+          <>
+            <Divider style={{ margin: "8px 0 16px" }} />
+            <LearningItemManager lessonId={lessonModal.lesson.id} active={!!lessonModal} />
+          </>
+        )}
       </Modal>
     </Card>
   );

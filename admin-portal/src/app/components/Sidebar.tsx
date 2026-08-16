@@ -7,6 +7,7 @@ import {
   ClusterOutlined,
   BookOutlined,
   CheckSquareOutlined,
+  FolderOpenOutlined,
   HomeOutlined,
   SolutionOutlined,
   FileTextOutlined,
@@ -30,6 +31,8 @@ interface NavItem {
   icon: React.ReactNode;
   /** Also highlighted when the current path starts with any of these prefixes. */
   matchPrefixes?: string[];
+  /** Prefixes that opt back out of matchPrefixes, for a more specific sibling route. */
+  excludePrefixes?: string[];
 }
 
 interface NavGroup {
@@ -59,8 +62,15 @@ const NAV_GROUPS: NavGroup[] = [
         icon: <ClusterOutlined />,
         matchPrefixes: ["/departments"],
       },
-      { to: "/courses", label: "Courses", icon: <BookOutlined />, matchPrefixes: ["/courses"] },
+      {
+        to: "/courses",
+        label: "Courses",
+        icon: <BookOutlined />,
+        matchPrefixes: ["/courses"],
+        excludePrefixes: ["/courses/content-approval"],
+      },
       { to: "/courses/content-approval", label: "Content Approval", icon: <CheckSquareOutlined /> },
+      { to: "/content-assets", label: "Content Assets", icon: <FolderOpenOutlined /> },
       { to: "/classrooms", label: "Classrooms", icon: <HomeOutlined /> },
       { to: "/enrollments", label: "Enrollments", icon: <SolutionOutlined /> },
     ],
@@ -108,6 +118,7 @@ export const Sidebar = memo(function Sidebar({ collapsed }: SidebarProps) {
 
   const isActive = (item: NavItem) => {
     if (location.pathname === item.to) return true;
+    if ((item.excludePrefixes ?? []).some((p) => location.pathname.startsWith(p))) return false;
     return (item.matchPrefixes ?? []).some((p) => location.pathname.startsWith(p));
   };
 

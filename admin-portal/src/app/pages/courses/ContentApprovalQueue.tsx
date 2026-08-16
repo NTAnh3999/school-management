@@ -7,7 +7,8 @@ import { useListCoursesQuery } from "@/store/api/coursesApi";
 // ADM-14 — Content Approval Queue. The backend has no single cross-course endpoint for
 // pending content versions (GET /content/courses/:courseId/versions is per-course), so this
 // is a course picker in front of that course's ContentVersionsPanel rather than a flat global
-// queue — see ContentVersionsPanel for what "approval" maps to on this backend.
+// queue. ContentVersionsPanel implements the real Draft/InReview/ChangesRequested/Approved/
+// Published/Archived workflow — reviewers act on IN_REVIEW versions from there.
 export function ContentApprovalQueue() {
   const { data: courses } = useListCoursesQuery({ page_size: 100 });
   const [courseId, setCourseId] = useState<number | undefined>();
