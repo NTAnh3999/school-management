@@ -11,11 +11,7 @@ router.use(AuthMiddleware.verifyToken);
 
 router.get("/", AssessmentController.listAssessments);
 
-router.get(
-  "/:id",
-  validate([param("id").isInt({ min: 1 })]),
-  AssessmentController.getAssessment
-);
+router.get("/:id", validate([param("id").isInt({ min: 1 })]), AssessmentController.getAssessment);
 
 router.post(
   "/",
@@ -37,6 +33,13 @@ router.post(
     body("questions").optional().isArray(),
   ]),
   AssessmentController.createAssessment
+);
+
+router.post(
+  "/:id/duplicate",
+  RoleMiddleware.requireRole(STAFF_ROLES),
+  validate([param("id").isInt({ min: 1 }), body("title").optional().isString().notEmpty()]),
+  AssessmentController.duplicateAssessment
 );
 
 router.patch(
@@ -87,13 +90,9 @@ router.post(
   validate([
     param("id").isInt({ min: 1 }),
     body("questionText").isString().notEmpty(),
-    body("questionType").optional().isIn([
-      "single_choice",
-      "multiple_choice",
-      "text",
-      "essay",
-      "file_upload",
-    ]),
+    body("questionType")
+      .optional()
+      .isIn(["single_choice", "multiple_choice", "text", "essay", "file_upload"]),
     body("points").optional().isFloat({ min: 0 }),
     body("orderIndex").optional().isInt({ min: 0 }),
     body("options").optional().isArray(),
@@ -110,10 +109,7 @@ router.post(
 
 router.get(
   "/:id/attempts",
-  validate([
-    param("id").isInt({ min: 1 }),
-    query("enrollmentId").optional().isInt({ min: 1 }),
-  ]),
+  validate([param("id").isInt({ min: 1 }), query("enrollmentId").optional().isInt({ min: 1 })]),
   AssessmentController.getAttempts
 );
 

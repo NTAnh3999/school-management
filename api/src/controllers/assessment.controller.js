@@ -30,6 +30,19 @@ const createAssessment = asyncHandler(async (req, res) => {
   }).send(res);
 });
 
+const duplicateAssessment = asyncHandler(async (req, res) => {
+  const assessment = await AssessmentService.duplicateAssessment(
+    req.params.id,
+    req.body,
+    req.user,
+    buildRequestContext(req)
+  );
+  return new CreatedResponse({
+    message: "Assessment duplicated",
+    metadata: { assessment },
+  }).send(res);
+});
+
 const updateAssessment = asyncHandler(async (req, res) => {
   const assessment = await AssessmentService.updateAssessment(
     req.params.id,
@@ -179,6 +192,7 @@ module.exports = {
   archiveAssessment,
   closeAssessment,
   createAssessment,
+  duplicateAssessment,
   exportResults,
   getAssessment,
   getAttempts,

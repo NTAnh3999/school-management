@@ -2,10 +2,13 @@
 
 const { Op } = require("sequelize");
 const {
+  AssessmentAssignment,
   AssessmentAuditLog,
+  AssessmentDefinition,
   AssessmentGrade,
   AssessmentResultPublication,
   AssessmentSubmission,
+  AssessmentVersion,
   Classroom,
   ClassroomEnrollment,
   ClassroomTeacher,
@@ -77,6 +80,13 @@ const assessmentDetailInclude = (includeCorrectAnswers = true) => [
   },
   { model: Course, as: "course" },
   { model: Classroom, as: "classroom" },
+  {
+    model: AssessmentDefinition,
+    as: "assessment_definition",
+    include: [{ model: AssessmentVersion, as: "current_published_version" }],
+  },
+  { model: AssessmentVersion, as: "assessment_version" },
+  { model: AssessmentAssignment, as: "assessment_assignment" },
   includeAssessmentQuestions(includeCorrectAnswers),
 ];
 
@@ -405,6 +415,175 @@ const resolveMaxScore = (assessment, questions = []) => {
   }
   const questionTotal = calculateTotalQuestionPoints(questions);
   return questionTotal > 0 ? questionTotal : 100;
+};
+
+const resolveAssessmentTenantId = (assessment, actor) =>
+  assessment.tenant_id || actor?.tenant_id || actor?.tenantId || null;
+
+const resolveAssessmentScope = (assessment) => {
+  const lesson = assessment.lesson;
+  const module = lesson?.module;
+  const course = assessment.course || module?.course;
+
+  return {
+    courseId: assessment.course_id || course?.id || null,
+    classroomId: assessment.classroom_id || assessment.classroom?.id || null,
+    contentVersionId:
+      lesson?.content_version_id ||
+      module?.content_version_id ||
+      assessment.classroom?.course_version_id ||
+      null,
+    moduleId: lesson?.module_id || module?.id || null,
+    lessonId: assessment.lesson_id || lesson?.id || null,
+  };
+};
+
+const getAssignmentStatusForAssessment = (assessment) => {
+  if (assessment.status === ASSESSMENT_STATUSES.DRAFT) return "draft";
+  if (assessment.status === ASSESSMENT_STATUSES.CLOSED) return "closed";
+  if (assessment.status === ASSESSMENT_STATUSES.ARCHIVED) return "archived";
+
+  const openAt = assessment.open_at ? new Date(assessment.open_at) : null;
+  if (openAt && openAt > new Date()) return "scheduled";
+  return "open";
+};
+
+const syncAssessmentAuthoringGraph = async (assessment, actor, transaction) => {
+  const scope = resolveAssessmentScope(assessment);
+  const ownerScopeType = scope.classroomId ? "classroom" : "course";
+  const ownerScopeId = scope.classroomId || scope.courseId || null;
+  const now = new Date();
+
+  let definition = await AssessmentDefinition.findOne({
+    where: { legacy_quiz_id: assessment.id },
+    transaction,
+  });
+
+  if (!definition) {
+    definition = await AssessmentDefinition.create(
+      {
+        tenant_id: resolveAssessmentTenantId(assessment, actor),
+        title: assessment.title,
+        assessment_type: assessment.assessment_type,
+        owner_scope_type: ownerScopeType,
+        owner_scope_id: ownerScopeId,
+        legacy_quiz_id: assessment.id,
+        created_by: assessment.created_by || actor?.id || null,
+        updated_by: actor?.id || assessment.updated_by || null,
+      },
+      { transaction }
+    );
+    if (!definition) return null;
+  } else {
+    definition.title = assessment.title;
+    definition.assessment_type = assessment.assessment_type;
+    definition.owner_scope_type = ownerScopeType;
+    definition.owner_scope_id = ownerScopeId;
+    definition.updated_by = actor?.id || assessment.updated_by || null;
+    await definition.save({ transaction });
+  }
+
+  let version = await AssessmentVersion.findOne({
+    where: { legacy_quiz_id: assessment.id },
+    transaction,
+  });
+
+  const versionStatus =
+    assessment.status === ASSESSMENT_STATUSES.DRAFT
+      ? "draft"
+      : assessment.status === ASSESSMENT_STATUSES.ARCHIVED
+        ? "retired"
+        : "published";
+
+  if (!version) {
+    version = await AssessmentVersion.create(
+      {
+        assessment_definition_id: definition.id,
+        legacy_quiz_id: assessment.id,
+        version_no: 1,
+        status: versionStatus,
+        instructions: assessment.description || null,
+        max_score: assessment.max_score,
+        pass_threshold: assessment.passing_score,
+        grading_method: assessment.grading_method,
+        question_snapshot: { source: "quiz_questions", legacyQuizId: assessment.id },
+        published_at: versionStatus === "published" ? assessment.published_at || now : null,
+        published_by:
+          versionStatus === "published" ? assessment.published_by || actor?.id || null : null,
+        created_by: assessment.created_by || actor?.id || null,
+        updated_by: actor?.id || assessment.updated_by || null,
+      },
+      { transaction }
+    );
+    if (!version) return { definition, version: null, assignment: null };
+  } else {
+    version.status = versionStatus;
+    version.instructions = assessment.description || null;
+    version.max_score = assessment.max_score;
+    version.pass_threshold = assessment.passing_score;
+    version.grading_method = assessment.grading_method;
+    version.question_snapshot = { source: "quiz_questions", legacyQuizId: assessment.id };
+    if (versionStatus === "published" && !version.published_at) {
+      version.published_at = assessment.published_at || now;
+      version.published_by = assessment.published_by || actor?.id || null;
+    }
+    version.updated_by = actor?.id || assessment.updated_by || null;
+    await version.save({ transaction });
+  }
+
+  const shouldPointAtPublishedVersion =
+    version.status === "published" && definition.current_published_version_id !== version.id;
+  if (shouldPointAtPublishedVersion) {
+    definition.current_published_version_id = version.id;
+    definition.updated_by = actor?.id || assessment.updated_by || null;
+    await definition.save({ transaction });
+  } else if (
+    version.status === "retired" &&
+    Number(definition.current_published_version_id) === Number(version.id)
+  ) {
+    definition.current_published_version_id = null;
+    definition.updated_by = actor?.id || assessment.updated_by || null;
+    await definition.save({ transaction });
+  }
+
+  let assignment = await AssessmentAssignment.findOne({
+    where: { legacy_quiz_id: assessment.id },
+    transaction,
+  });
+
+  const assignmentValues = {
+    assessment_version_id: version.id,
+    legacy_quiz_id: assessment.id,
+    course_id: scope.courseId,
+    classroom_id: scope.classroomId,
+    content_version_id: scope.contentVersionId,
+    module_id: scope.moduleId,
+    lesson_id: scope.lessonId,
+    open_at: assessment.open_at || null,
+    close_at: assessment.close_at || null,
+    duration_minutes: assessment.time_limit_minutes || null,
+    attempt_limit: Math.max(Number(assessment.max_attempts || 1), 1),
+    status: getAssignmentStatusForAssessment(assessment),
+    publish_policy: assessment.publish_policy || PUBLISH_POLICIES.MANUAL,
+    result_publish_at: assessment.result_publish_at || null,
+    updated_by: actor?.id || assessment.updated_by || null,
+  };
+
+  if (!assignment) {
+    assignment = await AssessmentAssignment.create(
+      {
+        ...assignmentValues,
+        created_by: assessment.created_by || actor?.id || null,
+      },
+      { transaction }
+    );
+    if (!assignment) return { definition, version, assignment: null };
+  } else {
+    Object.assign(assignment, assignmentValues);
+    await assignment.save({ transaction });
+  }
+
+  return { definition, version, assignment };
 };
 
 const isAssessmentOpen = (assessment, now = new Date()) => {
@@ -751,6 +930,11 @@ const createAssessment = async (payload, actor, requestContext = {}) => {
       await createAssessmentQuestions(createdAssessment.id, payload.questions, transaction);
     }
 
+    createdAssessment.lesson = lesson;
+    createdAssessment.course = course;
+    createdAssessment.classroom = classroom;
+    await syncAssessmentAuthoringGraph(createdAssessment, actor, transaction);
+
     await createAuditLog(
       {
         assessmentId: createdAssessment.id,
@@ -774,6 +958,91 @@ const createAssessment = async (payload, actor, requestContext = {}) => {
   });
 
   return getAssessmentById(assessment.id, true);
+};
+
+const duplicateAssessment = async (assessmentId, payload = {}, actor, requestContext = {}) => {
+  const assessment = await getAssessmentById(assessmentId, true);
+  await assertStaffScope(assessment, actor);
+
+  const copy = await sequelize.transaction(async (transaction) => {
+    const duplicatedAssessment = await Quiz.create(
+      {
+        lesson_id: assessment.lesson_id,
+        title: payload.title || `${assessment.title} (Copy)`,
+        description: assessment.description,
+        assessment_type: assessment.assessment_type,
+        course_id: assessment.course_id,
+        classroom_id: assessment.classroom_id,
+        status: ASSESSMENT_STATUSES.DRAFT,
+        open_at: assessment.open_at,
+        close_at: assessment.close_at,
+        passing_score: assessment.passing_score,
+        time_limit_minutes: assessment.time_limit_minutes,
+        max_attempts: assessment.max_attempts,
+        max_score: assessment.max_score,
+        grading_method: assessment.grading_method,
+        publish_policy: assessment.publish_policy,
+        result_publish_at: assessment.result_publish_at,
+        created_by: actor.id,
+        updated_by: actor.id,
+      },
+      { transaction }
+    );
+
+    const duplicatedQuestions = [];
+    for (const question of assessment.questions || []) {
+      const duplicatedQuestion = await QuizQuestion.create(
+        {
+          quiz_id: duplicatedAssessment.id,
+          question_text: question.question_text,
+          question_type: question.question_type,
+          points: question.points,
+          order_index: question.order_index,
+        },
+        { transaction }
+      );
+
+      if (Array.isArray(question.options) && question.options.length) {
+        await QuizOption.bulkCreate(
+          question.options.map((option) => ({
+            question_id: duplicatedQuestion.id,
+            option_text: option.option_text,
+            is_correct: Boolean(option.is_correct),
+          })),
+          { transaction }
+        );
+      }
+
+      duplicatedQuestions.push(duplicatedQuestion);
+    }
+
+    duplicatedAssessment.lesson = assessment.lesson;
+    duplicatedAssessment.course = assessment.course;
+    duplicatedAssessment.classroom = assessment.classroom;
+    duplicatedAssessment.questions = duplicatedQuestions;
+    await syncAssessmentAuthoringGraph(duplicatedAssessment, actor, transaction);
+
+    await createAuditLog(
+      {
+        assessmentId: duplicatedAssessment.id,
+        entityType: "Assessment",
+        entityId: duplicatedAssessment.id,
+        action: ASSESSMENT_EVENTS.DUPLICATED,
+        oldValues: { sourceAssessmentId: assessment.id },
+        newValues: {
+          title: duplicatedAssessment.title,
+          status: duplicatedAssessment.status,
+        },
+      },
+      actor,
+      requestContext,
+      transaction
+    );
+
+    return duplicatedAssessment;
+  });
+
+  return getAssessmentById(copy.id, true);
 };
 
 const updateAssessment = async (assessmentId, payload, actor, requestContext = {}) => {
@@ -837,6 +1106,7 @@ const updateAssessment = async (assessmentId, payload, actor, requestContext = {
     assessment.updated_by = actor.id;
 
     await assessment.save({ transaction });
+    await syncAssessmentAuthoringGraph(assessment, actor, transaction);
     await createAuditLog(
       {
         assessmentId: assessment.id,
@@ -879,6 +1149,7 @@ const publishAssessment = async (assessmentId, actor, requestContext = {}) => {
     assessment.published_by = actor.id;
     assessment.updated_by = actor.id;
     await assessment.save({ transaction });
+    await syncAssessmentAuthoringGraph(assessment, actor, transaction);
 
     await createAuditLog(
       {
@@ -915,17 +1186,7 @@ const closeAssessment = async (assessmentId, reason, actor, requestContext = {})
     assessment.closed_by = actor.id;
     assessment.updated_by = actor.id;
     await assessment.save({ transaction });
-
-    await QuizAttempt.update(
-      { status: ATTEMPT_STATUSES.EXPIRED },
-      {
-        where: {
-          quiz_id: assessment.id,
-          status: ATTEMPT_STATUSES.IN_PROGRESS,
-        },
-        transaction,
-      }
-    );
+    await syncAssessmentAuthoringGraph(assessment, actor, transaction);
 
     await createAuditLog(
       {
@@ -960,6 +1221,7 @@ const archiveAssessment = async (assessmentId, reason, actor, requestContext = {
     assessment.archived_by = actor.id;
     assessment.updated_by = actor.id;
     await assessment.save({ transaction });
+    await syncAssessmentAuthoringGraph(assessment, actor, transaction);
 
     await createAuditLog(
       {
@@ -991,10 +1253,18 @@ const addQuestion = async (assessmentId, payload, actor) => {
     );
   }
 
-  if (assessment.status === ASSESSMENT_STATUSES.ARCHIVED) {
+  if (assessment.status !== ASSESSMENT_STATUSES.DRAFT) {
     throw new ConflictError(
-      "Archived assessments cannot be modified",
+      "Published assessment questions are immutable",
       buildErrorDetails(ASSESSMENT_ERROR_CODES.INVALID_STATUS)
+    );
+  }
+
+  const attemptCount = await QuizAttempt.count({ where: { quiz_id: assessment.id } });
+  if (attemptCount > 0) {
+    throw new ConflictError(
+      "Assessment questions cannot change after attempts exist",
+      buildErrorDetails(ASSESSMENT_ERROR_CODES.GRADE_LOCKED)
     );
   }
 
@@ -1749,6 +2019,7 @@ module.exports = {
   archiveAssessment,
   closeAssessment,
   createAssessment,
+  duplicateAssessment,
   exportAssessmentResults,
   getAssessment,
   getAssessmentAuditLogs,

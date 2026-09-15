@@ -33,6 +33,9 @@ const QuizQuestion = require("./quiz-question.model");
 const QuizOption = require("./quiz-option.model");
 const QuizAttempt = require("./quiz-attempt.model");
 const QuizAttemptAnswer = require("./quiz-attempt-answer.model");
+const AssessmentDefinition = require("./assessment-definition.model");
+const AssessmentVersion = require("./assessment-version.model");
+const AssessmentAssignment = require("./assessment-assignment.model");
 const AssessmentSubmission = require("./assessment-submission.model");
 const AssessmentGrade = require("./assessment-grade.model");
 const AssessmentResultPublication = require("./assessment-result-publication.model");
@@ -178,6 +181,71 @@ Quiz.belongsTo(Course, { foreignKey: "course_id", as: "course" });
 Course.hasMany(Quiz, { foreignKey: "course_id", as: "assessments" });
 Quiz.belongsTo(Classroom, { foreignKey: "classroom_id", as: "classroom" });
 Classroom.hasMany(Quiz, { foreignKey: "classroom_id", as: "assessments" });
+
+// Assessment authoring graph (FSD-aligned bridge over the legacy quiz-backed flow)
+AssessmentDefinition.hasMany(AssessmentVersion, {
+  foreignKey: "assessment_definition_id",
+  as: "versions",
+});
+AssessmentVersion.belongsTo(AssessmentDefinition, {
+  foreignKey: "assessment_definition_id",
+  as: "definition",
+});
+AssessmentDefinition.belongsTo(AssessmentVersion, {
+  foreignKey: "current_published_version_id",
+  as: "current_published_version",
+  constraints: false,
+});
+AssessmentVersion.hasMany(AssessmentAssignment, {
+  foreignKey: "assessment_version_id",
+  as: "assignments",
+});
+AssessmentAssignment.belongsTo(AssessmentVersion, {
+  foreignKey: "assessment_version_id",
+  as: "version",
+});
+Quiz.hasOne(AssessmentDefinition, {
+  foreignKey: "legacy_quiz_id",
+  sourceKey: "id",
+  as: "assessment_definition",
+});
+AssessmentDefinition.belongsTo(Quiz, {
+  foreignKey: "legacy_quiz_id",
+  as: "legacy_quiz",
+});
+Quiz.hasOne(AssessmentVersion, {
+  foreignKey: "legacy_quiz_id",
+  sourceKey: "id",
+  as: "assessment_version",
+});
+AssessmentVersion.belongsTo(Quiz, {
+  foreignKey: "legacy_quiz_id",
+  as: "legacy_quiz",
+});
+Quiz.hasOne(AssessmentAssignment, {
+  foreignKey: "legacy_quiz_id",
+  sourceKey: "id",
+  as: "assessment_assignment",
+});
+AssessmentAssignment.belongsTo(Quiz, {
+  foreignKey: "legacy_quiz_id",
+  as: "legacy_quiz",
+});
+AssessmentDefinition.belongsTo(User, { foreignKey: "created_by", as: "creator" });
+AssessmentDefinition.belongsTo(User, { foreignKey: "updated_by", as: "updater" });
+AssessmentVersion.belongsTo(User, { foreignKey: "published_by", as: "publisher" });
+AssessmentVersion.belongsTo(User, { foreignKey: "created_by", as: "creator" });
+AssessmentVersion.belongsTo(User, { foreignKey: "updated_by", as: "updater" });
+AssessmentAssignment.belongsTo(Course, { foreignKey: "course_id", as: "course" });
+AssessmentAssignment.belongsTo(Classroom, { foreignKey: "classroom_id", as: "classroom" });
+AssessmentAssignment.belongsTo(ContentVersion, {
+  foreignKey: "content_version_id",
+  as: "content_version",
+});
+AssessmentAssignment.belongsTo(CourseModule, { foreignKey: "module_id", as: "module" });
+AssessmentAssignment.belongsTo(Lesson, { foreignKey: "lesson_id", as: "lesson" });
+AssessmentAssignment.belongsTo(User, { foreignKey: "created_by", as: "creator" });
+AssessmentAssignment.belongsTo(User, { foreignKey: "updated_by", as: "updater" });
 
 // QuizQuestion - Quiz
 QuizQuestion.belongsTo(Quiz, { foreignKey: "quiz_id", as: "quiz" });
@@ -350,7 +418,10 @@ LearningItem.belongsTo(ContentVersion, {
 ContentVersion.hasMany(LearningItem, { foreignKey: "content_version_id", as: "learning_items" });
 
 // ContentReview - ContentVersion & User
-ContentReview.belongsTo(ContentVersion, { foreignKey: "content_version_id", as: "content_version" });
+ContentReview.belongsTo(ContentVersion, {
+  foreignKey: "content_version_id",
+  as: "content_version",
+});
 ContentVersion.hasMany(ContentReview, { foreignKey: "content_version_id", as: "reviews" });
 ContentReview.belongsTo(User, { foreignKey: "decided_by", as: "reviewer" });
 
@@ -551,6 +622,9 @@ module.exports = {
   QuizOption,
   QuizAttempt,
   QuizAttemptAnswer,
+  AssessmentDefinition,
+  AssessmentVersion,
+  AssessmentAssignment,
   AssessmentSubmission,
   AssessmentGrade,
   AssessmentResultPublication,

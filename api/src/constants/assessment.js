@@ -64,6 +64,7 @@ const ASSESSMENT_ERROR_CODES = Object.freeze({
 
 const ASSESSMENT_EVENTS = Object.freeze({
   CREATED: "AssessmentCreated",
+  DUPLICATED: "AssessmentDuplicated",
   UPDATED: "AssessmentUpdated",
   PUBLISHED: "AssessmentPublished",
   CLOSED: "AssessmentClosed",
