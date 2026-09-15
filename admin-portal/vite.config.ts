@@ -24,6 +24,11 @@ export default defineConfig(({ mode }) => {
           target: env.VITE_API_PROXY_TARGET || DEFAULT_API_TARGET,
           changeOrigin: true,
         },
+        // Locally-stored ContentAsset files served by api/src/app.js's static /uploads route.
+        "/uploads": {
+          target: env.VITE_API_PROXY_TARGET || DEFAULT_API_TARGET,
+          changeOrigin: true,
+        },
       },
     },
   };

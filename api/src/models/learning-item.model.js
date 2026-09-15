@@ -65,6 +65,11 @@ const LearningItem = sequelize.define(
     display_order: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     estimated_duration: { type: DataTypes.DECIMAL(6, 2), allowNull: true },
     is_required: { type: DataTypes.BOOLEAN, defaultValue: false },
+    // Admin-portal Lesson Preview rendering hint only (see migration 022) -- when true, this item
+    // and the next item by display_order render back-to-back with no heading/gap in
+    // LessonPreviewContent. Not consumed by content_payload, completion tracking, or publish
+    // validation; has no bearing on the future Learning Delivery surface (FSD §2.2).
+    group_with_next: { type: DataTypes.BOOLEAN, defaultValue: false },
     status: {
       type: DataTypes.ENUM("draft", "archived"),
       allowNull: false,

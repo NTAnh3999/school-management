@@ -14,6 +14,7 @@ const {
   COMPLETION_RULE_BY_ITEM_TYPE,
   LEARNING_ITEM_VIDEO_SOURCES,
   ASSET_REFERENCED_ITEM_TYPES,
+  KNOWLEDGE_CHECK_MIN_OPTIONS,
   CONTENT_VERSION_EDITABLE_STATUSES,
   CONTENT_ERROR_CODES,
 } = require("../constants/content");
@@ -92,6 +93,48 @@ const _resolveItemTypeFields = (itemType, { source, contentPayload, assetId }) =
     }
   }
 
+  if (itemType === "KnowledgeCheck" && contentPayload !== undefined) {
+    const questions = contentPayload && contentPayload.questions;
+    if (!Array.isArray(questions) || questions.length === 0) {
+      throw new BadRequestError(
+        "content_payload.questions (non-empty array) is required for KnowledgeCheck items",
+        { errorCode: CONTENT_ERROR_CODES.INVALID_ITEM_TYPE }
+      );
+    }
+    questions.forEach((q, index) => {
+      if (!q || typeof q.text !== "string" || !q.text.trim()) {
+        throw new BadRequestError(
+          `content_payload.questions[${index}].text (non-empty string) is required`,
+          { errorCode: CONTENT_ERROR_CODES.INVALID_ITEM_TYPE }
+        );
+      }
+      if (!Array.isArray(q.options) || q.options.length < KNOWLEDGE_CHECK_MIN_OPTIONS) {
+        throw new BadRequestError(
+          `content_payload.questions[${index}].options must have at least ${KNOWLEDGE_CHECK_MIN_OPTIONS} options`,
+          { errorCode: CONTENT_ERROR_CODES.INVALID_ITEM_TYPE }
+        );
+      }
+      q.options.forEach((opt, optIndex) => {
+        if (!opt || typeof opt.text !== "string" || !opt.text.trim()) {
+          throw new BadRequestError(
+            `content_payload.questions[${index}].options[${optIndex}].text (non-empty string) is required`,
+            { errorCode: CONTENT_ERROR_CODES.INVALID_ITEM_TYPE }
+          );
+        }
+      });
+      if (
+        !Number.isInteger(q.correct_index) ||
+        q.correct_index < 0 ||
+        q.correct_index >= q.options.length
+      ) {
+        throw new BadRequestError(
+          `content_payload.questions[${index}].correct_index must be a valid index into its options`,
+          { errorCode: CONTENT_ERROR_CODES.INVALID_ITEM_TYPE }
+        );
+      }
+    });
+  }
+
   // Document/Infographic/Model3D/InteractivePackage: reference_id -> asset_id, gated on
   // processing_status readiness at publish time (FSD 8.4), not at create/update time.
   if (
@@ -124,6 +167,7 @@ const create = async (lessonId, payload, userId) => {
     displayOrder,
     estimatedDuration,
     isRequired,
+    groupWithNext,
   } = payload;
 
   if (!title) throw new BadRequestError("Learning item title is required");
@@ -164,6 +208,15 @@ const create = async (lessonId, payload, userId) => {
       errorCode: CONTENT_ERROR_CODES.INVALID_ITEM_TYPE,
     });
   }
+  if (
+    itemType === "KnowledgeCheck" &&
+    !(contentPayload && Array.isArray(contentPayload.questions) && contentPayload.questions.length > 0)
+  ) {
+    throw new BadRequestError(
+      "content_payload.questions (non-empty array) is required for KnowledgeCheck items",
+      { errorCode: CONTENT_ERROR_CODES.INVALID_ITEM_TYPE }
+    );
+  }
   if (itemType === "ExternalLink" && !(contentPayload && typeof contentPayload.url === "string")) {
     throw new BadRequestError("content_payload.url (string) is required for ExternalLink items", {
       errorCode: CONTENT_ERROR_CODES.INVALID_ITEM_TYPE,
@@ -196,6 +249,7 @@ const create = async (lessonId, payload, userId) => {
     display_order: displayOrder ?? 0,
     estimated_duration: estimatedDuration || null,
     is_required: isRequired || false,
+    group_with_next: groupWithNext || false,
     status: "draft",
     revision: 1,
     created_by: userId,
@@ -282,6 +336,7 @@ const update = async (id, payload, userId) => {
       display_order: payload.displayOrder ?? item.display_order,
       estimated_duration: payload.estimatedDuration ?? item.estimated_duration,
       is_required: payload.isRequired ?? item.is_required,
+      group_with_next: payload.groupWithNext ?? item.group_with_next,
       updated_by: userId,
       revision: item.revision + 1,
     },

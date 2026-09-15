@@ -1,4 +1,5 @@
 const express = require("express");
+const multer = require("multer");
 const { body, param, query } = require("express-validator");
 const { validate } = require("../middleware/validation.middleware");
 const router = express.Router();
@@ -6,6 +7,11 @@ const AuthMiddleware = require("../middleware/auth.middleware");
 const { requirePermission } = require("../middleware/permission.middleware");
 const { SCOPE_TYPES } = require("../constants/iam");
 const ContentAssetController = require("../controllers/content-asset.controller");
+
+// Buffered in memory then written to disk by the service (see content-asset.service.js's
+// UPLOAD_DIR note on why local disk, not real object storage). 50MB covers the FSD 5.4's largest
+// suggested size (Document ≤50MB); per-item-type limits aren't enforced at this layer.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 const resolveTenantScope = (req) => ({
   scopeType: SCOPE_TYPES.TENANT,
@@ -46,6 +52,17 @@ router.post(
     body("thumbnailUrl").optional().isURL(),
   ]),
   ContentAssetController.create
+);
+
+// Upload a file directly (multipart/form-data) -- registers the resulting ContentAsset in one
+// step, saving the author from having to first upload elsewhere and paste a storageKey.
+router.post(
+  "/upload",
+  AuthMiddleware.verifyToken,
+  requirePermission("content.asset.manage", resolveTenantScope),
+  upload.single("file"),
+  validate([body("thumbnailUrl").optional().isURL()]),
+  ContentAssetController.upload
 );
 
 router.patch(

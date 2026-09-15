@@ -312,6 +312,24 @@ export type LearningItemCompletionRule =
 // content_payload.url (+ optional provider).
 export type LearningItemVideoSource = "uploaded" | "external";
 
+// FSD 5.4 KnowledgeCheck content_payload shape: single-choice questions only (no multi-select).
+// correct_index is a 0-based index into that question's own options[] — see the KnowledgeCheck
+// branch in api/src/services/learning-item.service.js's _resolveItemTypeFields for the backend's
+// mirrored validation of this exact shape.
+export interface KnowledgeCheckOption {
+  text: string;
+}
+
+export interface KnowledgeCheckQuestion {
+  text: string;
+  options: KnowledgeCheckOption[];
+  correct_index: number;
+}
+
+export interface KnowledgeCheckPayload {
+  questions: KnowledgeCheckQuestion[];
+}
+
 export interface LearningItem {
   id: number;
   lesson_id: number;
@@ -322,7 +340,7 @@ export interface LearningItem {
   // Shape of content_payload varies per item_type per FSD 5.4:
   // Text -> { body: string }; ExternalLink -> { url, open_in_new_tab? };
   // Video (external) -> { url, provider? }; AssessmentReference -> { assessment_id: number };
-  // KnowledgeCheck -> { questions[], pass_threshold?, shuffle?, allow_retry? };
+  // KnowledgeCheck -> KnowledgeCheckPayload (see above);
   // Document/Infographic/Model3D/InteractivePackage/Video(uploaded) -> reference via asset_id
   // instead, content_payload unused.
   content_payload: Record<string, unknown> | null;
@@ -333,6 +351,11 @@ export interface LearningItem {
   display_order: number;
   estimated_duration: number | null;
   is_required: boolean;
+  // Admin-portal Lesson Preview rendering hint only (migration 022): when true, this item and
+  // the next item by display_order render back-to-back with no heading/gap in
+  // LessonPreviewContent. Not part of content_payload; no bearing on the future Learning
+  // Delivery surface (FSD §2.2 -- CCA doesn't own that surface).
+  group_with_next: boolean;
   status: LearningItemStatus;
   created_at: string;
   updated_at: string;

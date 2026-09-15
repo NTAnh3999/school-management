@@ -1,0 +1,3 @@
+{
+  "ignore": ["public/uploads/**", "node_modules/**"]
+}

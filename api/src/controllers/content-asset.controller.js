@@ -7,6 +7,16 @@ const create = asyncHandler(async (req, res) => {
   return new CreatedResponse({ message: "Content asset created", metadata: { asset } }).send(res);
 });
 
+const upload = asyncHandler(async (req, res) => {
+  const asset = await ContentAssetService.uploadAndCreate(
+    req.file,
+    req.body,
+    req.user.id,
+    req.user.activeTenantId
+  );
+  return new CreatedResponse({ message: "Content asset uploaded", metadata: { asset } }).send(res);
+});
+
 const list = asyncHandler(async (req, res) => {
   const assets = await ContentAssetService.list({
     mediaType: req.query.mediaType,
@@ -37,4 +47,4 @@ const updateProcessingStatus = asyncHandler(async (req, res) => {
   );
 });
 
-module.exports = { create, list, detail, update, updateProcessingStatus };
+module.exports = { create, upload, list, detail, update, updateProcessingStatus };

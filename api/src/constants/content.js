@@ -89,6 +89,10 @@ const ASSET_REFERENCED_ITEM_TYPES = Object.freeze([
   "InteractivePackage",
 ]);
 
+// FSD 5.4 KnowledgeCheck: minimum options a single-choice question must offer (need >= 2 to be
+// meaningfully "a choice"). Mirrored on the frontend's Form.List validator.
+const KNOWLEDGE_CHECK_MIN_OPTIONS = 2;
+
 const CONTENT_REVIEW_DECISIONS = Object.freeze({
   APPROVED: "APPROVED",
   CHANGES_REQUESTED: "CHANGES_REQUESTED",
@@ -135,6 +139,7 @@ module.exports = {
   COMPLETION_RULE_BY_ITEM_TYPE,
   LEARNING_ITEM_VIDEO_SOURCES,
   ASSET_REFERENCED_ITEM_TYPES,
+  KNOWLEDGE_CHECK_MIN_OPTIONS,
   CONTENT_REVIEW_DECISIONS,
   CONTENT_ASSET_PROCESSING_STATUSES,
   CONTENT_ERROR_CODES,

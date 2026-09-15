@@ -153,6 +153,7 @@ const _cloneTree = async (sourceVersionId, targetVersionId, userId, transaction)
             display_order: sourceItem.display_order,
             estimated_duration: sourceItem.estimated_duration,
             is_required: sourceItem.is_required,
+            group_with_next: sourceItem.group_with_next,
             status: sourceItem.status,
             revision: 1,
             created_by: userId,

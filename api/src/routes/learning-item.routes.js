@@ -75,6 +75,7 @@ router.post(
     body("displayOrder").optional().isInt({ min: 0 }),
     body("estimatedDuration").optional().isFloat({ min: 0 }),
     body("isRequired").optional().isBoolean(),
+    body("groupWithNext").optional().isBoolean(),
   ]),
   LearningItemController.create
 );
@@ -92,6 +93,7 @@ router.patch(
     body("displayOrder").optional().isInt({ min: 0 }),
     body("estimatedDuration").optional().isFloat({ min: 0 }),
     body("isRequired").optional().isBoolean(),
+    body("groupWithNext").optional().isBoolean(),
     body("revision").isInt({ min: 1 }),
   ]),
   LearningItemController.update

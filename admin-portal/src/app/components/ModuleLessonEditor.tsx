@@ -8,18 +8,16 @@ import {
   Form,
   Input,
   InputNumber,
-  List,
   Tag,
   Popconfirm,
   message,
   Typography,
   Empty,
   Alert,
-  Divider,
 } from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined, InboxOutlined } from "@ant-design/icons";
 import { PermissionGate } from "./PermissionGate";
-import { LearningItemManager } from "./LearningItemEditor";
+import { LearningItemManager, LessonPreviewButton } from "./LearningItemEditor";
 import {
   useListModulesQuery,
   useCreateModuleMutation,
@@ -73,8 +71,8 @@ export function ModuleLessonEditor({ courseId }: ModuleLessonEditorProps) {
   const [moduleModal, setModuleModal] = useState<{ mode: "create" | "edit"; module?: CourseModule } | null>(null);
   const [moduleForm] = Form.useForm<ModuleFormValues>();
 
-  // Add lesson (no id yet -> no Learning Items section) vs. Edit lesson (has an id -> Learning
-  // Items are managed inline in the same modal, matching the FSD-aligned mockup).
+  // Lesson metadata (title/objective/summary/duration) only — Learning Items are managed inline
+  // in each lesson's own Collapse panel below, not in this modal.
   const [lessonModal, setLessonModal] = useState<{ moduleId: number; lesson?: Lesson } | null>(null);
   const [lessonForm] = Form.useForm<LessonFormValues>();
 
@@ -222,43 +220,45 @@ export function ModuleLessonEditor({ courseId }: ModuleLessonEditorProps) {
                 {!m.lessons || m.lessons.length === 0 ? (
                   <Typography.Text type="secondary">No lessons in this module yet.</Typography.Text>
                 ) : (
-                  <List
+                  <Collapse
                     size="small"
-                    dataSource={m.lessons}
-                    renderItem={(lesson) => (
-                      <List.Item
-                        onClick={() => openEditLesson(m.id, lesson)}
-                        style={{ cursor: "pointer" }}
-                        actions={[
-                          <PermissionGate key="actions" permission="content.version.manage">
-                            <Space onClick={(e) => e.stopPropagation()}>
+                    items={m.lessons.map((lesson) => ({
+                      key: lesson.id,
+                      label: (
+                        <Space>
+                          {lesson.title}
+                          {lesson.status === "archived" && <Tag>archived</Tag>}
+                        </Space>
+                      ),
+                      extra: (
+                        <Space onClick={(e) => e.stopPropagation()}>
+                          <LessonPreviewButton lessonId={lesson.id} lessonTitle={lesson.title} />
+                          <PermissionGate permission="content.version.manage">
+                            <Space>
                               <Button
                                 size="small"
-                                type="text"
                                 icon={<EditOutlined />}
                                 onClick={() => openEditLesson(m.id, lesson)}
                               />
                               <Popconfirm title="Archive this lesson?" onConfirm={() => archiveLesson(lesson.id)}>
-                                <Button size="small" type="text" icon={<InboxOutlined />} disabled={lesson.status === "archived"} />
+                                <Button size="small" icon={<InboxOutlined />} disabled={lesson.status === "archived"} />
                               </Popconfirm>
                               <Popconfirm title="Delete this lesson?" onConfirm={() => deleteLesson(lesson.id)}>
-                                <Button size="small" type="text" danger icon={<DeleteOutlined />} />
+                                <Button size="small" danger icon={<DeleteOutlined />} />
                               </Popconfirm>
                             </Space>
-                          </PermissionGate>,
-                        ]}
-                      >
-                        <List.Item.Meta
-                          title={
-                            <Space>
-                              {lesson.title}
-                              {lesson.status === "archived" && <Tag>archived</Tag>}
-                            </Space>
-                          }
-                          description={lesson.objective || `${lesson.duration_minutes} min`}
-                        />
-                      </List.Item>
-                    )}
+                          </PermissionGate>
+                        </Space>
+                      ),
+                      children: (
+                        <Space direction="vertical" style={{ width: "100%" }}>
+                          <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                            {lesson.objective || "No objective set."} · {lesson.duration_minutes} min
+                          </Typography.Text>
+                          <LearningItemManager lessonId={lesson.id} active />
+                        </Space>
+                      ),
+                    }))}
                   />
                 )}
               </Space>
@@ -292,7 +292,6 @@ export function ModuleLessonEditor({ courseId }: ModuleLessonEditorProps) {
         onOk={() => lessonForm.validateFields().then(submitLesson)}
         confirmLoading={creatingLesson}
         destroyOnClose
-        width={lessonModal?.lesson ? 640 : 520}
       >
         <Form form={lessonForm} layout="vertical">
           <Form.Item name="title" label="Title" rules={[{ required: true, message: "Title is required." }]}>
@@ -308,13 +307,6 @@ export function ModuleLessonEditor({ courseId }: ModuleLessonEditorProps) {
             <InputNumber style={{ width: "100%" }} min={0} />
           </Form.Item>
         </Form>
-
-        {lessonModal?.lesson && (
-          <>
-            <Divider style={{ margin: "8px 0 16px" }} />
-            <LearningItemManager lessonId={lessonModal.lesson.id} active={!!lessonModal} />
-          </>
-        )}
       </Modal>
     </Card>
   );

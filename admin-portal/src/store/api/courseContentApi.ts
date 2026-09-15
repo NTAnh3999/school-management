@@ -146,6 +146,7 @@ export const courseContentApi = baseApi.injectEndpoints({
         displayOrder?: number;
         estimatedDuration?: number;
         isRequired?: boolean;
+        groupWithNext?: boolean;
       }
     >({
       query: ({ lessonId, ...body }) => ({
@@ -169,6 +170,7 @@ export const courseContentApi = baseApi.injectEndpoints({
         displayOrder?: number;
         estimatedDuration?: number;
         isRequired?: boolean;
+        groupWithNext?: boolean;
       }
     >({
       query: ({ id, ...body }) => ({ url: `/learning-items/${id}`, method: "PATCH", body }),
@@ -215,6 +217,19 @@ export const courseContentApi = baseApi.injectEndpoints({
       }
     >({
       query: (body) => ({ url: "/content-assets", method: "POST", body }),
+      transformResponse: (res: ApiEnvelope<{ asset: ContentAsset }>) => res.metadata.asset,
+      invalidatesTags: ["Module"],
+    }),
+
+    // Uploads the file directly (multipart/form-data) and registers the resulting ContentAsset
+    // in one step — see api/src/services/content-asset.service.js's uploadAndCreate.
+    uploadContentAsset: builder.mutation<ContentAsset, { file: File; thumbnailUrl?: string }>({
+      query: ({ file, thumbnailUrl }) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        if (thumbnailUrl) formData.append("thumbnailUrl", thumbnailUrl);
+        return { url: "/content-assets/upload", method: "POST", body: formData };
+      },
       transformResponse: (res: ApiEnvelope<{ asset: ContentAsset }>) => res.metadata.asset,
       invalidatesTags: ["Module"],
     }),
@@ -360,6 +375,7 @@ export const {
   useReorderLearningItemsMutation,
   useListContentAssetsQuery,
   useCreateContentAssetMutation,
+  useUploadContentAssetMutation,
   useUpdateContentAssetMutation,
   useUpdateAssetProcessingStatusMutation,
   useListContentVersionsQuery,

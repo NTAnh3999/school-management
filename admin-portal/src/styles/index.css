@@ -39,3 +39,59 @@ body {
 .ant-layout-content {
   background: transparent;
 }
+
+/* Rich text (TipTap) content — shared between the editor's own contentEditable body
+   (.rich-text-editor-content) and the sanitized preview render (.rich-text-content) so
+   authored content looks the same in both places. */
+.rich-text-editor-content,
+.rich-text-content {
+  font-size: 14px;
+  line-height: 1.5715;
+  color: rgba(0, 0, 0, 0.88);
+}
+.rich-text-editor-content :first-child,
+.rich-text-content :first-child {
+  margin-top: 0;
+}
+.rich-text-editor-content :last-child,
+.rich-text-content :last-child {
+  margin-bottom: 0;
+}
+.rich-text-editor-content p,
+.rich-text-content p {
+  margin: 0 0 8px;
+}
+.rich-text-editor-content h2,
+.rich-text-content h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 16px 0 8px;
+}
+.rich-text-editor-content h3,
+.rich-text-content h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 12px 0 8px;
+}
+.rich-text-editor-content ul,
+.rich-text-editor-content ol,
+.rich-text-content ul,
+.rich-text-content ol {
+  margin: 0 0 8px;
+  padding-left: 24px;
+}
+.rich-text-editor-content a,
+.rich-text-content a {
+  color: #1677ff;
+}
+.rich-text-editor-content:focus-within {
+  outline: none;
+}
+.rich-text-editor-content:empty::before,
+.rich-text-editor-content p:only-child:empty::before {
+  content: var(--rich-text-placeholder, "");
+  color: rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}

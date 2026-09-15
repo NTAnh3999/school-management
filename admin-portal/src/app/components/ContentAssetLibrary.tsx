@@ -1,16 +1,19 @@
 import { useState } from "react";
-import { Card, Table, Button, Space, Modal, Form, Input, InputNumber, Popconfirm, message } from "antd";
+import { Card, Table, Button, Space, Modal, Form, Input, InputNumber, Upload, Popconfirm, message, Image, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { PlusOutlined, CheckCircleOutlined } from "@ant-design/icons";
+import type { UploadProps } from "antd";
+import { PlusOutlined, CheckCircleOutlined, UploadOutlined, FileOutlined, PlayCircleOutlined, SoundOutlined } from "@ant-design/icons";
 import { StatusTag } from "./StatusTag";
 import { PermissionGate } from "./PermissionGate";
 import {
   useListContentAssetsQuery,
   useCreateContentAssetMutation,
+  useUploadContentAssetMutation,
   useUpdateAssetProcessingStatusMutation,
 } from "@/store/api/courseContentApi";
 import type { ContentAsset } from "@/types";
 import { getErrorMessage } from "@/lib/error";
+import { resolveAssetPreviewUrl } from "@/lib/content-asset";
 
 interface AssetFormValues {
   filename: string;
@@ -22,18 +25,24 @@ interface AssetFormValues {
   thumbnailUrl?: string;
 }
 
-const MEDIA_TYPES = ["video", "image", "document", "audio"];
+const MEDIA_TYPES = ["video", "image", "document", "audio", "model3d", "h5p"];
 
-// CCA-06: Manage Content Asset metadata. This module registers metadata/storage references only
-// — binary upload, transcoding, and CDN delivery are explicitly out of scope (FSD §2.2); the
-// "Mark ready" action here is a manual stand-in for whatever external pipeline would otherwise
-// PATCH /content-assets/:id/processing-status once real transcoding exists.
+// CCA-06: Manage Content Asset metadata. "Upload file" saves directly to local disk as a
+// dev-environment stand-in for real object storage/CDN (see content-asset.service.js's
+// UPLOAD_DIR note — FSD §2.2 keeps binary storage/transcoding/CDN out of this module's long-term
+// scope). "Register asset" stays for metadata-only registration against a file that already
+// lives somewhere else (e.g. an existing CDN URL). "Mark ready" is a manual stand-in for
+// whatever external pipeline would otherwise PATCH /content-assets/:id/processing-status once
+// real transcoding exists.
 export function ContentAssetLibrary() {
   const { data: assets, isLoading } = useListContentAssetsQuery();
   const [createAsset, { isLoading: creating }] = useCreateContentAssetMutation();
+  const [uploadAsset, { isLoading: uploading }] = useUploadContentAssetMutation();
   const [updateProcessingStatus] = useUpdateAssetProcessingStatusMutation();
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [previewAsset, setPreviewAsset] = useState<ContentAsset | null>(null);
   const [form] = Form.useForm<AssetFormValues>();
 
   const handleCreate = async (values: AssetFormValues) => {
@@ -47,6 +56,23 @@ export function ContentAssetLibrary() {
     }
   };
 
+  const uploadProps: UploadProps = {
+    showUploadList: false,
+    disabled: uploading,
+    customRequest: async (options) => {
+      const file = options.file as File;
+      try {
+        await uploadAsset({ file }).unwrap();
+        message.success(`${file.name} uploaded`);
+        options.onSuccess?.(file);
+        setUploadOpen(false);
+      } catch (err) {
+        message.error(getErrorMessage(err, "Upload failed"));
+        options.onError?.(err as Error);
+      }
+    },
+  };
+
   const markReady = async (id: number) => {
     try {
       await updateProcessingStatus({ id, processingStatus: "ready" }).unwrap();
@@ -57,6 +83,45 @@ export function ContentAssetLibrary() {
   };
 
   const columns: ColumnsType<ContentAsset> = [
+    {
+      title: "",
+      key: "preview",
+      width: 56,
+      render: (_, record) => {
+        const url = resolveAssetPreviewUrl(record);
+        if (record.media_type === "image" && url) {
+          return (
+            <Image
+              src={url}
+              alt={record.filename}
+              width={40}
+              height={40}
+              style={{ objectFit: "cover", borderRadius: 4 }}
+              placeholder
+            />
+          );
+        }
+        if (record.media_type === "video" && url) {
+          return (
+            <Button
+              type="text"
+              icon={<PlayCircleOutlined style={{ fontSize: 20 }} />}
+              onClick={() => setPreviewAsset(record)}
+            />
+          );
+        }
+        if (record.media_type === "audio" && url) {
+          return (
+            <Button
+              type="text"
+              icon={<SoundOutlined style={{ fontSize: 20 }} />}
+              onClick={() => setPreviewAsset(record)}
+            />
+          );
+        }
+        return <FileOutlined style={{ fontSize: 20, color: "#bbb" }} />;
+      },
+    },
     { title: "Filename", dataIndex: "filename", key: "filename" },
     { title: "Media type", dataIndex: "media_type", key: "media_type" },
     { title: "MIME type", dataIndex: "mime_type", key: "mime_type" },
@@ -88,9 +153,14 @@ export function ContentAssetLibrary() {
       title="Content assets"
       extra={
         <PermissionGate permission="content.asset.manage">
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
-            Register asset
-          </Button>
+          <Space>
+            <Button icon={<UploadOutlined />} onClick={() => setUploadOpen(true)}>
+              Upload file
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
+              Register asset
+            </Button>
+          </Space>
         </PermissionGate>
       }
     >
@@ -159,6 +229,43 @@ export function ContentAssetLibrary() {
             <Input placeholder="https://..." />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal title="Upload content asset" open={uploadOpen} onCancel={() => setUploadOpen(false)} footer={null}>
+        <Upload.Dragger {...uploadProps} style={{ padding: 16 }}>
+          <p className="ant-upload-drag-icon">
+            <UploadOutlined />
+          </p>
+          <p className="ant-upload-text">Click or drag a file to upload</p>
+          <p className="ant-upload-hint">
+            Registers a ContentAsset automatically — filename, media type, and size are read from
+            the file itself.
+          </p>
+        </Upload.Dragger>
+      </Modal>
+
+      <Modal
+        title={previewAsset?.filename}
+        open={!!previewAsset}
+        onCancel={() => setPreviewAsset(null)}
+        footer={null}
+        destroyOnClose
+      >
+        {previewAsset && previewAsset.media_type === "video" && (
+          <video
+            src={resolveAssetPreviewUrl(previewAsset) ?? undefined}
+            controls
+            style={{ width: "100%", maxHeight: 480 }}
+          />
+        )}
+        {previewAsset && previewAsset.media_type === "audio" && (
+          <audio src={resolveAssetPreviewUrl(previewAsset) ?? undefined} controls style={{ width: "100%" }} />
+        )}
+        {previewAsset && !resolveAssetPreviewUrl(previewAsset) && (
+          <Typography.Text type="secondary">
+            This asset's storage key doesn't point to a browser-resolvable location.
+          </Typography.Text>
+        )}
       </Modal>
     </Card>
   );
