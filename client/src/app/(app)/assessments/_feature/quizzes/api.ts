@@ -11,9 +11,9 @@ export async function createQuiz(
   data: {
     title: string;
     description?: string;
-    passing_score: number;
-    time_limit_minutes?: number;
-    max_attempts: number;
+    passingScore: number;
+    timeLimitMinutes?: number;
+    maxAttempts: number;
   },
 ) {
   const response = await httpClient.post(
@@ -26,13 +26,13 @@ export async function createQuiz(
 export async function addQuizQuestion(
   quizId: number,
   data: {
-    question_text: string;
-    question_type: string;
+    questionText: string;
+    questionType: string;
     points: number;
-    order_index: number;
+    orderIndex: number;
     options?: Array<{
-      option_text: string;
-      is_correct: boolean;
+      text: string;
+      isCorrect: boolean;
     }>;
   },
 ) {
@@ -43,9 +43,10 @@ export async function addQuizQuestion(
   return response.data;
 }
 
-export async function startQuizAttempt(quizId: number) {
+export async function startQuizAttempt(quizId: number, enrollmentId: number) {
   const response = await httpClient.post(
     API_ROUTES.quizzes.startAttempt(quizId),
+    { enrollmentId },
   );
   return response.data;
 }
@@ -53,9 +54,10 @@ export async function startQuizAttempt(quizId: number) {
 export async function submitQuizAttempt(
   attemptId: number,
   answers: Array<{
-    question_id: number;
-    selected_option_id?: number;
-    text_answer?: string;
+    questionId: number;
+    selectedOptionId?: number;
+    selectedOptionIds?: number[];
+    textAnswer?: string;
   }>,
 ) {
   const response = await httpClient.post(

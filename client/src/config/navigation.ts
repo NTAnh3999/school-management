@@ -2,6 +2,7 @@ import type { ComponentType, SVGProps } from "react";
 
 import {
   BookOpen,
+  ClipboardCheck,
   ClipboardList,
   LayoutDashboard,
   MessageSquare,
@@ -34,6 +35,12 @@ export const appRoutes: AppRoute[] = [
     href: "/courses",
     icon: BookOpen,
     description: "Browse pathways, lessons, and guided study content",
+  },
+  {
+    label: "Assessments",
+    href: "/assessments",
+    icon: ClipboardCheck,
+    description: "Open checks, submitted work, and released results",
   },
   {
     label: "Q&A",

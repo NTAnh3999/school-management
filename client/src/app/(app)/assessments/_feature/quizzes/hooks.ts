@@ -30,9 +30,9 @@ export function useCreateQuiz() {
       data: {
         title: string;
         description?: string;
-        passing_score: number;
-        time_limit_minutes?: number;
-        max_attempts: number;
+        passingScore: number;
+        timeLimitMinutes?: number;
+        maxAttempts: number;
       };
     }) => createQuiz(lessonId, data),
     onSuccess: () => {
@@ -51,13 +51,13 @@ export function useAddQuizQuestion() {
     }: {
       quizId: number;
       data: {
-        question_text: string;
-        question_type: string;
+        questionText: string;
+        questionType: string;
         points: number;
-        order_index: number;
+        orderIndex: number;
         options?: Array<{
-          option_text: string;
-          is_correct: boolean;
+          text: string;
+          isCorrect: boolean;
         }>;
       };
     }) => addQuizQuestion(quizId, data),
@@ -73,9 +73,15 @@ export function useStartQuizAttempt() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: startQuizAttempt,
-    onSuccess: (_, quizId) => {
-      queryClient.invalidateQueries({ queryKey: ["quiz-attempts", quizId] });
+    mutationFn: ({
+      quizId,
+      enrollmentId,
+    }: {
+      quizId: number;
+      enrollmentId: number;
+    }) => startQuizAttempt(quizId, enrollmentId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["quiz-attempts", variables.quizId] });
     },
   });
 }
@@ -90,9 +96,10 @@ export function useSubmitQuizAttempt() {
     }: {
       attemptId: number;
       answers: Array<{
-        question_id: number;
-        selected_option_id?: number;
-        text_answer?: string;
+        questionId: number;
+        selectedOptionId?: number;
+        selectedOptionIds?: number[];
+        textAnswer?: string;
       }>;
     }) => submitQuizAttempt(attemptId, answers),
     onSuccess: () => {
