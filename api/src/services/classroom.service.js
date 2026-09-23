@@ -1518,6 +1518,180 @@ const getActivityLog = async (classroomId) => {
   });
 };
 
+// ---------------------------------------------------------------------------
+// CLASS-08: Import Classrooms from Excel
+// Each row is validated independently (course_id, classroom_code, capacity,
+// date range) per CLASS-01/CLASS-02 rules; invalid rows are skipped with a
+// detailed error and do not fail the whole file.
+// ---------------------------------------------------------------------------
+const importClassrooms = async (fileBuffer, userId) => {
+  const XLSX = require("xlsx");
+  const workbook = XLSX.read(fileBuffer, { type: "buffer" });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+
+  if (!rows || rows.length === 0) {
+    throw new BadRequestError("Excel file is empty or has no data rows");
+  }
+
+  const results = { created: 0, skipped: 0, errors: [] };
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const rowNum = i + 2; // 1-indexed with header row
+
+    const course_id = parseInt(row["course_id"]);
+    const classroom_name = String(row["classroom_name"] || "").trim();
+    const delivery_method = String(row["delivery_method"] || "").trim().toLowerCase();
+    const start_date = row["start_date"] || null;
+    const end_date = row["end_date"] || null;
+    const max_capacity = parseInt(row["max_capacity"]);
+
+    if (!course_id || isNaN(course_id)) {
+      results.errors.push({ row: rowNum, error: "course_id is required and must be an integer" });
+      continue;
+    }
+    if (!classroom_name) {
+      results.errors.push({ row: rowNum, error: "classroom_name is required" });
+      continue;
+    }
+    if (!["online", "offline", "hybrid"].includes(delivery_method)) {
+      results.errors.push({
+        row: rowNum,
+        error: "delivery_method is required and must be online, offline or hybrid",
+      });
+      continue;
+    }
+    if (!start_date || !end_date) {
+      results.errors.push({ row: rowNum, error: "start_date and end_date are required" });
+      continue;
+    }
+    if (new Date(end_date) < new Date(start_date)) {
+      results.errors.push({ row: rowNum, error: "end_date must be >= start_date" });
+      continue;
+    }
+    if (!max_capacity || isNaN(max_capacity) || max_capacity <= 0) {
+      results.errors.push({ row: rowNum, error: "max_capacity must be a positive integer" });
+      continue;
+    }
+    const location = String(row["location"] || "").trim() || null;
+    if (["offline", "hybrid"].includes(delivery_method) && !location) {
+      results.errors.push({
+        row: rowNum,
+        error: "location is required for offline/hybrid delivery",
+      });
+      continue;
+    }
+
+    const course = await Course.findByPk(course_id);
+    if (!course) {
+      results.errors.push({ row: rowNum, error: `course_id ${course_id} not found` });
+      continue;
+    }
+    if (course.status !== "active") {
+      results.errors.push({
+        row: rowNum,
+        error: `course_id ${course_id} is not active (COURSE_NOT_ELIGIBLE_FOR_CLASSROOM)`,
+      });
+      continue;
+    }
+
+    let classroom_code = String(row["classroom_code"] || "").trim() || null;
+    if (classroom_code) {
+      const existing = await Classroom.findOne({ where: { classroom_code } });
+      if (existing) {
+        results.errors.push({
+          row: rowNum,
+          error: `classroom_code "${classroom_code}" already exists (CLASSROOM_CODE_DUPLICATED)`,
+        });
+        continue;
+      }
+    } else {
+      classroom_code = await generateClassroomCode(course.course_code || "");
+    }
+
+    const min_capacity = row["min_capacity"] ? parseInt(row["min_capacity"]) : 0;
+    if (min_capacity > max_capacity) {
+      results.errors.push({ row: rowNum, error: "min_capacity cannot exceed max_capacity" });
+      continue;
+    }
+
+    const cls = await Classroom.create({
+      classroom_code,
+      classroom_name,
+      description: row["description"] || null,
+      course_id,
+      status: CLASSROOM_STATUSES.DRAFT,
+      delivery_method,
+      campus_id: row["campus_id"] ? parseInt(row["campus_id"]) : null,
+      location,
+      online_meeting_link: row["online_meeting_link"] || null,
+      academic_year: row["academic_year"] || null,
+      term: row["term"] || null,
+      language: row["language"] || null,
+      start_date,
+      end_date,
+      enrollment_mode: row["enrollment_mode"] || "manual",
+      min_capacity,
+      max_capacity,
+      enrolled_count: 0,
+      visibility: row["visibility"] || "internal",
+      created_by: userId,
+      updated_by: userId,
+    });
+
+    await writeAuditLog({
+      classroomId: cls.id,
+      action: "CREATE",
+      newValues: { classroom_code, classroom_name, status: "draft", source: "import" },
+      actorId: userId,
+    });
+
+    results.created++;
+  }
+
+  return results;
+};
+
+// ---------------------------------------------------------------------------
+// CLASS-08: Export Classrooms to Excel
+// Exports according to the actor's current scope/filters (reuses the same
+// role-based scoping as `list`).
+// ---------------------------------------------------------------------------
+const exportClassrooms = async (filters = {}, actorId, actorRole) => {
+  const XLSX = require("xlsx");
+
+  const { items } = await list({ ...filters, page: 1, page_size: 10000 }, actorId, actorRole);
+
+  const data = items.map((c) => ({
+    classroom_code: c.classroom_code,
+    classroom_name: c.classroom_name,
+    course_id: c.course_id,
+    course_code: c.course?.course_code || "",
+    course_name: c.course?.course_name || "",
+    status: c.status,
+    delivery_method: c.delivery_method,
+    campus_id: c.campus_id || "",
+    location: c.location || "",
+    academic_year: c.academic_year || "",
+    term: c.term || "",
+    start_date: c.start_date,
+    end_date: c.end_date,
+    min_capacity: c.min_capacity,
+    max_capacity: c.max_capacity,
+    enrolled_count: c.enrolled_count,
+    enrollment_mode: c.enrollment_mode,
+    visibility: c.visibility,
+    main_teacher: c.teachers?.[0]?.user?.full_name || "",
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Classrooms");
+
+  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+};
+
 module.exports = {
   list,
   detail,
@@ -1541,4 +1715,6 @@ module.exports = {
   updateSession,
   deleteSession,
   getActivityLog,
+  importClassrooms,
+  exportClassrooms,
 };

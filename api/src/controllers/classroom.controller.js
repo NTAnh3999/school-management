@@ -304,6 +304,40 @@ const getActivityLog = asyncHandler(async (req, res) => {
   return new OKResponse({ metadata: { logs } }).send(res);
 });
 
+// ---------------------------------------------------------------------------
+// CLASS-08: Import Classrooms from Excel
+// POST /classrooms/import
+// ---------------------------------------------------------------------------
+const importClassrooms = asyncHandler(async (req, res) => {
+  if (!req.file) throw new Error("No file uploaded");
+  const results = await ClassroomService.importClassrooms(req.file.buffer, req.user.id);
+  return new OKResponse({ message: "Import complete", metadata: results }).send(res);
+});
+
+// ---------------------------------------------------------------------------
+// CLASS-08: Export Classrooms to Excel
+// GET /classrooms/export
+// ---------------------------------------------------------------------------
+const exportClassrooms = asyncHandler(async (req, res) => {
+  const filters = {
+    keyword: req.query.keyword,
+    status: req.query.status,
+    course_id: req.query.course_id,
+    teacher_id: req.query.teacher_id,
+    delivery_method: req.query.delivery_method,
+    date_from: req.query.date_from,
+    date_to: req.query.date_to,
+    enrollment_availability: req.query.enrollment_availability,
+  };
+  const buffer = await ClassroomService.exportClassrooms(filters, req.user.id, req.user.role);
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader("Content-Disposition", `attachment; filename="classrooms_${Date.now()}.xlsx"`);
+  return res.send(buffer);
+});
+
 module.exports = {
   list,
   detail,
@@ -327,4 +361,6 @@ module.exports = {
   updateSession,
   deleteSession,
   getActivityLog,
+  importClassrooms,
+  exportClassrooms,
 };

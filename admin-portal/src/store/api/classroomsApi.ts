@@ -184,6 +184,31 @@ export const classroomsApi = baseApi.injectEndpoints({
         }>,
       ) => res.metadata.logs,
     }),
+
+    // CLASS-08: Import Classrooms from Excel
+    importClassrooms: builder.mutation<
+      { created: number; skipped: number; errors: { row: number; error: string }[] },
+      File
+    >({
+      query: (file) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        return { url: "/classrooms/import", method: "POST", body: formData };
+      },
+      transformResponse: (
+        res: ApiEnvelope<{ created: number; skipped: number; errors: { row: number; error: string }[] }>,
+      ) => res.metadata,
+      invalidatesTags: ["Classroom"],
+    }),
+
+    // CLASS-08: Export Classrooms to Excel
+    exportClassrooms: builder.query<Blob, ListClassroomsParams | void>({
+      query: (params) => ({
+        url: "/classrooms/export",
+        params: params ?? undefined,
+        responseHandler: (response) => response.blob(),
+      }),
+    }),
   }),
 });
 
@@ -203,4 +228,6 @@ export const {
   useRemoveClassroomStudentMutation,
   useListClassroomSessionsQuery,
   useGetClassroomActivityLogQuery,
+  useImportClassroomsMutation,
+  useLazyExportClassroomsQuery,
 } = classroomsApi;

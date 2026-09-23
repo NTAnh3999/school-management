@@ -1,12 +1,18 @@
 import { useState } from "react";
-import { Table, Button, Space, Input, Select, Tooltip, Progress } from "antd";
-import { PlusOutlined, SearchOutlined, EyeOutlined } from "@ant-design/icons";
+import { Table, Button, Space, Input, Select, Tooltip, Progress, Upload, message, Modal, List, Typography } from "antd";
+import type { UploadProps } from "antd";
+import { PlusOutlined, SearchOutlined, EyeOutlined, UploadOutlined, DownloadOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { useNavigate } from "react-router";
 import { PageHeader } from "../../components/PageHeader";
 import { StatusTag } from "../../components/StatusTag";
 import { PermissionGate } from "../../components/PermissionGate";
-import { useListClassroomsQuery } from "@/store/api/classroomsApi";
+import {
+  useListClassroomsQuery,
+  useImportClassroomsMutation,
+  useLazyExportClassroomsQuery,
+} from "@/store/api/classroomsApi";
+import { getErrorMessage } from "@/lib/error";
 import type { Classroom, ClassroomStatus, DeliveryMethod } from "@/types";
 
 // ADM-16 — Classroom List.
@@ -24,6 +30,49 @@ export function ClassroomList() {
     status,
     delivery_method: deliveryMethod,
   });
+
+  const [importClassrooms, { isLoading: importing }] = useImportClassroomsMutation();
+  const [triggerExport, { isFetching: exporting }] = useLazyExportClassroomsQuery();
+  const [importResult, setImportResult] = useState<{
+    created: number;
+    skipped: number;
+    errors: { row: number; error: string }[];
+  } | null>(null);
+
+  const uploadProps: UploadProps = {
+    accept: ".xlsx,.xls",
+    showUploadList: false,
+    disabled: importing,
+    customRequest: async (options) => {
+      const file = options.file as File;
+      try {
+        const result = await importClassrooms(file).unwrap();
+        setImportResult(result);
+        options.onSuccess?.(result);
+      } catch (err) {
+        message.error(getErrorMessage(err, "Import failed"));
+        options.onError?.(err as Error);
+      }
+    },
+  };
+
+  const handleExport = async () => {
+    try {
+      const blob = await triggerExport({
+        keyword: keyword || undefined,
+        status,
+        delivery_method: deliveryMethod,
+      }).unwrap();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `classrooms_${Date.now()}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      message.error(getErrorMessage(err, "Export failed"));
+    }
+  };
 
   const columns: ColumnsType<Classroom> = [
     { title: "Code", dataIndex: "classroom_code", key: "classroom_code", width: 130 },
@@ -90,12 +139,53 @@ export function ClassroomList() {
         description="Classrooms and cohorts running in your tenant."
         actions={
           <PermissionGate permission="iam.user.manage">
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate("/classrooms/new")}>
-              Create Classroom
-            </Button>
+            <Space>
+              <Button icon={<DownloadOutlined />} loading={exporting} onClick={handleExport}>
+                Export
+              </Button>
+              <Upload {...uploadProps}>
+                <Button icon={<UploadOutlined />} loading={importing}>
+                  Import
+                </Button>
+              </Upload>
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate("/classrooms/new")}>
+                Create Classroom
+              </Button>
+            </Space>
           </PermissionGate>
         }
       />
+
+      <Modal
+        title="Import result"
+        open={!!importResult}
+        onCancel={() => setImportResult(null)}
+        onOk={() => setImportResult(null)}
+        okText="Close"
+        cancelButtonProps={{ style: { display: "none" } }}
+      >
+        {importResult && (
+          <Space direction="vertical" style={{ width: "100%" }}>
+            <Typography.Text>
+              {importResult.created} created, {importResult.skipped} skipped,{" "}
+              {importResult.errors.length} failed.
+            </Typography.Text>
+            {importResult.errors.length > 0 && (
+              <List
+                size="small"
+                bordered
+                dataSource={importResult.errors}
+                style={{ maxHeight: 240, overflowY: "auto" }}
+                renderItem={(item) => (
+                  <List.Item>
+                    Row {item.row}: {item.error}
+                  </List.Item>
+                )}
+              />
+            )}
+          </Space>
+        )}
+      </Modal>
 
       <Space wrap>
         <Input

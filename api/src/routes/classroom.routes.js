@@ -1,11 +1,14 @@
 "use strict";
 const express = require("express");
+const multer = require("multer");
 const { body, param, query } = require("express-validator");
 const { validate } = require("../middleware/validation.middleware");
 const AuthMiddleware = require("../middleware/auth.middleware");
 const RoleMiddleware = require("../middleware/role.middleware");
 const ClassroomController = require("../controllers/classroom.controller");
 const { ROLES } = require("../constants/roles");
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const router = express.Router();
 
@@ -100,6 +103,40 @@ router.post(
     body("visibility").optional().isIn(VISIBILITY),
   ]),
   ClassroomController.create
+);
+
+// ---------------------------------------------------------------------------
+// CLASS-08: Import Classrooms from Excel
+// POST /classrooms/import
+// Registered before GET /:id so "import" is never matched as an :id param.
+// ---------------------------------------------------------------------------
+router.post(
+  "/import",
+  AuthMiddleware.verifyToken,
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
+  upload.single("file"),
+  ClassroomController.importClassrooms
+);
+
+// ---------------------------------------------------------------------------
+// CLASS-08: Export Classrooms to Excel
+// GET /classrooms/export
+// Registered before GET /:id so "export" is never matched as an :id param.
+// ---------------------------------------------------------------------------
+router.get(
+  "/export",
+  AuthMiddleware.verifyToken,
+  RoleMiddleware.requireRole([ROLES.ADMIN]),
+  validate([
+    query("status").optional({ values: "falsy" }).isIn(CLASSROOM_STATUSES),
+    query("delivery_method").optional({ values: "falsy" }).isIn(DELIVERY_METHODS),
+    query("enrollment_availability").optional({ values: "falsy" }).isIn(["available", "full"]),
+    query("course_id").optional({ values: "falsy" }).isInt({ min: 1 }),
+    query("teacher_id").optional({ values: "falsy" }).isInt({ min: 1 }),
+    query("date_from").optional({ values: "falsy" }).isDate(),
+    query("date_to").optional({ values: "falsy" }).isDate(),
+  ]),
+  ClassroomController.exportClassrooms
 );
 
 // ---------------------------------------------------------------------------
