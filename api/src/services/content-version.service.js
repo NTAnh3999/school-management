@@ -185,7 +185,7 @@ const _checkPublishReadiness = async (versionId, transaction) => {
           {
             model: LearningItem,
             as: "learning_items",
-            where: { content_version_id: versionId },
+            where: { content_version_id: versionId, status: "draft" },
             required: false,
             include: [{ model: ContentAsset, as: "asset" }],
           },
