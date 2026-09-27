@@ -127,7 +127,9 @@ const ensureDefaultRolePermissions = async () => {
   }
 
   if (studentRole) {
-    const permissions = await Permission.findAll({ where: { code: ["auth.tenant.switch"] } });
+    const permissions = await Permission.findAll({
+      where: { code: ["auth.tenant.switch", "content.version.view"] },
+    });
     for (const permission of permissions) {
       await RolePermission.findOrCreate({
         where: { role_id: studentRole.id, permission_id: permission.id },
@@ -137,7 +139,9 @@ const ensureDefaultRolePermissions = async () => {
   }
 
   if (parentRole) {
-    const permissions = await Permission.findAll({ where: { code: ["auth.tenant.switch"] } });
+    const permissions = await Permission.findAll({
+      where: { code: ["auth.tenant.switch", "content.version.view"] },
+    });
     for (const permission of permissions) {
       await RolePermission.findOrCreate({
         where: { role_id: parentRole.id, permission_id: permission.id },
