@@ -1,56 +1,18 @@
-import {
-  addLearningItem,
-  archiveLearningItemById,
-  getLearningItemById,
-  listLearningItems,
-  patchLearningItem,
-  reorderLearningItemsByLesson,
-} from "../mock-data";
+import { API_ROUTES } from "@/config/api";
+import { httpClient } from "@/lib/http-client";
+import type { LearningItem } from "@/types/models";
 
+// GET /learning-items/lesson/:lessonId — includes `asset` (ContentAsset).
 export async function getLearningItems(lessonId: number) {
-  return listLearningItems(lessonId);
+  const response = await httpClient.get<{ items: LearningItem[] }>(
+    API_ROUTES.learningItems.list(lessonId),
+  );
+  return response.data.items;
 }
 
 export async function getLearningItem(id: number) {
-  return getLearningItemById(id);
-}
-
-export async function createLearningItem(
-  lessonId: number,
-  data: {
-    itemType: string;
-    title: string;
-    contentPayload?: Record<string, unknown>;
-    assetId?: number;
-    displayOrder?: number;
-    estimatedDuration?: number;
-    isRequired?: boolean;
-  },
-) {
-  return addLearningItem(lessonId, data);
-}
-
-export async function updateLearningItem(
-  id: number,
-  data: Partial<{
-    title: string;
-    contentPayload: Record<string, unknown>;
-    assetId: number;
-    displayOrder: number;
-    estimatedDuration: number;
-    isRequired: boolean;
-  }>,
-) {
-  return patchLearningItem(id, data);
-}
-
-export async function archiveLearningItem(id: number) {
-  return archiveLearningItemById(id);
-}
-
-export async function reorderLearningItems(
-  lessonId: number,
-  orderedIds: number[],
-) {
-  return reorderLearningItemsByLesson(lessonId, orderedIds);
+  const response = await httpClient.get<{ item: LearningItem }>(
+    API_ROUTES.learningItems.detail(id),
+  );
+  return response.data.item;
 }

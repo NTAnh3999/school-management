@@ -6,6 +6,7 @@ import {
   getEnrollmentProgress,
   getCourseProgress,
 } from "./api";
+import type { LessonProgressStatus } from "@/types/models";
 
 export function useUpdateProgress() {
   const queryClient = useQueryClient();
@@ -14,7 +15,7 @@ export function useUpdateProgress() {
     mutationFn: (data: {
       enrollment_id: number;
       lesson_id: number;
-      status: string;
+      status: LessonProgressStatus;
       time_spent_minutes?: number;
     }) => updateProgress(data),
     onSuccess: (_, variables) => {

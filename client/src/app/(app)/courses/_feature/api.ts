@@ -1,57 +1,54 @@
-import {
-  addCourse,
-  enrollInCourse,
-  getCourseById,
-  listCourses,
-  listMyEnrollments,
-  patchCourse,
-  removeCourse,
-} from "./mock-data";
+import { API_ROUTES } from "@/config/api";
+import { httpClient } from "@/lib/http-client";
+import type { Course, Enrollment } from "@/types/models";
 
 interface GetCoursesParams {
-  level?: string;
+  keyword?: string;
   status?: string;
-  instructorId?: number;
+  departmentId?: number;
+  courseType?: string;
+  page?: number;
+  page_size?: number;
 }
 
+interface GetCoursesResult {
+  total: number;
+  page: number;
+  page_size: number;
+  courses: Course[];
+}
+
+// GET /courses — students only ever see status="active" courses (enforced
+// server-side regardless of the status filter sent here).
 export async function getCourses(params?: GetCoursesParams) {
-  return listCourses(params);
+  const response = await httpClient.get<GetCoursesResult>(API_ROUTES.courses.list, {
+    params,
+  });
+  return response.data;
 }
 
+// GET /courses/:id — includes course.modules[].lessons[] but NOT
+// learning_items; use getPublishedContentStructure for the full tree.
 export async function getCourse(id: number) {
-  return getCourseById(id);
+  const response = await httpClient.get<{ course: Course }>(
+    API_ROUTES.courses.detail(id),
+  );
+  return response.data.course;
 }
 
-export async function createCourse(data: {
-  title: string;
-  description: string;
-  level: string;
-  price: number;
-}) {
-  return addCourse(data);
-}
-
-export async function updateCourse(
-  id: number,
-  data: Partial<{
-    title: string;
-    description: string;
-    level: string;
-    price: number;
-    status: string;
-  }>,
-) {
-  return patchCourse(id, data);
-}
-
-export async function deleteCourse(id: number) {
-  return removeCourse(id);
-}
-
+// POST /courses/:id/enroll — students only. Fails if already enrolled or if
+// the course isn't active.
 export async function enrollCourse(id: number) {
-  return enrollInCourse(id);
+  const response = await httpClient.post<{ enrollment: Enrollment }>(
+    API_ROUTES.courses.enroll(id),
+  );
+  return response.data.enrollment;
 }
 
+// GET /courses/my/enrollments
 export async function getMyEnrollments() {
-  return listMyEnrollments();
+  const response = await httpClient.get<{ enrollments: Enrollment[] }>(
+    API_ROUTES.courses.myEnrollments,
+  );
+  return response.data.enrollments;
 }

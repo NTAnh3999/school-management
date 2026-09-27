@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { use, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -215,9 +215,10 @@ function sortThreads(threads: QaThread[], sort: string) {
 export default function CourseQaPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const courseId = Number(params.id);
+  const { id } = use(params);
+  const courseId = Number(id);
   const { data: course, isLoading } = useCourse(courseId);
 
   const [query, setQuery] = useState("");
@@ -279,7 +280,7 @@ export default function CourseQaPage({
             <span className="text-primary">Q&A</span>
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-on-surface lg:text-4xl">
-            Course Q&A: {course?.title || "Applied Neuroscience Cohort"}
+            Course Q&A: {course?.course_name || "Applied Neuroscience Cohort"}
           </h1>
           <p className="font-reading text-sm leading-7 text-on-surface-variant lg:text-base">
             Join learners and mentors in focused discussion. Ask precise questions,

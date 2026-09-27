@@ -1,40 +1,13 @@
-import {
-  addContentVersion,
-  archiveContentVersionById,
-  getContentVersionById,
-  getDraftPreview,
-  getPublishedStructure,
-  listContentVersions,
-  publishContentVersionById,
-} from "../mock-data";
+import { API_ROUTES } from "@/config/api";
+import { httpClient } from "@/lib/http-client";
+import type { PublishedContentStructure } from "@/types/models";
 
-export async function getContentVersions(courseId: number) {
-  return listContentVersions(courseId);
-}
-
-export async function getContentVersion(id: number) {
-  return getContentVersionById(id);
-}
-
-export async function createContentVersion(
-  courseId: number,
-  data: { versionLabel: string; changelog?: string },
-) {
-  return addContentVersion(courseId, data);
-}
-
-export async function publishContentVersion(id: number) {
-  return publishContentVersionById(id);
-}
-
-export async function archiveContentVersion(id: number) {
-  return archiveContentVersionById(id);
-}
-
+// GET /content/courses/:courseId/published — the single call that returns
+// the full modules -> lessons -> learning_items tree for the course's
+// published version. 404s if the course has no published version yet.
 export async function getPublishedContentStructure(courseId: number) {
-  return getPublishedStructure(courseId);
-}
-
-export async function previewDraftContent(courseId: number) {
-  return getDraftPreview(courseId);
+  const response = await httpClient.get<PublishedContentStructure>(
+    API_ROUTES.contentVersions.publishedStructure(courseId),
+  );
+  return response.data;
 }

@@ -1,5 +1,10 @@
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api/v1";
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+
+// Base origin of the API server (no /api/v1 suffix) — used to resolve static
+// file URLs such as content-asset storage_key ("/uploads/...").
+export const API_ORIGIN =
+  process.env.NEXT_PUBLIC_API_ORIGIN ?? API_BASE_URL.replace(/\/api\/v1\/?$/, "");
 
 export const API_TIMEOUT = Number(process.env.NEXT_PUBLIC_API_TIMEOUT ?? 10000);
 
@@ -24,17 +29,18 @@ export const API_ROUTES = {
     enroll: (id: number) => `/courses/${id}/enroll`,
     myEnrollments: "/courses/my/enrollments",
   },
-  sections: {
-    list: (courseId: number) => `/sections/course/${courseId}`,
-    detail: (id: number) => `/sections/${id}`,
-    create: (courseId: number) => `/sections/course/${courseId}`,
-    update: (id: number) => `/sections/${id}`,
-    delete: (id: number) => `/sections/${id}`,
+  modules: {
+    listByCourse: (courseId: number) => `/modules/course/${courseId}`,
+    listByVersion: (versionId: number) => `/modules/version/${versionId}`,
+    detail: (id: number) => `/modules/${id}`,
+    create: (courseId: number) => `/modules/course/${courseId}`,
+    update: (id: number) => `/modules/${id}`,
+    delete: (id: number) => `/modules/${id}`,
   },
   lessons: {
-    list: (sectionId: number) => `/lessons/section/${sectionId}`,
+    list: (moduleId: number) => `/lessons/module/${moduleId}`,
     detail: (id: number) => `/lessons/${id}`,
-    create: (sectionId: number) => `/lessons/section/${sectionId}`,
+    create: (moduleId: number) => `/lessons/module/${moduleId}`,
     update: (id: number) => `/lessons/${id}`,
     delete: (id: number) => `/lessons/${id}`,
   },
@@ -89,6 +95,7 @@ export const API_ROUTES = {
     detail: (id: number) => `/content-assets/${id}`,
     create: "/content-assets",
     update: (id: number) => `/content-assets/${id}`,
+    upload: "/content-assets/upload",
   },
   contentVersions: {
     list: (courseId: number) => `/content/courses/${courseId}/versions`,

@@ -1,47 +1,20 @@
-import {
-  addLesson,
-  getLessonById,
-  listLessons,
-  patchLesson,
-  removeLesson,
-} from "../mock-data";
+import { API_ROUTES } from "@/config/api";
+import { httpClient } from "@/lib/http-client";
+import type { Lesson } from "@/types/models";
 
-export async function getLessons(sectionId: number) {
-  return listLessons(sectionId);
+// GET /lessons/module/:moduleId — includes `quiz` but NOT `learning_items`.
+export async function getLessons(moduleId: number) {
+  const response = await httpClient.get<{ lessons: Lesson[] }>(
+    API_ROUTES.lessons.list(moduleId),
+  );
+  return response.data.lessons;
 }
 
+// GET /lessons/:id — includes module (-> course), quiz, feedback. Still no
+// learning_items; fetch those separately via getLearningItems(lessonId).
 export async function getLesson(id: number) {
-  return getLessonById(id);
-}
-
-export async function createLesson(
-  sectionId: number,
-  data: {
-    title: string;
-    content?: string;
-    lesson_type: string;
-    video_url?: string;
-    duration_minutes: number;
-    order_index: number;
-  },
-) {
-  return addLesson(sectionId, data);
-}
-
-export async function updateLesson(
-  id: number,
-  data: Partial<{
-    title: string;
-    content: string;
-    lesson_type: string;
-    video_url: string;
-    duration_minutes: number;
-    order_index: number;
-  }>,
-) {
-  return patchLesson(id, data);
-}
-
-export async function deleteLesson(id: number) {
-  return removeLesson(id);
+  const response = await httpClient.get<{ lesson: Lesson }>(
+    API_ROUTES.lessons.detail(id),
+  );
+  return response.data.lesson;
 }

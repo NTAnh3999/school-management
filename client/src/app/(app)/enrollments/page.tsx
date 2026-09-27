@@ -79,18 +79,9 @@ function getLabelTone(index: number) {
   return CATALOG_LABEL_TONES[index % CATALOG_LABEL_TONES.length];
 }
 
-function getScheduleTone(enrollment: Enrollment): ScheduleBlock["tone"] {
-  const level = enrollment.course?.level;
-
-  if (level === "intermediate") {
-    return "secondary";
-  }
-
-  if (level === "advanced") {
-    return "tertiary";
-  }
-
-  return "primary";
+function getScheduleTone(enrollment: Enrollment, index: number): ScheduleBlock["tone"] {
+  const tones: ScheduleBlock["tone"][] = ["primary", "secondary", "tertiary"];
+  return tones[index % tones.length];
 }
 
 function scheduleBlockClass(tone: ScheduleBlock["tone"]) {
@@ -128,10 +119,10 @@ export default function EnrollmentsPage() {
         key: `${enrollment.id}-${dayIndex}-${time}`,
         dayIndex,
         time,
-        category: `${enrollment.course?.id ?? "CRS"} SERIES`,
-        title: enrollment.course?.title ?? "Untitled course",
+        category: `${enrollment.course?.course_code ?? "CRS"} SERIES`,
+        title: enrollment.course?.course_name ?? "Untitled course",
         subtitle: `${enrollment.progress?.completion_percentage ?? 0}% complete`,
-        tone: getScheduleTone(enrollment),
+        tone: getScheduleTone(enrollment, index),
       };
     });
   }, [enrollments]);
@@ -198,7 +189,7 @@ export default function EnrollmentsPage() {
                     {getCourseLabel(enrollment, index)}
                   </p>
                   <h2 className="mt-1 line-clamp-2 text-[1.05rem] font-semibold leading-[1.35] text-foreground">
-                    {enrollment.course?.title || "Untitled course"}
+                    {enrollment.course?.course_name || "Untitled course"}
                   </h2>
                 </article>
               );
@@ -352,43 +343,41 @@ function CourseInsightsSheet({
   const scheduleLabel = useMemo(() => {
     if (!enrollment) return null;
     for (const [key, block] of scheduleMap.entries()) {
-      if (block.title === course?.title) {
+      if (block.title === course?.course_name) {
         const [dayIndex, time] = key.split("-");
         const day = SCHEDULE_DAY_LABELS[Number(dayIndex)];
         return day ? `Session scheduled for ${day}, ${time} AM` : null;
       }
     }
     return null;
-  }, [enrollment, scheduleMap, course?.title]);
+  }, [enrollment, scheduleMap, course?.course_name]);
 
   const totalMinutes = useMemo(() => {
-    if (!course?.sections) return null;
+    if (!course?.modules) return null;
     let mins = 0;
-    for (const section of course.sections) {
-      for (const lesson of section.lessons ?? []) {
+    for (const courseModule of course.modules) {
+      for (const lesson of courseModule.lessons ?? []) {
         mins += lesson.duration_minutes ?? 0;
       }
     }
     return mins > 0 ? Math.round(mins / 60) : null;
   }, [course]);
 
-  const quizCount = useMemo(() => {
-    if (!course?.sections) return null;
-    let count = 0;
-    for (const section of course.sections) {
-      for (const lesson of section.lessons ?? []) {
-        if (lesson.lesson_type === "quiz") count++;
-      }
-    }
+  const lessonCount = useMemo(() => {
+    if (!course?.modules) return null;
+    const count = course.modules.reduce(
+      (sum, courseModule) => sum + (courseModule.lessons?.length ?? 0),
+      0,
+    );
     return count > 0 ? count : null;
   }, [course]);
 
   const syllabusItems = useMemo(() => {
-    if (!course?.sections?.length) return [];
-    return course.sections.slice(0, 3).map((section) => ({
-      id: section.id,
-      title: section.title,
-      description: section.description ?? "",
+    if (!course?.modules?.length) return [];
+    return course.modules.slice(0, 3).map((courseModule) => ({
+      id: courseModule.id,
+      title: courseModule.title,
+      description: courseModule.description ?? "",
     }));
   }, [course]);
 
@@ -430,15 +419,15 @@ function CourseInsightsSheet({
               {course?.id ? `CS${course.id} SPECIALIZED` : "SPECIALIZED"}
             </p>
             <h2 className="mt-1 text-2xl font-bold leading-tight text-foreground">
-              {course?.title ?? "Untitled course"}
+              {course?.course_name ?? "Untitled course"}
             </h2>
             <div className="mt-3 flex flex-wrap gap-2">
-              {course?.level && (
+              {course?.course_type && (
                 <Badge
                   variant="outline"
                   className="rounded-sm px-2 py-0.5 text-[10px] font-bold tracking-widest uppercase"
                 >
-                  {course.level}
+                  {course.course_type}
                 </Badge>
               )}
               <Badge
@@ -451,7 +440,7 @@ function CourseInsightsSheet({
           </div>
 
           {/* Stats */}
-          {(totalMinutes !== null || quizCount !== null) && (
+          {(totalMinutes !== null || lessonCount !== null) && (
             <div className="grid grid-cols-2 gap-3">
               {totalMinutes !== null && (
                 <div className="rounded-xl border border-outline-variant/60 bg-surface-container-low px-4 py-3">
@@ -466,16 +455,16 @@ function CourseInsightsSheet({
                   </p>
                 </div>
               )}
-              {quizCount !== null && (
+              {lessonCount !== null && (
                 <div className="rounded-xl border border-outline-variant/60 bg-surface-container-low px-4 py-3">
                   <div className="flex items-center gap-1.5 text-muted-foreground">
                     <HelpCircle className="h-3.5 w-3.5" />
                     <p className="text-[10px] font-bold tracking-widest uppercase">
-                      Quizzes
+                      Lessons
                     </p>
                   </div>
                   <p className="mt-1 text-sm font-semibold text-foreground">
-                    {quizCount} Graded
+                    {lessonCount} Total
                   </p>
                 </div>
               )}
@@ -511,27 +500,12 @@ function CourseInsightsSheet({
             </div>
           )}
 
-          {/* Instructor */}
-          {course?.instructor && (
+          {/* Description */}
+          {course?.description && (
             <div className="rounded-xl border border-outline-variant/60 bg-surface-container-low px-4 py-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary">
-                  {course.instructor.fullName?.charAt(0) ?? "?"}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    {course.instructor.fullName}
-                  </p>
-                  <p className="text-label-caps text-primary">
-                    Lead Academic Mentor
-                  </p>
-                </div>
-              </div>
-              {course.description && (
-                <p className="mt-3 font-reading text-xs italic leading-relaxed text-muted-foreground">
-                  &ldquo;{course.description}&rdquo;
-                </p>
-              )}
+              <p className="font-reading text-xs italic leading-relaxed text-muted-foreground">
+                &ldquo;{course.description}&rdquo;
+              </p>
             </div>
           )}
         </div>
