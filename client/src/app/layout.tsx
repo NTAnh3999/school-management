@@ -1,11 +1,19 @@
 import type { Metadata } from "next";
-import { Lexend, Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
+import { Be_Vietnam_Pro, Lexend, Lora, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/components/providers/app-providers";
 
-const plusJakartaSans = Plus_Jakarta_Sans({
-  variable: "--font-plus-jakarta",
-  subsets: ["latin"],
+const beVietnamPro = Be_Vietnam_Pro({
+  variable: "--font-be-vietnam",
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700"],
+});
+
+// Default tenant display font; only used in brand areas via `font-display`.
+const lora = Lora({
+  variable: "--font-lora",
+  subsets: ["latin", "vietnamese"],
+  weight: ["500", "600", "700"],
 });
 
 const lexend = Lexend({
@@ -30,10 +38,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${plusJakartaSans.variable} ${lexend.variable} ${geistMono.variable} min-h-screen bg-background font-sans text-foreground antialiased`}
-      >
+    // Font variables live on <html> (= :root) so the --font-ui/--font-display
+    // tokens declared in globals.css can resolve them.
+    <html
+      lang="vi"
+      suppressHydrationWarning
+      className={`${beVietnamPro.variable} ${lora.variable} ${lexend.variable} ${geistMono.variable}`}
+    >
+      <body className="min-h-screen bg-background font-sans text-foreground antialiased">
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

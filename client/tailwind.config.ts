@@ -19,11 +19,30 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
-        sans: ["var(--font-plus-jakarta)", "sans-serif"],
-        display: ["var(--font-plus-jakarta)", "sans-serif"],
+        // UI font is fixed across tenants; display font is a tenant token
+        // (--font-display) and is only used in brand areas.
+        sans: ["var(--font-ui)", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "serif"],
         reading: ["var(--font-lexend)", "sans-serif"],
       },
       colors: {
+        ink: {
+          DEFAULT: "hsl(var(--ink))",
+          2: "hsl(var(--ink-2))",
+        },
+        line: "hsl(var(--border))",
+        highlight: {
+          DEFAULT: "hsl(var(--highlight))",
+          soft: "hsl(var(--highlight-soft))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          soft: "hsl(var(--warning-soft))",
+        },
+        danger: {
+          DEFAULT: "hsl(var(--destructive))",
+          soft: "hsl(var(--danger-soft))",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -48,14 +67,18 @@ const config: Config = {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
           container: "hsl(var(--primary-container))",
+          strong: "hsl(var(--primary-strong))",
+          soft: "hsl(var(--primary-soft))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
+          soft: "hsl(var(--secondary-soft))",
         },
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
+          soft: "hsl(var(--success-soft))",
         },
         tertiary: {
           DEFAULT: "hsl(var(--tertiary))",

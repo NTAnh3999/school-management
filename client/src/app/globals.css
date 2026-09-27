@@ -3,53 +3,72 @@
 @tailwind utilities;
 
 :root {
-  --background: 240 100% 98.8%;
-  --foreground: 222 16.7% 11.8%;
+  /* Tenant tokens. Defaults are the "Hướng Dương" illustration theme; each
+     school overrides primary / secondary / highlight (+ strong/soft) and
+     --font-display. Everything below "Fixed tokens" is the same for every
+     tenant. */
+  --primary: 171.4 59.5% 30%; /* #1F7A6D */
+  --primary-strong: 171.4 63.6% 21.6%; /* #145A50 */
+  --primary-soft: 167.1 33.3% 91.8%; /* #E3F1EE */
+  --secondary: 223.7 46.7% 44.9%; /* #3D5AA8 */
+  --secondary-soft: 222.4 51.5% 93.5%; /* #E6EBF7 */
+  --highlight: 11.6 82.5% 61.8%; /* #EE6C4D — streak, badges, unread dots */
+  --highlight-soft: 13.8 86.7% 94.1%; /* #FDE9E3 */
+  --font-display: var(--font-lora);
+
+  /* Fixed tokens */
+  --font-ui: var(--font-be-vietnam);
+  --ink: 30 11.1% 10.6%; /* #1E1B18 */
+  --ink-2: 30 7.2% 27.1%; /* #4A4540 */
+  --background: 37.5 44.4% 96.5%; /* #FAF7F2 */
+  --foreground: var(--ink);
   --card: 0 0% 100%;
-  --card-foreground: 222 16.7% 11.8%;
+  --card-foreground: var(--ink);
   --popover: 0 0% 100%;
-  --popover-foreground: 222 16.7% 11.8%;
-  --primary: 211.4 100% 37.5%;
+  --popover-foreground: var(--ink);
   --primary-foreground: 0 0% 100%;
-  --primary-container: 214.1 81.7% 50.6%;
-  --primary-press: 211.9 100% 31.6%;
-  --secondary: 171.6 100% 21%;
+  --primary-container: var(--primary-soft);
+  --primary-press: var(--primary-strong);
   --secondary-foreground: 0 0% 100%;
-  --success: 168.1 93.6% 69.4%;
-  --success-foreground: 171.1 100% 22.4%;
+  --success: 140.8 45.3% 33.7%; /* #2F7D4A */
+  --success-soft: 136 38.5% 92.4%; /* #E4F3E8 */
+  --success-foreground: 0 0% 100%;
+  --warning: 35.3 79.1% 33.7%; /* #9A6212 */
+  --warning-soft: 38.7 79.5% 92.4%; /* #FBF0DC */
+  --destructive: 8.2 65.9% 43.7%; /* #B93A26 */
+  --danger-soft: 9.6 75.8% 93.5%; /* #FBE6E2 */
+  --destructive-foreground: 0 0% 100%;
   --tertiary: 49.8 100% 22%;
   --tertiary-foreground: 0 0% 100%;
   --gold: 50.2 100% 39.6%;
   --gold-foreground: 48.9 100% 14.9%;
   --purple: 245.5 100% 68%;
   --purple-foreground: 0 0% 100%;
-  --muted: 234.5 40.7% 94.7%;
-  --muted-foreground: 221.1 12.8% 29.2%;
-  --accent: 230 31.6% 92.5%;
-  --accent-foreground: 222 16.7% 11.8%;
-  --destructive: 0 75.5% 41.6%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 225.7 20.4% 79.8%;
-  --input: 225.7 20.4% 79.8%;
-  --ring: 211.6 100% 37.6%;
-  --outline: 224.2 7.7% 48.4%;
-  --outline-variant: 225.7 20.4% 79.8%;
-  --surface: 240 100% 98.8%;
-  --surface-dim: 234.5 16.4% 86.9%;
-  --surface-bright: 240 100% 98.8%;
+  --muted: 38 25.5% 91.4%; /* #EFEBE4 */
+  --muted-foreground: 32 7.5% 39%; /* #6B645C */
+  --accent: 36 35% 93%;
+  --accent-foreground: var(--ink);
+  --border: 36 28.3% 89.6%; /* #ECE6DD */
+  --input: var(--border);
+  --ring: var(--ink); /* focus ring is ink so contrast never depends on tenant colour */
+  --outline: var(--muted-foreground);
+  --outline-variant: var(--border);
+  --surface: var(--background);
+  --surface-dim: var(--muted);
+  --surface-bright: 0 0% 100%;
   --surface-container-lowest: 0 0% 100%;
-  --surface-container-low: 234.5 73.3% 97.1%;
-  --surface-container: 234.5 40.7% 94.7%;
-  --surface-container-high: 230 31.6% 92.5%;
-  --surface-container-highest: 230 24% 90.2%;
-  --surface-tint: 211.6 100% 37.6%;
+  --surface-container-low: var(--background);
+  --surface-container: var(--muted);
+  --surface-container-high: var(--border);
+  --surface-container-highest: var(--border);
+  --surface-tint: var(--primary);
   --reading-measure: 70ch;
-  --radius: 0.5rem;
-  --shadow-key: 0 10px 24px rgba(25, 28, 35, 0.06);
-  --shadow-ambient: 0 26px 60px rgba(0, 91, 191, 0.08);
+  --radius: 0.75rem;
+  --shadow-key: 0 10px 24px rgba(40, 30, 20, 0.06);
+  --shadow-ambient: 0 26px 60px rgba(40, 30, 20, 0.06);
   --shadow-level-1: var(--shadow-key), var(--shadow-ambient);
-  --shadow-level-2: 0 14px 32px rgba(25, 28, 35, 0.08),
-    0 36px 90px rgba(0, 91, 191, 0.12);
+  --shadow-level-2: 0 14px 32px rgba(40, 30, 20, 0.08),
+    0 36px 90px rgba(40, 30, 20, 0.1);
 }
 
 * {
@@ -64,27 +83,33 @@ html {
 body {
   @apply bg-background text-foreground;
   min-height: 100vh;
-  background-image:
-    radial-gradient(circle at top left, rgba(0, 91, 191, 0.08), transparent 34%),
-    radial-gradient(circle at top right, rgba(104, 250, 221, 0.18), transparent 28%),
-    linear-gradient(180deg, #ffffff 0%, #f9f9ff 46%, #f2f3fd 100%);
   font-feature-settings: "rlig" 1, "calt" 1;
   text-rendering: optimizeLegibility;
 }
 
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
 ::selection {
-  background: rgba(26, 115, 232, 0.18);
+  background: hsl(var(--primary-soft));
   color: hsl(var(--foreground));
 }
 
 @layer base {
+  /* Headings use the UI font; the tenant display font is opt-in via
+     `font-display` and reserved for brand areas (page titles, greetings). */
   h1,
   h2,
   h3,
   h4,
   h5,
   h6 {
-    @apply font-display text-foreground;
+    @apply font-sans text-foreground;
   }
 
   p {
