@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -203,8 +203,9 @@ function QuestionBlock({
   );
 }
 
-export default function AssessmentAttemptPage({ params }: { params: { id: string } }) {
-  const assessment = getMockAssessment(params.id);
+export default function AssessmentAttemptPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const assessment = getMockAssessment(id);
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [flaggedIds, setFlaggedIds] = useState<string[]>([]);
   const [saveState, setSaveState] = useState<"saved" | "saving">("saved");

@@ -1,19 +1,23 @@
 import { httpClient } from "@/lib/http-client";
 import { API_ROUTES } from "@/config/api";
 
+// All three GET endpoints respond with { rewards: [...] } (see
+// api/src/controllers/reward.controller.js), not a bare array.
 export async function getRewards() {
-  const response = await httpClient.get(API_ROUTES.rewards.list);
-  return response.data;
+  const response = await httpClient.get<{ rewards: unknown[] }>(API_ROUTES.rewards.list);
+  return response.data.rewards;
 }
 
 export async function getMyRewards() {
-  const response = await httpClient.get(API_ROUTES.rewards.my);
-  return response.data;
+  const response = await httpClient.get<{ rewards: unknown[] }>(API_ROUTES.rewards.my);
+  return response.data.rewards;
 }
 
 export async function getStudentRewards(studentId: number) {
-  const response = await httpClient.get(API_ROUTES.rewards.student(studentId));
-  return response.data;
+  const response = await httpClient.get<{ rewards: unknown[] }>(
+    API_ROUTES.rewards.student(studentId),
+  );
+  return response.data.rewards;
 }
 
 export async function createReward(data: {

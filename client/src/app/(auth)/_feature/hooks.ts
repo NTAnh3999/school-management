@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
@@ -39,12 +40,17 @@ export const useProfile = () => {
   const enabled = Boolean(useSessionStore((state) => state.accessToken));
   const setUser = useSessionStore((state) => state.setUser);
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ["profile"],
     queryFn: getProfile,
     enabled,
-    onSuccess: (user) => setUser(user),
   });
+
+  useEffect(() => {
+    if (query.data) setUser(query.data);
+  }, [query.data, setUser]);
+
+  return query;
 };
 
 export const useLogout = () => {

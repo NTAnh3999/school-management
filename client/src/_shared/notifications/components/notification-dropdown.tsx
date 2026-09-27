@@ -64,8 +64,8 @@ export function NotificationDropdown() {
         <DropdownMenuLabel>Notifications</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <ScrollArea className="h-[400px]">
-          {notifications && notifications.length > 0 ? (
-            notifications.map((notification: any) => (
+          {data.notifications && data.notifications.length > 0 ? (
+            data.notifications.map((notification: any) => (
               <div
                 key={notification.id}
                 className={`p-3 border-b hover:bg-accent cursor-pointer ${
