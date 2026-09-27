@@ -1,18 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
 import Link from "next/link";
-import {
-  Bell,
-  ChevronDown,
-  LayoutGrid,
-  LogOut,
-  Search,
-  Settings2,
-} from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Bell, LogOut, Settings2 } from "lucide-react";
 
-import { useMyEnrollments } from "@/app/(app)/courses/_feature/hooks";
-import { appRoutes } from "@/config/navigation";
+import { useLogout } from "@/app/(auth)/_feature/hooks";
+import { useMarkAllNotificationsRead, useMarkNotificationRead } from "@/_shared/notifications/hooks";
+import { notificationTypeLabel, useNotificationList } from "@/_shared/notifications/view";
+import { findActiveRoute } from "@/config/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,219 +16,161 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { useLogout } from "@/app/(auth)/_feature/hooks";
+import { initials, relativeTimeVi, shortName } from "@/lib/format-vi";
+import { cn } from "@/lib/utils";
 import { useSessionStore } from "@/stores/session-store";
+import { MobileNav } from "./sidebar";
 
-function getInitials(name?: string | null) {
-  if (!name) {
-    return "LP";
-  }
+function NotificationBell() {
+  const { notifications, unreadCount } = useNotificationList();
+  const markRead = useMarkNotificationRead();
+  const markAllRead = useMarkAllNotificationsRead();
+  const recent = notifications.slice(0, 6);
 
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="relative grid h-11 w-11 place-items-center rounded-[14px] border border-line bg-white text-ink-2"
+        >
+          <Bell className="h-[22px] w-[22px]" strokeWidth={1.75} />
+          {unreadCount > 0 ? (
+            <span className="absolute right-[3px] top-1 grid h-[18px] min-w-[18px] place-items-center rounded-[9px] border-2 border-white bg-highlight px-1 text-[10px] font-bold text-white">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          ) : null}
+          <span className="sr-only">
+            Thông báo{unreadCount > 0 ? `, ${unreadCount} chưa đọc` : ""}
+          </span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[360px] rounded-2xl p-2">
+        <div className="flex items-center justify-between px-2 py-1.5">
+          <DropdownMenuLabel className="p-0 text-[15px] font-bold text-ink">
+            Thông báo
+          </DropdownMenuLabel>
+          <button
+            type="button"
+            disabled={unreadCount === 0 || markAllRead.isPending}
+            onClick={() => markAllRead.mutate()}
+            className="rounded-lg px-2 py-1 text-[13px] font-semibold text-secondary disabled:text-muted-foreground"
+          >
+            Đọc hết
+          </button>
+        </div>
+        <DropdownMenuSeparator />
+        {recent.length ? (
+          recent.map((item) => (
+            <DropdownMenuItem
+              key={item.id}
+              onSelect={(event) => {
+                event.preventDefault();
+                if (!item.is_read) markRead.mutate(item.id);
+              }}
+              className={cn(
+                "flex items-start gap-3 rounded-xl px-3 py-2.5",
+                !item.is_read && "bg-primary-soft focus:bg-primary-soft",
+              )}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] text-muted-foreground">
+                  <span className="font-semibold">
+                    {notificationTypeLabel[item.notification_type] ?? "Thông báo"}
+                  </span>
+                  {" · "}
+                  {relativeTimeVi(item.createdAt)}
+                </div>
+                <div
+                  className={cn(
+                    "text-sm leading-snug text-ink",
+                    item.is_read ? "font-medium" : "font-bold",
+                  )}
+                >
+                  {item.title}
+                </div>
+                {item.message ? (
+                  <div className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-ink-2">
+                    {item.message}
+                  </div>
+                ) : null}
+              </div>
+              {!item.is_read ? (
+                <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-highlight" />
+              ) : null}
+            </DropdownMenuItem>
+          ))
+        ) : (
+          <div className="px-3 py-8 text-center text-sm text-ink-2">
+            Bạn chưa có thông báo nào.
+          </div>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
-function FeatureMenu() {
-  return (
-    <div className="group relative hidden md:block">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="rounded-full text-muted-foreground hover:text-foreground"
-      >
-        <LayoutGrid className="h-5 w-5" />
-        <span className="sr-only">Open categories</span>
-      </Button>
+function UserMenu() {
+  const user = useSessionStore((state) => state.user);
+  const logout = useLogout();
 
-      <div className="pointer-events-none absolute left-0 top-full z-50 w-[340px] translate-y-2 pt-3 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100">
-        <Card className="bg-white/95 shadow-focus backdrop-blur-xl">
-          <CardHeader className="pb-3">
-            <p className="text-label-caps text-primary">Categories</p>
-            <CardTitle className="text-lg">Explore learning features</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-2">
-            {appRoutes.map((route) => (
-              <Link
-                key={route.href}
-                href={route.href}
-                className="flex items-start gap-3 rounded-[1rem] border border-transparent bg-white/60 px-3 py-3 transition-all hover:border-primary/10 hover:bg-primary/5"
-              >
-                <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                  <route.icon className="h-4 w-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground">
-                    {route.label}
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    {route.description}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="flex h-11 items-center gap-2.5 rounded-full border border-line bg-white pl-1 pr-3"
+        >
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-highlight-soft text-[13px] font-bold text-highlight">
+            {initials(user?.fullName)}
+          </span>
+          <span className="hidden text-[13px] font-semibold text-ink sm:inline">
+            {shortName(user?.fullName) || "Tài khoản"}
+          </span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-60 rounded-2xl p-2">
+        <DropdownMenuLabel className="flex flex-col px-2">
+          <span className="text-sm font-bold text-ink">{user?.fullName ?? "Tài khoản"}</span>
+          {user?.email ? (
+            <span className="text-xs font-normal text-muted-foreground">{user.email}</span>
+          ) : null}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild className="rounded-xl">
+          <Link href="/settings">
+            <Settings2 className="mr-2 h-4 w-4" />
+            Cài đặt
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="rounded-xl text-danger focus:text-danger"
+          disabled={logout.isPending}
+          onSelect={(event) => {
+            event.preventDefault();
+            logout.mutate();
+          }}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          {logout.isPending ? "Đang đăng xuất…" : "Đăng xuất"}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
 export function TopBar() {
-  const user = useSessionStore((state) => state.user);
-  const logout = useLogout();
-  const { data: enrollments = [], isLoading } = useMyEnrollments();
-
-  const courseList = useMemo(() => {
-    return enrollments
-      .filter((enrollment) => enrollment.course?.title)
-      .sort((left, right) => {
-        const leftActive = left.status === "active" ? 1 : 0;
-        const rightActive = right.status === "active" ? 1 : 0;
-
-        if (leftActive !== rightActive) {
-          return rightActive - leftActive;
-        }
-
-        return (
-          (right.progress?.completion_percentage ?? 0) -
-          (left.progress?.completion_percentage ?? 0)
-        );
-      })
-      .slice(0, 6);
-  }, [enrollments]);
+  const pathname = usePathname();
+  const title = findActiveRoute(pathname)?.label ?? "";
 
   return (
-    <header className="sticky top-0 z-20 border-b border-white/70 bg-white/88 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-4 py-3 lg:px-8">
-        <Link href="/dashboard" className="shrink-0 leading-none">
-          <p className="text-[15px] font-bold tracking-tight text-primary lg:text-[18px]">
-            Lumina Learning
-          </p>
-          <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-            Patient Mentor
-          </p>
-        </Link>
-
-        <FeatureMenu />
-
-        <div className="hidden flex-1 justify-center lg:flex">
-          <div className="relative w-full max-w-[580px]">
-            <Search className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
-            <Input
-              aria-label="Search lessons, topics, or mentors"
-              placeholder="Search lessons, topics, or mentors..."
-              className="h-12 rounded-full border-white/80 bg-[#eef1ff] pl-14 shadow-none focus-visible:bg-white"
-            />
-          </div>
-        </div>
-
-        <div className="ml-auto flex items-center gap-1.5 lg:gap-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="hidden rounded-full px-3 text-sm font-semibold text-foreground md:inline-flex"
-              >
-                My Learning
-                <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
-              <DropdownMenuLabel>My Courses</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {isLoading ? (
-                <DropdownMenuItem disabled>Loading courses...</DropdownMenuItem>
-              ) : courseList.length ? (
-                courseList.map((enrollment) => (
-                  <DropdownMenuItem key={enrollment.id} asChild>
-                    <Link
-                      href={`/courses/${enrollment.course_id}`}
-                      className="flex flex-col items-start"
-                    >
-                      <span className="line-clamp-1 font-medium">
-                        {enrollment.course?.title}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {enrollment.progress?.completion_percentage ?? 0}% complete
-                        {" | "}
-                        {enrollment.status.replace("_", " ")}
-                      </span>
-                    </Link>
-                  </DropdownMenuItem>
-                ))
-              ) : (
-                <DropdownMenuItem disabled>No courses yet</DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/courses">View all courses</Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative rounded-full text-muted-foreground hover:text-foreground"
-          >
-            <Bell className="h-5 w-5" />
-            <span className="absolute right-3 top-2 h-2 w-2 rounded-full bg-destructive" />
-            <span className="sr-only">Notifications</span>
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-auto rounded-full p-1.5">
-                <Avatar className="h-10 w-10 border border-white/80 shadow-mentor">
-                  <AvatarFallback className="bg-primary/10 font-semibold text-primary">
-                    {getInitials(user?.fullName)}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>
-                <div className="flex flex-col">
-                  <span>{user?.fullName ?? "Learner Profile"}</span>
-                  <span className="text-xs font-normal text-muted-foreground">
-                    {user?.email ?? "learner@luminahub.io"}
-                  </span>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/settings">
-                  <Settings2 className="mr-2 h-4 w-4" />
-                  Preferences
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault();
-                  logout.mutate();
-                }}
-                disabled={logout.isPending}
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                {logout.isPending ? "Signing out..." : "Sign out"}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+    <header className="flex h-[68px] shrink-0 items-center gap-3 border-b border-line bg-background px-4 lg:px-8">
+      <MobileNav />
+      <h1 className="flex-1 truncate font-display text-[22px] font-bold text-ink">
+        {title}
+      </h1>
+      <NotificationBell />
+      <UserMenu />
     </header>
   );
 }
