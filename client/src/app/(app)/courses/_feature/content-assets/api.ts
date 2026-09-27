@@ -1,31 +1,12 @@
-import { addAsset, getAssetById, listAssets, patchAsset } from "../mock-data";
+import { API_ROUTES } from "@/config/api";
+import { httpClient } from "@/lib/http-client";
+import type { ContentAsset } from "@/types/models";
 
-export async function getContentAssets(params?: {
-  mediaType?: string;
-  uploadedBy?: number;
-}) {
-  return listAssets(params);
-}
-
+// GET /content-assets/:id — metadata only (storage_key, media_type,
+// processing_status). Requires content.version.view permission.
 export async function getContentAsset(id: number) {
-  return getAssetById(id);
-}
-
-export async function createContentAsset(data: {
-  filename: string;
-  mediaType: string;
-  mimeType: string;
-  storageKey: string;
-  sizeBytes?: number;
-  durationSeconds?: number;
-  thumbnailUrl?: string;
-}) {
-  return addAsset(data);
-}
-
-export async function updateContentAsset(
-  id: number,
-  data: Partial<{ filename: string; thumbnailUrl: string }>,
-) {
-  return patchAsset(id, data);
+  const response = await httpClient.get<{ asset: ContentAsset }>(
+    API_ROUTES.contentAssets.detail(id),
+  );
+  return response.data.asset;
 }
