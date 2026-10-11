@@ -554,3 +554,24 @@ export interface AssessmentResult {
   grading_status?: string | null;
   publication_status: "not_published" | "published" | "unpublished";
 }
+
+// -------------------------------------------------------
+// Profiles (/profiles/me). Owners may edit display_name, contact_email,
+// phone_number, avatar_url, address; full_name is school-managed.
+// -------------------------------------------------------
+
+export interface UserProfile {
+  id: number;
+  user_id: number;
+  profile_type: "student" | "parent" | "teacher" | "staff" | "admin";
+  full_name: string;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  contact_email?: string | null;
+  phone_number?: string | null;
+  status: string;
+  student_profile?: {
+    student_code?: string | null;
+    current_level?: string | null;
+  } | null;
+}

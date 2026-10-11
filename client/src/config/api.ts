@@ -71,6 +71,10 @@ export const API_ROUTES = {
     submitAttempt: (attemptId: number) => `/assessments/attempts/${attemptId}/submit`,
     results: (id: number) => `/assessments/${id}/results`,
   },
+  profiles: {
+    me: "/profiles/me",
+    update: (id: number) => `/profiles/${id}`,
+  },
   reviews: {
     course: (courseId: number) => `/reviews/course/${courseId}`,
     create: (courseId: number) => `/reviews/course/${courseId}`,
