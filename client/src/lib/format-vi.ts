@@ -75,3 +75,50 @@ export function dayTimeVi(value: string | Date, now = new Date()) {
         : date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
   return `${day}, ${time}`;
 }
+
+function hhmm(date: Date) {
+  return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+}
+
+function ddmm(date: Date) {
+  return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
+}
+
+// Deadlines: "21:00 hôm nay", "07:30 ngày mai", "21:00, 05/10"
+export function deadlineVi(value: string | Date, now = new Date()) {
+  const date = new Date(value);
+  const days = Math.round(
+    (startOfDay(date).getTime() - startOfDay(now).getTime()) / 86400000,
+  );
+  if (days === 0) return `${hhmm(date)} hôm nay`;
+  if (days === 1) return `${hhmm(date)} ngày mai`;
+  return `${hhmm(date)}, ${ddmm(date)}`;
+}
+
+// "10:11 · 28/09"
+export function timeDateVi(value: string | Date) {
+  const date = new Date(value);
+  return `${hhmm(date)} · ${ddmm(date)}`;
+}
+
+// "05/09/2026"
+export function dateVi(value: string | Date) {
+  return new Date(value).toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+// Vietnamese decimal comma, at most one decimal: 8.5 -> "8,5"
+export function numberVi(value: number) {
+  return value.toLocaleString("vi-VN", { maximumFractionDigits: 1 });
+}
+
+export function minutesVi(minutes?: number | null) {
+  if (!minutes) return "";
+  if (minutes < 60) return `${minutes} phút`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours} giờ ${rest} phút` : `${hours} giờ`;
+}
