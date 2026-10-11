@@ -290,8 +290,11 @@ export interface Notification {
   title: string;
   message?: string;
   is_read: boolean;
-  createdAt: string;
-  updatedAt: string;
+  // The API snake_cases every success payload (utils/success-responses.js),
+  // so timestamps arrive as created_at; read them via notificationTime().
+  created_at?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // -------------------------------------------------------

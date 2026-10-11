@@ -13,6 +13,10 @@ export const notificationTypeLabel: Record<NotificationType, string> = {
   general: "Thông báo chung",
 };
 
+export function notificationTime(item: Notification) {
+  return item.created_at ?? item.createdAt ?? "";
+}
+
 // Typed view over GET /notifications (the http client unwraps `metadata`,
 // leaving `{ notifications }`), newest first.
 export function useNotificationList() {
@@ -23,7 +27,8 @@ export function useNotificationList() {
     () =>
       [...(data?.notifications ?? [])].sort(
         (left, right) =>
-          new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+          new Date(notificationTime(right)).getTime() -
+          new Date(notificationTime(left)).getTime(),
       ),
     [data],
   );
