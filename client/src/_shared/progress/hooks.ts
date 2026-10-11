@@ -23,6 +23,9 @@ export function useUpdateProgress() {
         queryKey: ["progress", "enrollment", variables.enrollment_id],
       });
       queryClient.invalidateQueries({ queryKey: ["progress", "course"] });
+      // Course cards, the dashboard and My Courses read completion from the
+      // progress snapshot embedded in GET /courses/my/enrollments.
+      queryClient.invalidateQueries({ queryKey: ["enrollments"] });
     },
   });
 }
