@@ -1,422 +1,484 @@
 "use client";
 
-import { use, useMemo } from "react";
-import { useCourse, useEnrollCourse, useMyEnrollments } from "../_feature/hooks";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { RatingStars } from "@/components/ui/rating-stars";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import {
-  ArrowRight,
-  BookOpen,
-  CheckCircle2,
-  Clock3,
-  GraduationCap,
-  Layers3,
-  PlayCircle,
-  Sparkles,
-  Star,
-} from "lucide-react";
+import { use, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { Check, ChevronDown, Play, Star } from "lucide-react";
 
-function formatMinutes(minutes: number) {
-  if (minutes <= 0) return "0m";
-  if (minutes >= 60) {
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
-  }
-  return `${minutes}m`;
+import { useCourse, useEnrollCourse, useMyEnrollments } from "../_feature/hooks";
+import { usePublishedContentStructure } from "../_feature/content-versions/hooks";
+import {
+  currentLessonId,
+  flattenLessons,
+  lessonMinutes,
+  lessonState,
+  lessonStatuses,
+  sortedModules,
+  type LessonState,
+} from "../_feature/curriculum";
+import { statusMeta, toStudentCourses } from "../_feature/student-course";
+import { useAssessments } from "@/app/(app)/assessments/_feature/hooks";
+import {
+  assessmentCourseId,
+  assessmentTypeLabel,
+} from "@/app/(app)/assessments/_feature/model";
+import { useEnrollmentProgress } from "@/_shared/progress/hooks";
+import { AccessNotice } from "@/components/edu/access-notice";
+import {
+  LoadError,
+  PageSkeleton,
+  Pill,
+  ProgressBar,
+  SectionTitle,
+  buttonClass,
+  surface,
+} from "@/components/edu/ui";
+import { usePageHeader } from "@/components/layout/page-header";
+import { isAccessError } from "@/lib/api-error";
+import { dateVi, minutesVi, relativeTimeVi } from "@/lib/format-vi";
+import { cn } from "@/lib/utils";
+import type { CourseModule, LessonProgressStatus } from "@/types/models";
+
+// STU-03 Course Detail (design: Desktop - Student, 7c).
+
+const lessonIcon: Record<LessonState, { box: string; label: string }> = {
+  done: { box: "bg-success text-white", label: "Đã hoàn thành" },
+  current: { box: "bg-primary text-white", label: "Đang học" },
+  todo: { box: "border-2 border-line bg-white text-muted-foreground", label: "Chưa học" },
+};
+
+function ModuleBlock({
+  courseModule,
+  index,
+  statuses,
+  currentId,
+  courseId,
+  canLearn,
+  enrolled,
+  open,
+  onToggle,
+}: {
+  courseModule: CourseModule;
+  index: number;
+  statuses: Map<number, LessonProgressStatus>;
+  currentId?: number;
+  courseId: number;
+  canLearn: boolean;
+  enrolled: boolean;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const lessons = courseModule.lessons ?? [];
+  const done = lessons.filter((lesson) => statuses.get(lesson.id) === "completed").length;
+  const hasCurrent = lessons.some((lesson) => lesson.id === currentId);
+  const state = lessons.length && done === lessons.length ? "done" : hasCurrent ? "current" : "todo";
+  const sub = !enrolled
+    ? `${lessons.length} bài học`
+    : state === "done"
+      ? `Đã hoàn thành · ${done}/${lessons.length}`
+      : state === "current"
+        ? `Đang học · ${done}/${lessons.length}`
+        : `Chưa bắt đầu · ${done}/${lessons.length}`;
+  const panelId = `module-${courseModule.id}`;
+
+  return (
+    <div className={cn(surface, "overflow-hidden rounded-2xl")}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={onToggle}
+        className="flex min-h-[60px] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-background"
+      >
+        <span
+          aria-hidden
+          className={cn(
+            "grid h-8 w-8 shrink-0 place-items-center rounded-[10px] text-[13px] font-bold",
+            state === "done"
+              ? "bg-success-soft text-success-strong"
+              : state === "current"
+                ? "bg-primary-soft text-primary-strong"
+                : "bg-muted text-ink-2",
+          )}
+        >
+          {index + 1}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold text-ink">{courseModule.title}</span>
+          <span className="block text-xs text-muted-foreground">{sub}</span>
+        </span>
+        <ChevronDown
+          aria-hidden
+          className={cn("h-5 w-5 shrink-0 transition-transform motion-reduce:transition-none", open && "rotate-180")}
+        />
+      </button>
+      {open ? (
+        <ul id={panelId} className="grid border-t border-line sm:grid-cols-2">
+          {lessons.map((lesson) => {
+            const lessonStateValue = enrolled ? lessonState(lesson.id, statuses, currentId) : "todo";
+            const icon = lessonIcon[lessonStateValue];
+            const minutes = lessonMinutes(lesson);
+            const body = (
+              <>
+                <span
+                  aria-hidden
+                  className={cn("grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full", icon.box)}
+                >
+                  {lessonStateValue === "done" ? (
+                    <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                  ) : lessonStateValue === "current" ? (
+                    <Play className="h-3 w-3 fill-current" strokeWidth={0} />
+                  ) : null}
+                </span>
+                <span className="min-w-0">
+                  <span className="block break-words text-sm font-semibold text-ink">{lesson.title}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {[minutes ? minutesVi(minutes) : null, enrolled ? icon.label : null].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+              </>
+            );
+            const rowClass = cn(
+              "flex h-full items-start gap-3 px-4 py-3",
+              lessonStateValue === "current" && "bg-primary-soft",
+            );
+            return (
+              <li key={lesson.id} className="border-b border-line">
+                {canLearn ? (
+                  <Link
+                    href={`/courses/${courseId}/lessons/${lesson.id}`}
+                    className={cn(rowClass, "transition-colors hover:bg-background", lessonStateValue === "current" && "hover:bg-primary-soft/70")}
+                  >
+                    {body}
+                  </Link>
+                ) : (
+                  <div className={rowClass}>{body}</div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
+  );
 }
 
-export default function CourseDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function CourseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const courseId = Number(id);
-  const { data: course, isLoading, error } = useCourse(courseId);
+
+  const courseQuery = useCourse(courseId);
+  const structureQuery = usePublishedContentStructure(courseId);
   const { data: enrollments = [] } = useMyEnrollments();
-  const enrollMutation = useEnrollCourse();
-
-  const modules = course?.modules ?? [];
-  const reviews = course?.reviews ?? [];
-
-  const enrollment = useMemo(
-    () => enrollments.find((e) => e.course_id === courseId),
-    [enrollments, courseId],
+  const enrollment = enrollments.find(
+    (item) => item.course_id === courseId && item.status !== "rejected",
   );
-  const isEnrolled = !!enrollment;
+  const { data: progressDetail } = useEnrollmentProgress(enrollment?.id ?? 0);
+  const { data: assessments = [] } = useAssessments();
+  const enroll = useEnrollCourse();
+  const [openModules, setOpenModules] = useState<Set<number> | null>(null);
+  const [now] = useState(() => Date.now());
 
-  const totalLessons = useMemo(
-    () => modules.reduce((sum, m) => sum + (m.lessons?.length ?? 0), 0),
-    [modules],
-  );
-  const totalMinutes = useMemo(
+  const course = courseQuery.data;
+  usePageHeader(undefined, [
+    { label: "Khoá học của tôi", href: "/courses" },
+    { label: course?.course_name ?? "Chi tiết khoá học" },
+  ]);
+
+  const student = enrollment ? toStudentCourses([enrollment])[0] : undefined;
+  const modules = useMemo(() => sortedModules(structureQuery.data?.structure), [structureQuery.data]);
+  const flat = useMemo(() => flattenLessons(modules), [modules]);
+  const statuses = useMemo(() => lessonStatuses(enrollment, progressDetail), [enrollment, progressDetail]);
+  const currentId = enrollment ? currentLessonId(flat, statuses) : undefined;
+  const currentLesson = flat.find(({ lesson }) => lesson.id === currentId);
+  const doneCount = flat.filter(({ lesson }) => statuses.get(lesson.id) === "completed").length;
+  const canLearn =
+    !!student && ["IN_PROGRESS", "NOT_STARTED", "COMPLETED"].includes(student.status);
+
+  const courseAssessments = useMemo(
     () =>
-      modules.reduce(
-        (sum, m) =>
-          sum +
-          (m.lessons ?? []).reduce(
-            (lessonSum, lesson) => lessonSum + (lesson.duration_minutes ?? 0),
-            0,
-          ),
-        0,
-      ),
-    [modules],
+      assessments
+        .filter((assessment) => assessmentCourseId(assessment) === courseId)
+        .sort(
+          (a, b) =>
+            new Date(a.close_at ?? "9999-12-31").getTime() - new Date(b.close_at ?? "9999-12-31").getTime(),
+        )
+        .slice(0, 5),
+    [assessments, courseId],
   );
-  const averageRating = useMemo(() => {
-    if (reviews.length === 0) return 0;
-    return (
-      Math.round(
-        (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length) * 10,
-      ) / 10
-    );
-  }, [reviews]);
+  const reviews = course?.reviews ?? [];
+  const averageRating = reviews.length
+    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+    : 0;
 
-  const firstModule = modules[0];
-  const firstLesson = firstModule?.lessons?.[0];
+  // Default: open the chapter holding the current lesson (or the first one).
+  const defaultOpen = currentLesson?.module.id ?? modules[0]?.id;
+  const isOpen = (moduleId: number) => (openModules ? openModules.has(moduleId) : moduleId === defaultOpen);
+  const toggleModule = (moduleId: number) =>
+    setOpenModules((previous) => {
+      const next = new Set(previous ?? (defaultOpen ? [defaultOpen] : []));
+      if (next.has(moduleId)) next.delete(moduleId);
+      else next.add(moduleId);
+      return next;
+    });
+
+  if (courseQuery.isLoading) return <PageSkeleton label="Đang tải khoá học" />;
+  if (isAccessError(courseQuery.error) || (!courseQuery.isLoading && !course && !courseQuery.isError)) {
+    return (
+      <AccessNotice
+        title="Khoá học này hiện không khả dụng."
+        message="Khoá học có thể đã kết thúc, đang tạm ẩn hoặc chưa đến thời gian mở. Kết quả đã đạt được của bạn vẫn được lưu."
+        ctaLabel="Về Khoá học của tôi"
+        ctaHref="/courses"
+      />
+    );
+  }
+  if (courseQuery.isError || !course) {
+    return <LoadError title="Không tải được khoá học." onRetry={() => courseQuery.refetch()} />;
+  }
+
+  const meta = student ? statusMeta[student.status] : undefined;
+  const nextHref = currentLesson
+    ? `/courses/${courseId}/lessons/${currentLesson.lesson.id}`
+    : flat[0]
+      ? `/courses/${courseId}/lessons/${flat[0].lesson.id}`
+      : undefined;
+  const totalItems = student?.total || 0;
+  const pct = student?.pct ?? 0;
 
   const handleEnroll = async () => {
     try {
-      await enrollMutation.mutateAsync(courseId);
-      toast.success("Successfully enrolled in course!");
+      await enroll.mutateAsync(courseId);
+      toast.success("Đã ghi danh khoá học.");
     } catch {
-      toast.error("Failed to enroll in course");
+      toast.error("Không ghi danh được. Vui lòng thử lại.");
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6 pb-8">
-        <Skeleton className="h-64 w-full rounded-[2rem]" />
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_360px]">
-          <Skeleton className="h-[760px] rounded-[2rem]" />
-          <Skeleton className="h-[760px] rounded-[2rem]" />
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !course) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <p className="text-destructive">Failed to load course</p>
-      </div>
-    );
-  }
+  const infoRows = [
+    ["Mã khoá học", course.course_code],
+    ["Loại", course.course_type],
+    ["Tín chỉ", course.credit ? String(course.credit) : ""],
+    ["Thời lượng", course.duration_hours ? `${course.duration_hours} giờ` : ""],
+    ["Khoa / Bộ môn", course.department?.department_name ?? ""],
+    [
+      "Thời gian",
+      course.effective_from && course.effective_to
+        ? `${dateVi(course.effective_from)} – ${dateVi(course.effective_to)}`
+        : "",
+    ],
+  ].filter(([, value]) => value);
 
   return (
-    <div className="space-y-6 pb-8">
-      <section className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-[linear-gradient(135deg,#ffffff_0%,#f2f3fd_46%,#ecedf7_100%)] px-6 py-7 shadow-[0_4px_18px_rgba(0,91,191,0.05),0_24px_60px_rgba(0,91,191,0.04)] lg:px-8 lg:py-8">
-        <div className="absolute -right-20 -top-20 h-52 w-52 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-secondary/10 blur-3xl" />
-
-        <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_360px]">
-          <div className="space-y-5">
-            <Badge className="w-fit border border-primary/15 bg-primary/10 text-primary">
-              <Sparkles className="mr-2 h-3.5 w-3.5" />
-              {course.course_code}
-            </Badge>
-
-            <div className="space-y-3">
-              <h1 className="max-w-[20ch] text-4xl font-bold leading-tight tracking-tight text-on-surface lg:text-5xl">
-                {course.course_name}
-              </h1>
-              {course.description && (
-                <p className="max-w-2xl font-reading text-base leading-7 text-muted-foreground lg:text-lg">
-                  {course.description}
-                </p>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <Badge className="border border-secondary/15 bg-secondary/10 text-secondary">
-                <Layers3 className="mr-2 h-3.5 w-3.5" />
-                {modules.length} modules
-              </Badge>
-              <Badge className="border border-tertiary/15 bg-tertiary/10 text-tertiary">
-                <Clock3 className="mr-2 h-3.5 w-3.5" />
-                {totalLessons} lessons · {formatMinutes(totalMinutes)}
-              </Badge>
-              {course.department && (
-                <Badge className="border border-outline-variant/60 bg-white/70 text-on-surface-variant">
-                  <GraduationCap className="mr-2 h-3.5 w-3.5" />
-                  {course.department.department_name}
-                </Badge>
-              )}
-            </div>
-
-            {reviews.length > 0 && (
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <RatingStars rating={averageRating} />
-                  <span className="text-sm font-semibold text-on-surface-variant">
-                    {averageRating}/5 ({reviews.length})
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-3">
-              {isEnrolled ? (
-                firstLesson ? (
-                  <Button asChild className="rounded-full px-6">
-                    <Link href={`/courses/${courseId}/lessons/${firstLesson.id}`}>
-                      Continue learning
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button disabled className="rounded-full px-6">
-                    No lessons published yet
-                  </Button>
-                )
-              ) : (
-                <Button
-                  onClick={handleEnroll}
-                  disabled={enrollMutation.isPending}
-                  className="rounded-full px-6"
-                >
-                  {enrollMutation.isPending ? "Joining..." : "Enroll in this course"}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              )}
-              <Button variant="outline" asChild className="rounded-full px-6">
-                <Link href="#curriculum">View curriculum</Link>
-              </Button>
-              <Button variant="outline" asChild className="rounded-full px-6">
-                <Link href={`/courses/${courseId}/qa`}>Open Q&A</Link>
-              </Button>
-            </div>
+    <div className="grid content-start gap-5">
+      <section className="relative flex flex-col gap-6 overflow-hidden rounded-[20px] bg-secondary-soft p-6 lg:flex-row lg:items-center lg:gap-7 lg:px-7">
+        <div aria-hidden className="absolute -top-[120px] right-[260px] h-[220px] w-[220px] rounded-full bg-white/50" />
+        <div className="relative flex min-w-0 flex-1 flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {meta ? <Pill tone={meta.tone}>{meta.label}</Pill> : <Pill>Chưa ghi danh</Pill>}
+            <span className="text-xs font-semibold text-ink-2">
+              {[course.course_code, course.department?.department_name].filter(Boolean).join(" · ")}
+            </span>
           </div>
-
-          <Card className="border-white/80 bg-white/85 shadow-[0_4px_18px_rgba(0,91,191,0.05)] backdrop-blur-sm">
-            <CardHeader className="pb-3">
-              <p className="text-label-caps text-primary">Course snapshot</p>
-              <CardTitle className="mt-1 text-xl">
-                {course.credit ? `${course.credit} credits` : course.course_type}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-surface-container-low px-4 py-3">
-                  <p className="text-label-caps text-on-surface-variant">Modules</p>
-                  <p className="mt-1 text-lg font-bold text-on-surface">{modules.length}</p>
-                </div>
-                <div className="rounded-2xl bg-surface-container-low px-4 py-3">
-                  <p className="text-label-caps text-on-surface-variant">Lessons</p>
-                  <p className="mt-1 text-lg font-bold text-on-surface">{totalLessons}</p>
-                </div>
-                <div className="rounded-2xl bg-surface-container-low px-4 py-3">
-                  <p className="text-label-caps text-on-surface-variant">Time</p>
-                  <p className="mt-1 text-lg font-bold text-on-surface">
-                    {formatMinutes(totalMinutes)}
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-surface-container-low px-4 py-3">
-                  <p className="text-label-caps text-on-surface-variant">Status</p>
-                  <p className="mt-1 text-lg font-bold capitalize text-on-surface">
-                    {isEnrolled ? enrollment?.status : "Not enrolled"}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <h1 className="text-balance font-display text-[28px] font-bold leading-tight">{course.course_name}</h1>
+          {course.short_name && course.short_name !== course.course_name ? (
+            <div className="text-[13px] text-ink-2">{course.short_name}</div>
+          ) : null}
+          {student && totalItems ? (
+            <div
+              role="img"
+              aria-label={`Đã hoàn thành ${pct} phần trăm, ${student.completed} trên ${totalItems} hoạt động`}
+              className="mt-1 flex max-w-[520px] items-center gap-3"
+            >
+              <ProgressBar pct={pct} className="bg-secondary" track="bg-white" />
+              <b className="text-[13px] tabular-nums">{pct}%</b>
+              <span className="text-xs tabular-nums text-ink-2">
+                {student.completed} / {totalItems} hoạt động
+              </span>
+            </div>
+          ) : null}
+        </div>
+        <div className="relative flex w-full flex-col gap-1.5 lg:w-[260px]">
+          {!student ? (
+            course.status === "active" ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleEnroll}
+                  disabled={enroll.isPending}
+                  className={buttonClass("primary", "lg")}
+                >
+                  {enroll.isPending ? "Đang ghi danh…" : "Ghi danh khoá học"}
+                </button>
+                <div className="text-center text-xs text-ink-2">Ghi danh để bắt đầu học</div>
+              </>
+            ) : null
+          ) : meta?.kind === "disabled" ? (
+            <span aria-disabled className={cn(buttonClass("outline", "lg"), "border-dashed bg-white/60 text-muted-foreground")}>
+              {meta.cta}
+            </span>
+          ) : nextHref && canLearn ? (
+            <>
+              <Link href={nextHref} className={buttonClass(meta?.kind === "outline" ? "outline" : "primary", "lg")}>
+                {meta?.kind === "outline" ? null : (
+                  <Play aria-hidden className="h-4 w-4 fill-current" strokeWidth={0} />
+                )}
+                {meta?.kind === "outline" ? "Ôn tập" : meta?.cta}
+              </Link>
+              {currentLesson && meta?.kind !== "outline" ? (
+                <div className="text-center text-xs text-ink-2">{currentLesson.lesson.title}</div>
+              ) : null}
+            </>
+          ) : null}
         </div>
       </section>
 
-      <Card className="overflow-hidden border-white/80 bg-white/85 shadow-[0_4px_18px_rgba(0,91,191,0.04)]">
-        <CardHeader className="space-y-4 border-b border-outline-variant/30 bg-surface-container-low/40">
-          <div className="space-y-2">
-            <CardTitle className="text-2xl">Course workspace</CardTitle>
-            <CardDescription className="max-w-2xl">
-              Switch between the curriculum and learner feedback for this course.
-            </CardDescription>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <section aria-labelledby="curriculum-title" className="grid content-start gap-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 id="curriculum-title" className="text-[17px] font-bold">Nội dung khoá học</h2>
+            {modules.length ? (
+              <span className="text-xs text-muted-foreground">
+                {modules.length} chương · {flat.length} bài học
+                {student ? ` · đã xong ${doneCount}` : ""}
+              </span>
+            ) : null}
           </div>
+          {structureQuery.isLoading ? (
+            <div className={cn(surface, "h-40 motion-safe:animate-pulse")} />
+          ) : !modules.length ? (
+            <div className={cn(surface, "px-5 py-8 text-center text-sm text-ink-2")}>
+              Khoá học chưa có nội dung được công bố. Nội dung sẽ xuất hiện ở đây khi giáo viên hoàn tất.
+            </div>
+          ) : (
+            modules.map((courseModule, index) => (
+              <ModuleBlock
+                key={courseModule.id}
+                courseModule={courseModule}
+                index={index}
+                statuses={statuses}
+                currentId={currentId}
+                courseId={courseId}
+                canLearn={canLearn}
+                enrolled={!!student}
+                open={isOpen(courseModule.id)}
+                onToggle={() => toggleModule(courseModule.id)}
+              />
+            ))
+          )}
+          {student && modules.length ? (
+            <p className="px-1 text-[11px] text-muted-foreground">
+              Trạng thái hoàn thành do hệ thống ghi nhận, chỉ để xem.
+            </p>
+          ) : null}
+        </section>
 
-          <Tabs defaultValue="curriculum" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="curriculum" id="curriculum">
-                Curriculum
-              </TabsTrigger>
-              <TabsTrigger value="reviews">Reviews</TabsTrigger>
-            </TabsList>
+        <aside className="grid content-start gap-4">
+          {course.description ? (
+            <section className={cn(surface, "flex flex-col gap-2.5 p-4")}>
+              <h2 className="text-[15px] font-bold">Giới thiệu</h2>
+              <p className="whitespace-pre-line text-[13px] leading-relaxed text-ink-2">{course.description}</p>
+            </section>
+          ) : null}
 
-            <TabsContent value="curriculum" className="mt-6 space-y-4">
-              {modules.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-outline-variant bg-surface-container-low px-4 py-6 text-sm text-on-surface-variant">
-                  This course does not have any published modules yet.
-                </div>
-              )}
-              {modules.map((module, index) => {
-                const moduleMinutes = formatMinutes(
-                  (module.lessons ?? []).reduce(
-                    (sum, lesson) => sum + (lesson.duration_minutes ?? 0),
-                    0,
-                  ),
-                );
-
-                return (
-                  <Card key={module.id} className="border-white/70 bg-white/90 shadow-sm">
-                    <CardHeader className="pb-4">
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="space-y-2">
-                          <p className="text-label-caps text-primary">Module {index + 1}</p>
-                          <CardTitle className="text-xl">{module.title}</CardTitle>
-                          {module.description && (
-                            <CardDescription className="max-w-2xl">
-                              {module.description}
-                            </CardDescription>
+          {courseAssessments.length ? (
+            <section className={cn(surface, "flex flex-col gap-3 p-4")}>
+              <SectionTitle
+                aside={
+                  <Link href="/assessments" className="text-xs font-semibold text-secondary hover:underline">
+                    Tất cả
+                  </Link>
+                }
+              >
+                <span className="text-[15px]">Bài kiểm tra &amp; hạn nộp</span>
+              </SectionTitle>
+              <ul className="grid gap-3">
+                {courseAssessments.map((assessment) => {
+                  const closeAt = assessment.close_at ? new Date(assessment.close_at) : null;
+                  const soon = closeAt
+                    ? closeAt.getTime() - now < 3 * 86400000 && closeAt.getTime() > now
+                    : false;
+                  return (
+                    <li key={assessment.id}>
+                      <Link
+                        href={`/assessments/${assessment.id}/attempt`}
+                        className="flex items-center gap-3 rounded-xl p-1 transition-colors hover:bg-background"
+                      >
+                        <span
+                          className={cn(
+                            "w-12 shrink-0 rounded-xl py-1.5 text-center",
+                            soon ? "bg-warning-soft text-warning" : "bg-background text-ink-2",
                           )}
-                        </div>
-                        <Badge className="w-fit border border-outline-variant/60 bg-surface-container-low text-on-surface-variant">
-                          <Clock3 className="mr-2 h-3.5 w-3.5" />
-                          {module.lessons?.length ?? 0} lessons · {moduleMinutes}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {module.lessons && module.lessons.length > 0 ? (
-                          module.lessons.map((lesson) => {
-                            const lessonProgress = enrollment?.lesson_progress?.find(
-                              (lp) => lp.lesson_id === lesson.id,
-                            );
-                            const isCompleted = lessonProgress?.status === "completed";
-                            const content = (
-                              <div className="flex items-center gap-4 rounded-2xl border border-outline-variant/40 bg-surface-container-low px-4 py-4 transition-colors hover:border-primary/20 hover:bg-white">
-                                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-primary shadow-sm">
-                                  {isCompleted ? (
-                                    <CheckCircle2 className="h-5 w-5 text-secondary" />
-                                  ) : (
-                                    <PlayCircle className="h-5 w-5" />
-                                  )}
-                                </div>
-                                <div className="min-w-0 flex-1 space-y-1">
-                                  <p className="truncate text-sm font-semibold text-on-surface">
-                                    {lesson.title}
-                                  </p>
-                                  {lesson.duration_minutes ? (
-                                    <p className="text-xs text-on-surface-variant">
-                                      {lesson.duration_minutes} min
-                                    </p>
-                                  ) : null}
-                                </div>
-                                {isCompleted && (
-                                  <Badge className="border border-secondary/15 bg-secondary/10 text-secondary">
-                                    Completed
-                                  </Badge>
-                                )}
-                              </div>
-                            );
-
-                            return isEnrolled ? (
-                              <Link
-                                key={lesson.id}
-                                href={`/courses/${courseId}/lessons/${lesson.id}`}
-                                className="block"
-                              >
-                                {content}
-                              </Link>
-                            ) : (
-                              <div key={lesson.id} className="opacity-70">
-                                {content}
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <div className="rounded-2xl border border-dashed border-outline-variant bg-surface-container-low px-4 py-6 text-sm text-on-surface-variant">
-                            No lessons available for this module yet.
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </TabsContent>
-
-            <TabsContent value="reviews" className="mt-6 space-y-4">
-              <Card className="border-white/70 bg-white/90 shadow-sm">
-                <CardHeader className="pb-4">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                      <CardTitle className="text-xl">Learner feedback</CardTitle>
-                    </div>
-                    {reviews.length > 0 && (
-                      <div className="flex items-center gap-3 rounded-2xl bg-surface-container-low px-4 py-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-tertiary shadow-sm">
-                          <Star className="h-5 w-5 fill-current" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-on-surface">
-                            {averageRating}/5 average
-                          </p>
-                          <p className="text-xs text-on-surface-variant">
-                            {reviews.length} reviews
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {reviews.length > 0 ? (
-                    <div className="space-y-4">
-                      {reviews.map((review) => (
-                        <div
-                          key={review.id}
-                          className="rounded-2xl border border-outline-variant/40 bg-surface-container-low px-5 py-4"
                         >
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                              <p className="text-sm font-semibold text-on-surface">
-                                {review.student?.fullName || "Anonymous learner"}
-                              </p>
-                              <div className="mt-1 flex items-center gap-2">
-                                <RatingStars rating={review.rating} />
-                              </div>
-                            </div>
-                            <p className="text-xs text-on-surface-variant">
-                              {new Date(review.created_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                          {review.review_text && (
-                            <p className="mt-3 font-reading text-sm leading-7 text-on-surface-variant">
-                              {review.review_text}
-                            </p>
-                          )}
-                        </div>
-                      ))}
+                          <span className="block text-base font-bold leading-none tabular-nums">
+                            {closeAt ? String(closeAt.getDate()).padStart(2, "0") : "—"}
+                          </span>
+                          <span className="block text-[10px] font-semibold">
+                            {closeAt ? `TH${closeAt.getMonth() + 1}` : "Mở"}
+                          </span>
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold text-ink">{assessment.title}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {[
+                              assessmentTypeLabel[assessment.assessment_type],
+                              assessment.time_limit_minutes ? minutesVi(assessment.time_limit_minutes) : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ) : null}
+
+          {infoRows.length ? (
+            <section className={cn(surface, "flex flex-col gap-2 p-4")}>
+              <h2 className="text-[15px] font-bold">Thông tin khoá học</h2>
+              <dl className="text-[13px]">
+                {infoRows.map(([label, value]) => (
+                  <div key={label} className="flex justify-between gap-3 border-b border-line py-2 last:border-0">
+                    <dt className="text-muted-foreground">{label}</dt>
+                    <dd className="text-right font-semibold">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          ) : null}
+
+          {reviews.length ? (
+            <section className={cn(surface, "flex flex-col gap-3 p-4")}>
+              <div className="flex items-baseline justify-between">
+                <h2 className="text-[15px] font-bold">Đánh giá của học viên</h2>
+                <span className="flex items-center gap-1 text-[13px] font-bold">
+                  <Star aria-hidden className="h-4 w-4 fill-highlight text-highlight" />
+                  {averageRating.toLocaleString("vi-VN", { maximumFractionDigits: 1 })}
+                  <span className="font-normal text-muted-foreground">({reviews.length})</span>
+                </span>
+              </div>
+              <ul className="grid gap-3">
+                {reviews.slice(0, 3).map((review) => (
+                  <li key={review.id} className="text-[13px] leading-relaxed">
+                    <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span className="font-semibold text-ink-2">
+                        {/* API payloads are snake_cased: student.full_name */}
+                        {(review.student as { full_name?: string } | undefined)?.full_name ?? "Học viên"} ·{" "}
+                        {review.rating}/5
+                      </span>
+                      {review.created_at ? <span>{relativeTimeVi(review.created_at)}</span> : null}
                     </div>
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-outline-variant bg-surface-container-low px-4 py-6 text-sm text-on-surface-variant">
-                      <BookOpen className="mx-auto mb-2 h-6 w-6 text-primary/40" />
-                      No reviews yet for this course.
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </CardHeader>
-      </Card>
+                    {review.review_text ? <p className="mt-0.5 text-ink-2">{review.review_text}</p> : null}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </aside>
+      </div>
     </div>
   );
 }
