@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { BookOpen, MessageCircle, Play } from "lucide-react";
 
-import { notificationTypeLabel } from "@/_shared/notifications/view";
+import { notificationTime, notificationTypeLabel } from "@/_shared/notifications/view";
 import { dayTimeVi, relativeTimeVi } from "@/lib/format-vi";
 import { cn } from "@/lib/utils";
 import type { Notification } from "@/types/models";
@@ -28,11 +28,12 @@ export function ContinueCard({ course }: { course: DashboardCourse }) {
     .join(" · ");
 
   return (
-    <section className="relative flex items-center gap-7 overflow-hidden rounded-[20px] bg-primary px-7 py-6 text-primary-foreground">
+    <section className="relative flex flex-col items-start gap-5 overflow-hidden rounded-[20px] bg-primary px-5 py-6 text-primary-foreground sm:flex-row sm:items-center sm:gap-7 sm:px-7">
       <div aria-hidden className="absolute -top-[110px] right-[120px] h-[220px] w-[220px] rounded-full bg-white/[.08]" />
       <div aria-hidden className="absolute -bottom-[50px] -right-[30px] h-[110px] w-[110px] rounded-full bg-highlight opacity-85" />
-      <div className="relative flex min-w-0 flex-1 flex-col gap-2">
-        <div className="text-xs font-semibold uppercase tracking-[.04em] opacity-85">{eyebrow}</div>
+      <div className="relative flex w-full min-w-0 flex-1 flex-col gap-2">
+        {/* 90% white is the lowest opacity that keeps 12px text above 4.5:1 on --primary */}
+        <div className="text-xs font-semibold uppercase tracking-[.04em] opacity-90">{eyebrow}</div>
         <h2 className="text-[22px] font-bold leading-snug text-primary-foreground">
           {course.nextLesson?.title ?? course.name}
         </h2>
@@ -42,7 +43,7 @@ export function ContinueCard({ course }: { course: DashboardCourse }) {
           className="flex max-w-[460px] items-center gap-3"
         >
           <Bar pct={course.pct} className="bg-white" track="bg-white/25" />
-          <span className="text-[13px] font-bold">{course.pct}%</span>
+          <span className="text-[13px] font-bold tabular-nums">{course.pct}%</span>
         </div>
         {course.lastActivity ? (
           <div className="text-xs opacity-90">
@@ -52,7 +53,7 @@ export function ContinueCard({ course }: { course: DashboardCourse }) {
       </div>
       <Link
         href={href}
-        className="relative flex h-[52px] shrink-0 items-center gap-2 rounded-[14px] bg-white px-7 text-base font-bold text-primary-strong"
+        className="relative flex h-[52px] shrink-0 items-center gap-2 rounded-[14px] bg-white px-7 text-base font-bold text-primary-strong transition-colors hover:bg-primary-soft active:bg-primary-soft/80"
       >
         <Play className="h-4 w-4 fill-current" strokeWidth={0} />
         Học tiếp
@@ -75,9 +76,13 @@ export function CourseGrid({ courses }: { courses: DashboardCourse[] }) {
           <Link
             key={course.enrollmentId}
             href={`/courses/${course.courseId}`}
-            className={cn(card, "flex flex-col gap-2.5 p-4 transition-shadow hover:shadow-mentor")}
+            className={cn(
+              card,
+              "flex flex-col gap-2.5 p-4 transition-[box-shadow,border-color] hover:border-primary/30 hover:shadow-mentor",
+            )}
           >
             <span
+              aria-hidden
               className={cn(
                 "grid h-11 w-11 place-items-center rounded-xl text-base font-bold",
                 toneClasses[course.tone].tile,
@@ -85,13 +90,17 @@ export function CourseGrid({ courses }: { courses: DashboardCourse[] }) {
             >
               {course.glyph}
             </span>
-            <span>
-              <span className="block truncate text-[15px] font-bold text-ink">{course.name}</span>
-              <span className="block truncate text-xs text-muted-foreground">{course.subtitle}</span>
+            <span className="min-w-0">
+              <span className="block break-words text-[15px] font-bold leading-snug text-ink">
+                {course.name}
+              </span>
+              <span className="block break-words text-xs text-muted-foreground">
+                {course.subtitle}
+              </span>
             </span>
-            <span className="flex items-center gap-2">
+            <span className="mt-auto flex items-center gap-2">
               <Bar pct={course.pct} className={toneClasses[course.tone].bar} />
-              <span className="text-xs font-bold text-ink">{course.pct}%</span>
+              <span className="text-xs font-bold tabular-nums text-ink">{course.pct}%</span>
             </span>
           </Link>
         ))}
@@ -119,7 +128,7 @@ export function ProgressCard({
             background: `conic-gradient(hsl(var(--primary)) 0 ${overall.pct}%, hsl(var(--background)) 0)`,
           }}
         >
-          <div className="grid h-[68px] w-[68px] place-items-center rounded-full bg-white text-xl font-bold">
+          <div className="grid h-[68px] w-[68px] place-items-center rounded-full bg-white text-xl font-bold tabular-nums">
             {overall.pct}%
           </div>
         </div>
@@ -134,13 +143,11 @@ export function ProgressCard({
       {courses.map((course) => (
         <div
           key={course.enrollmentId}
-          className="grid grid-cols-[84px_1fr_38px] items-center gap-2.5 text-[13px]"
+          className="grid grid-cols-[96px_1fr_38px] items-center gap-2.5 text-[13px]"
         >
-          <span className="truncate" title={course.name}>
-            {course.name}
-          </span>
+          <span className="break-words leading-tight">{course.name}</span>
           <Bar pct={course.pct} className={toneClasses[course.tone].bar} />
-          <b className="text-right">{course.pct}%</b>
+          <b className="text-right tabular-nums">{course.pct}%</b>
         </div>
       ))}
     </section>
@@ -161,20 +168,23 @@ export function NotificationsCard({
     <section className={cn(card, "flex flex-col gap-3 p-[18px]")}>
       <div className="flex items-baseline justify-between">
         <h2 className="text-base font-bold">Thông báo mới</h2>
-        <span className="text-xs font-bold text-highlight">{unreadCount} chưa đọc</span>
+        <span className="text-xs font-bold text-highlight-strong">{unreadCount} chưa đọc</span>
       </div>
       {unread.map((item) => (
         <div key={item.id} className="flex gap-2.5">
-          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-highlight" />
+          <span aria-hidden className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-highlight" />
           <div className="min-w-0">
             <div className="text-sm font-semibold text-ink">{item.title}</div>
             <div className="text-xs text-muted-foreground">
               {notificationTypeLabel[item.notification_type] ?? "Thông báo"} ·{" "}
-              {relativeTimeVi(item.createdAt)}
+              {relativeTimeVi(notificationTime(item))}
             </div>
           </div>
         </div>
       ))}
+      <Link href="/notifications" className="text-[13px] font-semibold text-secondary hover:underline">
+        Xem tất cả thông báo
+      </Link>
     </section>
   );
 }
@@ -227,7 +237,7 @@ export function DashboardSkeleton() {
     <div
       role="status"
       aria-label="Đang tải trang chủ"
-      className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]"
+      className="grid gap-6 motion-safe:animate-pulse xl:grid-cols-[minmax(0,1fr)_320px]"
     >
       <div className="grid content-start gap-5">
         <div className="flex flex-col gap-2.5">

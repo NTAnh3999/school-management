@@ -12,8 +12,12 @@
   --primary-soft: 167.1 33.3% 91.8%; /* #E3F1EE */
   --secondary: 223.7 46.7% 44.9%; /* #3D5AA8 */
   --secondary-soft: 222.4 51.5% 93.5%; /* #E6EBF7 */
-  --highlight: 11.6 82.5% 61.8%; /* #EE6C4D — streak, badges, unread dots */
+  --highlight: 11.6 82.5% 61.8%; /* #EE6C4D — fills only: dots, bars, decoration */
   --highlight-soft: 13.8 86.7% 94.1%; /* #FDE9E3 */
+  /* #C43513 — highlight as text or behind white text. --highlight itself is
+     only 3.05:1 on white, below WCAG AA; this is 5.4:1 on white and 4.6:1 on
+     --highlight-soft. Tenants must supply their own AA-checked value. */
+  --highlight-strong: 11.6 82.5% 42%;
   --font-display: var(--font-lora);
 
   /* Fixed tokens */
@@ -32,6 +36,8 @@
   --secondary-foreground: 0 0% 100%;
   --success: 140.8 45.3% 33.7%; /* #2F7D4A */
   --success-soft: 136 38.5% 92.4%; /* #E4F3E8 */
+  /* #2A6F42 — success text on --success-soft (5.3:1); --success there is 4.4:1 */
+  --success-strong: 140.8 45.3% 30%;
   --success-foreground: 0 0% 100%;
   --warning: 35.3 79.1% 33.7%; /* #9A6212 */
   --warning-soft: 38.7 79.5% 92.4%; /* #FBF0DC */
@@ -87,10 +93,12 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* tabindex="-1" elements (e.g. <main> after a skip link or route change) are
+   programmatic focus targets, not controls, so they get no ring. */
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
-[tabindex]:focus-visible {
+[tabindex]:not([tabindex="-1"]):focus-visible {
   outline: 3px solid hsl(var(--ring));
   outline-offset: 2px;
 }

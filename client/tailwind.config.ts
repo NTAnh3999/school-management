@@ -34,6 +34,7 @@ const config: Config = {
         highlight: {
           DEFAULT: "hsl(var(--highlight))",
           soft: "hsl(var(--highlight-soft))",
+          strong: "hsl(var(--highlight-strong))",
         },
         warning: {
           DEFAULT: "hsl(var(--warning))",
@@ -79,6 +80,7 @@ const config: Config = {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
           soft: "hsl(var(--success-soft))",
+          strong: "hsl(var(--success-strong))",
         },
         tertiary: {
           DEFAULT: "hsl(var(--tertiary))",

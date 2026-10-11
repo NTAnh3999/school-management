@@ -42,7 +42,7 @@ export default function DashboardPage() {
         <button
           type="button"
           onClick={() => refetch()}
-          className="mt-1 h-12 rounded-[14px] bg-ink px-5 text-sm font-semibold text-white"
+          className="mt-1 h-12 rounded-[14px] bg-ink px-5 text-sm font-semibold text-white transition-colors hover:bg-ink-2"
         >
           Tải lại
         </button>
@@ -58,7 +58,7 @@ export default function DashboardPage() {
         <div className="flex flex-wrap items-center gap-3">
           <h2
             suppressHydrationWarning
-            className="shrink-0 whitespace-nowrap font-display text-[28px] font-bold leading-tight"
+            className="text-balance font-display text-[28px] font-bold leading-tight sm:shrink-0 sm:whitespace-nowrap"
           >
             {greetingFor()}
             {firstName ? `, ${firstName}` : ""}!
