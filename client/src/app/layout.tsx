@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Be_Vietnam_Pro, Lexend, Lora, Geist_Mono } from "next/font/google";
+import { Be_Vietnam_Pro, Lora } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/components/providers/app-providers";
 
@@ -14,16 +14,6 @@ const lora = Lora({
   variable: "--font-lora",
   subsets: ["latin", "vietnamese"],
   weight: ["500", "600", "700"],
-});
-
-const lexend = Lexend({
-  variable: "--font-lexend",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
@@ -43,7 +33,7 @@ export default function RootLayout({
     <html
       lang="vi"
       suppressHydrationWarning
-      className={`${beVietnamPro.variable} ${lora.variable} ${lexend.variable} ${geistMono.variable}`}
+      className={`${beVietnamPro.variable} ${lora.variable}`}
     >
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
         <AppProviders>{children}</AppProviders>

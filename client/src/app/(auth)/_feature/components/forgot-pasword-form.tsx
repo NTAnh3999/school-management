@@ -40,7 +40,7 @@ export function ForgotPasswordForm() {
         </div>
         <div>
           <p className="font-semibold text-foreground">Check your inbox</p>
-          <p className="mt-1 font-reading text-sm text-muted-foreground">
+          <p className="mt-1 text-sm text-muted-foreground">
             If <strong>{form.getValues("email")}</strong> is registered, a reset
             link has been sent.
           </p>

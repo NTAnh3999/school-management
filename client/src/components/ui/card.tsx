@@ -43,7 +43,7 @@ const CardDescription = ({
   className,
   ...props
 }: React.HTMLAttributes<HTMLParagraphElement>) => (
-  <p className={cn("font-reading text-sm leading-6 text-muted-foreground", className)} {...props} />
+  <p className={cn("text-sm leading-6 text-muted-foreground", className)} {...props} />
 );
 CardDescription.displayName = "CardDescription";
 

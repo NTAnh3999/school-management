@@ -45,7 +45,7 @@ function TextItem({ item }: { item: LearningItem }) {
   const sanitized = DOMPurify.sanitize(body, RICH_TEXT_SANITIZE_CONFIG);
   return (
     <div
-      className="font-reading max-w-reading text-[17px] leading-8 text-on-surface [&_a]:text-primary [&_a]:underline [&_h2]:mt-4 [&_h2]:text-xl [&_h2]:font-bold [&_h3]:mt-3 [&_h3]:text-lg [&_h3]:font-semibold [&_li]:ml-4 [&_ol]:list-decimal [&_ul]:list-disc"
+      className="max-w-reading text-[17px] leading-8 text-on-surface [&_a]:text-primary [&_a]:underline [&_h2]:mt-4 [&_h2]:text-xl [&_h2]:font-bold [&_h3]:mt-3 [&_h3]:text-lg [&_h3]:font-semibold [&_li]:ml-4 [&_ol]:list-decimal [&_ul]:list-disc"
       // eslint-disable-next-line react/no-danger -- sanitized immediately above via DOMPurify.
       dangerouslySetInnerHTML={{ __html: sanitized }}
     />

@@ -195,7 +195,7 @@ app/
 - **Dark Mode Support**: Via next-themes
 - **Color System**: CSS variables for theme colors
 - **Responsive**: Mobile-first with Tailwind breakpoints
-- **Fonts**: Geist Sans + Geist Mono
+- **Fonts**: Be Vietnam Pro (UI and body text) + Lora (display/brand headings, `font-display`)
 - **Animations**: Radix UI built-in animations
 
 ### Data Flow

@@ -126,10 +126,6 @@ input:focus-visible,
 }
 
 @layer utilities {
-  .font-reading {
-    font-family: var(--font-lexend), sans-serif;
-  }
-
   .reading-measure {
     max-width: var(--reading-measure);
   }

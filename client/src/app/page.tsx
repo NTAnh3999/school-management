@@ -29,7 +29,7 @@ const focusPrinciples = [
     icon: BookOpenText,
     title: "Reading built for stamina",
     description:
-      "Long-form content stays measured and calm, using Lexend and generous spacing to reduce visual stress.",
+      "Long-form content stays measured and calm, using a comfortable line length and generous spacing to reduce visual stress.",
   },
   {
     icon: Trophy,
@@ -90,7 +90,7 @@ export default function HomePage() {
                   <br />
                   Visible progress.
                 </h1>
-                <p className="font-reading reading-measure text-lg leading-8 text-muted-foreground lg:text-xl">
+                <p className="reading-measure text-lg leading-8 text-muted-foreground lg:text-xl">
                   SchoolHub turns enrollment, learning modules, and assessment work
                   into a single environment designed to reduce cognitive load while
                   still making every small win feel earned.
@@ -144,7 +144,7 @@ export default function HomePage() {
                     <p className="mt-2 text-base font-semibold text-foreground">
                       7-day reading streak
                     </p>
-                    <p className="mt-2 font-reading text-sm leading-6 text-muted-foreground">
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
                       Reward accents stay rare so meaningful progress remains visible.
                     </p>
                   </div>
@@ -153,7 +153,7 @@ export default function HomePage() {
                     <p className="mt-2 text-base font-semibold text-foreground">
                       70-character measure
                     </p>
-                    <p className="mt-2 font-reading text-sm leading-6 text-muted-foreground">
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
                       Designed to keep content easy to scan during longer sessions.
                     </p>
                   </div>
@@ -172,7 +172,7 @@ export default function HomePage() {
                   <CardTitle className="pt-3 text-xl">{principle.title}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="font-reading text-sm leading-7 text-muted-foreground">
+                  <p className="text-sm leading-7 text-muted-foreground">
                     {principle.description}
                   </p>
                 </CardContent>

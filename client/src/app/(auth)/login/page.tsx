@@ -36,7 +36,7 @@ export default function LoginPage() {
                 <h1 className="text-5xl font-bold leading-tight text-white">
                   Return to a learning space built for focus.
                 </h1>
-                <p className="mt-4 font-reading text-lg leading-8 text-white/90">
+                <p className="mt-4 text-lg leading-8 text-white/90">
                   Calm structure, clear progress, and just enough encouragement to
                   keep momentum visible without adding noise.
                 </p>

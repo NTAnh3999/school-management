@@ -33,7 +33,7 @@ export default function QaPage() {
       <div>
         <Badge className="bg-primary/10 text-primary">Q&amp;A</Badge>
         <h1 className="mt-3 text-3xl font-bold">Questions and mentor support</h1>
-        <p className="mt-2 max-w-reading font-reading text-muted-foreground">
+        <p className="mt-2 max-w-reading text-muted-foreground">
           This space is reserved for learner questions, mentor responses, and
           parent-friendly clarification around active courses.
         </p>
@@ -49,7 +49,7 @@ export default function QaPage() {
             <CardContent>
               <div className="rounded-[1.25rem] border border-white/80 bg-surface-low p-4">
                 <p className="text-label-caps text-secondary">Coming next</p>
-                <p className="mt-2 font-reading text-sm leading-6 text-muted-foreground">
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
                   A focused question flow can live here without turning the
                   workspace into a noisy discussion board.
                 </p>

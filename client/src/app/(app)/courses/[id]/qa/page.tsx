@@ -282,7 +282,7 @@ export default function CourseQaPage({
           <h1 className="text-3xl font-bold tracking-tight text-on-surface lg:text-4xl">
             Course Q&A: {course?.course_name || "Applied Neuroscience Cohort"}
           </h1>
-          <p className="font-reading text-sm leading-7 text-on-surface-variant lg:text-base">
+          <p className="text-sm leading-7 text-on-surface-variant lg:text-base">
             Join learners and mentors in focused discussion. Ask precise questions,
             browse verified answers, and keep momentum without leaving the course flow.
           </p>
@@ -352,7 +352,7 @@ export default function CourseQaPage({
                   <h2 className="text-2xl font-bold leading-tight text-on-surface">
                     {selectedThread.title}
                   </h2>
-                  <div className="space-y-3 font-reading text-on-surface-variant">
+                  <div className="space-y-3 text-on-surface-variant">
                     {selectedThread.body.map((paragraph) => (
                       <p key={paragraph} className="leading-7">
                         {paragraph}
@@ -398,7 +398,7 @@ export default function CourseQaPage({
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-on-surface">{answer.author}</p>
-                        <p className="mt-2 font-reading text-sm leading-7 text-on-surface-variant">
+                        <p className="mt-2 text-sm leading-7 text-on-surface-variant">
                           {answer.content}
                         </p>
                       </div>

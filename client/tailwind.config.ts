@@ -23,7 +23,6 @@ const config: Config = {
         // (--font-display) and is only used in brand areas.
         sans: ["var(--font-ui)", "system-ui", "sans-serif"],
         display: ["var(--font-display)", "serif"],
-        reading: ["var(--font-lexend)", "sans-serif"],
       },
       colors: {
         ink: {

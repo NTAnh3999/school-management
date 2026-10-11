@@ -168,7 +168,7 @@ export default function SettingsPage() {
               <h1 className="max-w-[12ch] text-4xl font-bold leading-tight lg:text-5xl">
                 Shape a calmer learning workspace.
               </h1>
-              <p className="font-reading reading-measure text-base leading-7 text-muted-foreground lg:text-lg">
+              <p className="reading-measure text-base leading-7 text-muted-foreground lg:text-lg">
                 Tune profile details, notification cadence, and encouragement style
                 so the interface rewards progress without creating noise.
               </p>
@@ -207,7 +207,7 @@ export default function SettingsPage() {
                   </span>
                 </div>
                 <Progress value={clarityScore} />
-                <p className="font-reading text-sm leading-6 text-muted-foreground">
+                <p className="text-sm leading-6 text-muted-foreground">
                   Balanced spacing, focused reading width, and restrained celebration
                   keep the workspace supportive rather than noisy.
                 </p>
@@ -326,7 +326,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="rounded-[1.25rem] border border-white/80 bg-surface-low p-4">
                   <p className="text-label-caps text-secondary">Preview copy</p>
-                  <p className="mt-3 max-w-reading font-reading text-[17px] leading-8 text-foreground">
+                  <p className="mt-3 max-w-reading text-[17px] leading-8 text-foreground">
                     Lessons stay within a measured column so the eye tracks steadily,
                     the page feels structured, and attention stays on the material.
                   </p>
@@ -378,7 +378,7 @@ export default function SettingsPage() {
                 <div className="rounded-[1.25rem] border border-white/80 bg-white/80 p-5">
                   <TimerReset className="h-5 w-5 text-primary" />
                   <h3 className="mt-4 text-lg font-semibold">Fixed grid</h3>
-                  <p className="mt-2 font-reading text-sm leading-6 text-muted-foreground">
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
                     Desktop surfaces stay within a stable width to prevent sparse,
                     unfocused layouts on large screens.
                   </p>
@@ -386,14 +386,14 @@ export default function SettingsPage() {
                 <div className="rounded-[1.25rem] border border-white/80 bg-white/80 p-5">
                   <Sparkles className="h-5 w-5 text-secondary" />
                   <h3 className="mt-4 text-lg font-semibold">Ambient depth</h3>
-                  <p className="mt-2 font-reading text-sm leading-6 text-muted-foreground">
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
                     Shadows stay soft and tinted, using layers instead of hard contrast.
                   </p>
                 </div>
                 <div className="rounded-[1.25rem] border border-white/80 bg-white/80 p-5">
                   <Zap className="h-5 w-5 text-gold" />
                   <h3 className="mt-4 text-lg font-semibold">Reserved accents</h3>
-                  <p className="mt-2 font-reading text-sm leading-6 text-muted-foreground">
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
                     Gold and purple remain tied to rewards so milestones keep their impact.
                   </p>
                 </div>
@@ -501,7 +501,7 @@ export default function SettingsPage() {
                         <p className="font-semibold text-foreground">
                           5 questions correct
                         </p>
-                        <p className="mt-1 font-reading text-sm leading-6 text-muted-foreground">
+                        <p className="mt-1 text-sm leading-6 text-muted-foreground">
                           {tone === "celebratory"
                             ? "Your streak is alive. Keep the momentum."
                             : tone === "coach"
@@ -518,7 +518,7 @@ export default function SettingsPage() {
 
                 <div className="rounded-[1.25rem] border border-white/80 bg-surface-low p-5">
                   <p className="text-label-caps text-primary">Digest rhythm</p>
-                  <p className="mt-3 font-reading text-sm leading-6 text-muted-foreground">
+                  <p className="mt-3 text-sm leading-6 text-muted-foreground">
                     Current cadence:{" "}
                     <span className="font-semibold text-foreground">
                       {reminderCadence}

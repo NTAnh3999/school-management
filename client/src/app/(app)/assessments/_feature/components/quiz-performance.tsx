@@ -43,7 +43,7 @@ export function QuizPerformance() {
                   className="flex items-center justify-between text-sm"
                 >
                   <span>{attempt.enrollment?.student?.fullName || "Student"}</span>
-                  <span className="font-mono">{attempt.score || 0}%</span>
+                  <span className="tabular-nums">{attempt.score || 0}%</span>
                 </div>
               ))}
             </div>

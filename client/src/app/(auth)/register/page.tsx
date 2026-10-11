@@ -24,7 +24,7 @@ export default function RegisterPage() {
             <h2 className="mb-4 text-5xl font-bold leading-tight tracking-tight text-white">
               Unlock your potential with a trusted learning companion.
             </h2>
-            <p className="font-reading text-lg leading-relaxed text-white/80">
+            <p className="text-lg leading-relaxed text-white/80">
               Join a community of lifelong learners and experience a
               personalized, minimal, and effective educational journey.
             </p>
@@ -43,7 +43,7 @@ export default function RegisterPage() {
                 />
               ))}
             </div>
-            <p className="mb-4 font-reading text-sm italic leading-6 text-white">
+            <p className="mb-4 text-sm italic leading-6 text-white">
               "The minimal interface lets me focus entirely on learning without
               distractions. A wonderful experience for busy people."
             </p>
