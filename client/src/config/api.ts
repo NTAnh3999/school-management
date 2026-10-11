@@ -63,6 +63,14 @@ export const API_ROUTES = {
       `/quizzes/attempts/${attemptId}/submit`,
     getAttempts: (quizId: number) => `/quizzes/${quizId}/attempts`,
   },
+  assessments: {
+    list: "/assessments",
+    detail: (id: number) => `/assessments/${id}`,
+    startAttempt: (id: number) => `/assessments/${id}/attempts`,
+    attempts: (id: number) => `/assessments/${id}/attempts`,
+    submitAttempt: (attemptId: number) => `/assessments/attempts/${attemptId}/submit`,
+    results: (id: number) => `/assessments/${id}/results`,
+  },
   reviews: {
     course: (courseId: number) => `/reviews/course/${courseId}`,
     create: (courseId: number) => `/reviews/course/${courseId}`,

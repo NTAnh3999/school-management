@@ -1,242 +1,192 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowRight,
-  CalendarClock,
-  CheckCircle2,
-  ClipboardCheck,
-  Clock3,
+  Check,
+  ChevronRight,
+  ClipboardList,
+  Clock,
+  Hourglass,
   Lock,
-  RotateCcw,
+  PenLine,
+  SquareCheck,
 } from "lucide-react";
 
-import { mockAssessments, type MockAssessment } from "./_feature/mock-assessments";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { useAssessments, useAttemptsForAssessments } from "./_feature/hooks";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+  assessmentCourseName,
+  assessmentState,
+  assessmentTypeLabel,
+  enrollmentFor,
+  latestAttempt,
+  type AssessmentState,
+} from "./_feature/model";
+import { useMyEnrollments } from "@/app/(app)/courses/_feature/hooks";
+import {
+  EmptyState,
+  FilterChip,
+  IconTile,
+  LoadError,
+  PageSkeleton,
+  Pill,
+  surface,
+  type Tone,
+} from "@/components/edu/ui";
+import { deadlineVi, minutesVi } from "@/lib/format-vi";
 import { cn } from "@/lib/utils";
 
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
+// "Bài tập & Kết quả" — student assessment list (GET /assessments) with each
+// item's state derived from its attempt history.
 
-function getStatusMeta(status: MockAssessment["status"]) {
-  if (status === "open") {
-    return {
-      label: "Open",
-      className: "border-primary/15 bg-primary/10 text-primary",
-      icon: ClipboardCheck,
-    };
-  }
+const stateMeta: Record<
+  AssessmentState,
+  { label: string; tone: Tone; icon: typeof Check; order: number }
+> = {
+  in_progress: { label: "Đang làm", tone: "highlight", icon: PenLine, order: 0 },
+  open: { label: "Cần làm", tone: "primary", icon: SquareCheck, order: 1 },
+  upcoming: { label: "Sắp mở", tone: "secondary", icon: Clock, order: 2 },
+  submitted: { label: "Chờ chấm", tone: "neutral", icon: Hourglass, order: 3 },
+  graded: { label: "Đã chấm", tone: "success", icon: Check, order: 4 },
+  closed: { label: "Đã đóng", tone: "neutral", icon: Lock, order: 5 },
+};
 
-  if (status === "released") {
-    return {
-      label: "Released",
-      className: "border-secondary/15 bg-secondary/10 text-secondary",
-      icon: CheckCircle2,
-    };
-  }
+type FilterKey = "todo" | "waiting" | "graded" | "all";
 
-  if (status === "submitted") {
-    return {
-      label: "Submitted",
-      className: "border-tertiary/20 bg-tertiary/10 text-tertiary",
-      icon: Clock3,
-    };
-  }
-
-  return {
-    label: "Scheduled",
-    className: "border-outline-variant bg-surface-container-low text-on-surface-variant",
-    icon: Lock,
-  };
-}
-
-function getAssessmentProgress(assessment: MockAssessment) {
-  if (assessment.status === "released") return 100;
-  if (assessment.status === "submitted") return 72;
-  if (assessment.status === "open") return 24;
-  return 0;
-}
-
-function AssessmentRow({ assessment }: { assessment: MockAssessment }) {
-  const statusMeta = getStatusMeta(assessment.status);
-  const StatusIcon = statusMeta.icon;
-  const progress = getAssessmentProgress(assessment);
-  const isOpen = assessment.status === "open";
-
-  return (
-    <div className="rounded-2xl border border-outline-variant/40 bg-white/85 p-4 shadow-[0_4px_18px_rgba(0,91,191,0.04)]">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_180px] lg:items-center">
-        <div className="min-w-0 space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge className={cn("w-fit", statusMeta.className)}>
-              <StatusIcon className="mr-2 h-3.5 w-3.5" />
-              {statusMeta.label}
-            </Badge>
-            <Badge className="w-fit border-outline-variant bg-surface-container-low text-on-surface-variant">
-              {assessment.gradingMethod}
-            </Badge>
-            {assessment.attemptNumber > 0 && (
-              <Badge className="w-fit border-secondary/15 bg-secondary/10 text-secondary">
-                <RotateCcw className="mr-2 h-3.5 w-3.5" />
-                Attempt {assessment.attemptNumber}/{assessment.attemptLimit}
-              </Badge>
-            )}
-          </div>
-
-          <div>
-            <h2 className="text-xl font-semibold text-on-surface">{assessment.title}</h2>
-            <p className="mt-1 text-sm leading-6 text-on-surface-variant">
-              {assessment.courseTitle} / {assessment.lessonTitle}
-            </p>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl bg-surface-container-low px-3 py-2">
-              <p className="text-xs font-semibold text-on-surface-variant">Questions</p>
-              <p className="mt-1 text-sm font-bold text-on-surface">
-                {assessment.questions.length}
-              </p>
-            </div>
-            <div className="rounded-xl bg-surface-container-low px-3 py-2">
-              <p className="text-xs font-semibold text-on-surface-variant">Time</p>
-              <p className="mt-1 text-sm font-bold text-on-surface">
-                {assessment.durationMinutes} min
-              </p>
-            </div>
-            <div className="rounded-xl bg-surface-container-low px-3 py-2">
-              <p className="text-xs font-semibold text-on-surface-variant">Due</p>
-              <p className="mt-1 text-sm font-bold text-on-surface">
-                {formatDateTime(assessment.dueAt)}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <div className="rounded-xl bg-surface-container-low px-3 py-3">
-            <div className="mb-2 flex items-center justify-between text-xs font-semibold text-on-surface-variant">
-              <span>Readiness</span>
-              <span>{progress}%</span>
-            </div>
-            <Progress value={progress} />
-          </div>
-
-          {isOpen ? (
-            <Button asChild className="w-full">
-              <Link href={`/assessments/${assessment.id}/attempt`}>
-                Start attempt
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          ) : (
-            <Button disabled variant="outline" className="w-full">
-              {assessment.status === "scheduled" ? "Not open yet" : "View later"}
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+const FILTERS: Array<{ key: FilterKey; label: string; match: AssessmentState[] }> = [
+  { key: "todo", label: "Cần làm", match: ["in_progress", "open", "upcoming"] },
+  { key: "waiting", label: "Chờ chấm", match: ["submitted"] },
+  { key: "graded", label: "Đã chấm", match: ["graded"] },
+  { key: "all", label: "Tất cả", match: ["in_progress", "open", "upcoming", "submitted", "graded", "closed"] },
+];
 
 export default function AssessmentsPage() {
-  const openCount = mockAssessments.filter((assessment) => assessment.status === "open").length;
-  const releasedCount = mockAssessments.filter(
-    (assessment) => assessment.status === "released",
-  ).length;
-  const pendingCount = mockAssessments.length - openCount - releasedCount;
+  const assessmentsQuery = useAssessments();
+  const { data: enrollments = [] } = useMyEnrollments();
+  const [filterChoice, setFilterChoice] = useState<FilterKey | null>(null);
+  // Render-stable "now" for due-soon highlighting.
+  const [now] = useState(() => Date.now());
+
+  const rows = useMemo(
+    () =>
+      (assessmentsQuery.data ?? []).map((assessment) => ({
+        assessment,
+        enrollment: enrollmentFor(assessment, enrollments),
+      })),
+    [assessmentsQuery.data, enrollments],
+  );
+  const attemptQueries = useAttemptsForAssessments(
+    rows.map((row) => ({ assessmentId: row.assessment.id, enrollmentId: row.enrollment?.id })),
+  );
+
+  const items = rows
+    .map((row, index) => {
+      const attempts = attemptQueries[index]?.data ?? [];
+      return { ...row, attempts, state: assessmentState(row.assessment, attempts) };
+    })
+    .sort((a, b) => {
+      const byState = stateMeta[a.state].order - stateMeta[b.state].order;
+      if (byState) return byState;
+      const due = (value?: string | null) => new Date(value ?? "9999-12-31").getTime();
+      return due(a.assessment.close_at) - due(b.assessment.close_at);
+    });
+
+  const counts = Object.fromEntries(
+    FILTERS.map((filter) => [filter.key, items.filter((item) => filter.match.includes(item.state)).length]),
+  ) as Record<FilterKey, number>;
+  const filterKey: FilterKey = filterChoice ?? (counts.todo ? "todo" : "all");
+  const filter = FILTERS.find((item) => item.key === filterKey)!;
+  const list = items.filter((item) => filter.match.includes(item.state));
+
+  if (assessmentsQuery.isLoading) return <PageSkeleton label="Đang tải bài tập" />;
+  if (assessmentsQuery.isError) {
+    return <LoadError title="Không tải được bài tập." onRetry={() => assessmentsQuery.refetch()} />;
+  }
+  if (!items.length) {
+    return (
+      <EmptyState
+        icon={ClipboardList}
+        title="Chưa có bài tập hoặc bài kiểm tra nào."
+        description="Bài kiểm tra giáo viên giao trong các khoá học của bạn sẽ xuất hiện ở đây."
+        className={cn(surface, "mx-auto max-w-[640px]")}
+      />
+    );
+  }
 
   return (
-    <div className="space-y-6 pb-8">
-      <section className="rounded-3xl border border-white/70 bg-white/85 px-6 py-6 shadow-[0_4px_18px_rgba(0,91,191,0.05)]">
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
-          <div className="space-y-3">
-            <Badge className="w-fit border-primary/15 bg-primary/10 text-primary">
-              <ClipboardCheck className="mr-2 h-3.5 w-3.5" />
-              Assessment workspace
-            </Badge>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-on-surface lg:text-4xl">
-                My assessments
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-on-surface-variant">
-                Open checks, submitted work, and released results in one focused queue.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-2xl bg-primary/10 px-4 py-3 text-primary">
-              <p className="text-xs font-semibold">Open</p>
-              <p className="mt-1 text-2xl font-bold">{openCount}</p>
-            </div>
-            <div className="rounded-2xl bg-secondary/10 px-4 py-3 text-secondary">
-              <p className="text-xs font-semibold">Released</p>
-              <p className="mt-1 text-2xl font-bold">{releasedCount}</p>
-            </div>
-            <div className="rounded-2xl bg-surface-container-low px-4 py-3 text-on-surface-variant">
-              <p className="text-xs font-semibold">Pending</p>
-              <p className="mt-1 text-2xl font-bold">{pendingCount}</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="space-y-4">
-          {mockAssessments.map((assessment) => (
-            <AssessmentRow key={assessment.id} assessment={assessment} />
-          ))}
-        </div>
-
-        <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
-          <Card className="border-white/80 bg-white/90 shadow-[0_4px_18px_rgba(0,91,191,0.04)]">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <CalendarClock className="h-5 w-5 text-primary" />
-                Next deadline
-              </CardTitle>
-              <CardDescription>{formatDateTime(mockAssessments[0].dueAt)}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="rounded-2xl border border-primary/10 bg-primary/5 p-4">
-                <p className="text-sm font-semibold text-on-surface">
-                  {mockAssessments[0].title}
-                </p>
-                <p className="mt-1 text-sm text-on-surface-variant">
-                  {mockAssessments[0].durationMinutes} minutes / {mockAssessments[0].maxScore} pts
-                </p>
-              </div>
-              <Button asChild className="w-full">
-                <Link href={`/assessments/${mockAssessments[0].id}/attempt`}>
-                  Continue
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <div className="rounded-2xl border border-outline-variant/40 bg-white/80 p-4 text-sm leading-6 text-on-surface-variant">
-            Results are only shown after release. Hybrid or manual assessments stay in a pending
-            state until grading is finished.
-          </div>
-        </aside>
+    <div className="mx-auto grid max-w-[960px] content-start gap-4">
+      <div className="flex flex-wrap gap-2">
+        {FILTERS.map((item) => (
+          <FilterChip
+            key={item.key}
+            active={item.key === filterKey}
+            count={counts[item.key]}
+            onClick={() => setFilterChoice(item.key)}
+          >
+            {item.label}
+          </FilterChip>
+        ))}
       </div>
+
+      {list.length ? (
+        <ul className={cn(surface, "overflow-hidden")}>
+          {list.map(({ assessment, attempts, state }) => {
+            const meta = stateMeta[state];
+            const hasAttempt = !!latestAttempt(attempts);
+            const href =
+              state === "submitted" || state === "graded" || (state === "closed" && hasAttempt)
+                ? `/assessments/${assessment.id}/result`
+                : `/assessments/${assessment.id}/attempt`;
+            const closeAt = assessment.close_at ? new Date(assessment.close_at) : null;
+            const dueSoon =
+              (state === "open" || state === "in_progress") &&
+              closeAt &&
+              closeAt.getTime() - now < 86400000;
+            const details = [
+              assessment.questions?.length ? `${assessment.questions.length} câu` : null,
+              assessment.time_limit_minutes ? minutesVi(assessment.time_limit_minutes) : null,
+            ].filter(Boolean);
+            return (
+              <li key={assessment.id} className="border-b border-line last:border-0">
+                <Link href={href} className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-background">
+                  <IconTile icon={meta.icon} tone={meta.tone} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs text-muted-foreground">
+                      {[assessmentCourseName(assessment), assessmentTypeLabel[assessment.assessment_type]]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                    <span className="block break-words text-[15px] font-semibold text-ink">{assessment.title}</span>
+                    <span className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-ink-2">
+                      {details.length ? <span>{details.join(" · ")}</span> : null}
+                      {state === "upcoming" && assessment.open_at ? (
+                        <span>Mở lúc {deadlineVi(assessment.open_at)}</span>
+                      ) : closeAt && state !== "graded" && state !== "closed" ? (
+                        <span className={cn("inline-flex items-center gap-1", dueSoon && "font-semibold text-warning")}>
+                          {dueSoon ? <Clock aria-hidden className="h-3.5 w-3.5" /> : null}
+                          Hạn {deadlineVi(closeAt)}
+                        </span>
+                      ) : null}
+                    </span>
+                  </span>
+                  <Pill tone={meta.tone}>{meta.label}</Pill>
+                  <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-muted-foreground" />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <EmptyState icon={ClipboardList} tone="secondary" title={`Không có bài nào ở mục “${filter.label}”.`}>
+          <button
+            type="button"
+            onClick={() => setFilterChoice("all")}
+            className="text-[13px] font-semibold text-secondary hover:underline"
+          >
+            Xem tất cả
+          </button>
+        </EmptyState>
+      )}
     </div>
   );
 }

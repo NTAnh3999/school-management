@@ -449,3 +449,108 @@ export interface PublishedContentStructure {
   published_at: string;
   structure: CourseModule[];
 }
+
+// -------------------------------------------------------
+// Assessment engine (api/src/services/assessment.service.js, /assessments).
+// Payloads are snake_cased and DECIMAL columns arrive as strings, so numeric
+// fields are typed `number | string` — convert with Number() before use.
+// -------------------------------------------------------
+
+export type AssessmentType = "quiz" | "assignment" | "exam" | "survey" | "other";
+export type AssessmentQuestionType =
+  | "single_choice"
+  | "multiple_choice"
+  | "text"
+  | "essay"
+  | "file_upload";
+export type AssessmentAttemptStatus =
+  | "not_started"
+  | "in_progress"
+  | "submitted"
+  | "graded"
+  | "published"
+  | "expired";
+
+// Students only receive id + option_text (no is_correct).
+export interface AssessmentOption {
+  id: number;
+  option_text: string;
+}
+
+export interface AssessmentQuestion {
+  id: number;
+  question_text: string;
+  question_type: AssessmentQuestionType;
+  points: number | string;
+  order_index: number;
+  options?: AssessmentOption[];
+}
+
+export interface Assessment {
+  id: number;
+  lesson_id: number;
+  title: string;
+  description?: string | null;
+  assessment_type: AssessmentType;
+  course_id?: number | null;
+  classroom_id?: number | null;
+  status: "draft" | "published" | "closed" | "archived";
+  open_at?: string | null;
+  close_at?: string | null;
+  passing_score?: number | string | null; // percentage, 0–100
+  time_limit_minutes?: number | null;
+  max_attempts?: number | null;
+  max_score?: number | string | null;
+  grading_method?: "auto" | "manual" | "hybrid";
+  result_publish_at?: string | null;
+  course?: Course | null;
+  lesson?: (Lesson & { module?: CourseModule & { course?: Course } }) | null;
+  questions?: AssessmentQuestion[];
+}
+
+export interface AssessmentAttemptAnswer {
+  id: number;
+  question_id: number;
+  selected_option_id?: number | null;
+  text_answer?: string | null;
+  is_correct?: boolean | null;
+  awarded_points?: number | string | null;
+}
+
+export interface AssessmentAttempt {
+  id: number;
+  enrollment_id: number;
+  quiz_id: number;
+  status: AssessmentAttemptStatus;
+  started_at?: string | null;
+  expired_at?: string | null;
+  submitted_at?: string | null;
+  attempt_number: number;
+  answers?: AssessmentAttemptAnswer[];
+}
+
+export type AssessmentAnswerPayload = {
+  questionId: number;
+  selectedOptionId?: number;
+  selectedOptionIds?: number[];
+  textAnswer?: string;
+};
+
+// GET /assessments/:id/results — students only get published records; the
+// endpoint 403s with RESULT_NOT_PUBLISHED otherwise.
+export interface AssessmentResult {
+  assessment_id: number;
+  attempt_id: number;
+  enrollment_id: number;
+  attempt_number: number;
+  attempt_status: AssessmentAttemptStatus;
+  started_at?: string | null;
+  submitted_at?: string | null;
+  published_at?: string | null;
+  raw_score: number | null;
+  max_score: number | null;
+  percentage_score: number | null;
+  feedback?: string | null;
+  grading_status?: string | null;
+  publication_status: "not_published" | "published" | "unpublished";
+}

@@ -1,450 +1,251 @@
 "use client";
 
+import { use, useState } from "react";
 import Link from "next/link";
-import { use, useEffect, useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  ArrowLeft,
-  CheckCircle2,
-  Clock3,
-  Flag,
-  Save,
-  Send,
-} from "lucide-react";
+import { toast } from "sonner";
+import { Check, ChevronLeft } from "lucide-react";
 
 import {
-  getMockAssessment,
-  type MockAssessmentQuestion,
-} from "../../_feature/mock-assessments";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+  useAssessment,
+  useAssessmentAttempts,
+  useStartAssessmentAttempt,
+} from "../../_feature/hooks";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Textarea } from "@/components/ui/textarea";
+  assessmentCourseName,
+  assessmentTypeLabel,
+  attemptsLeft,
+  attemptsUsed,
+  canStartAttempt,
+  enrollmentFor,
+  latestAttempt,
+  maxAttempts,
+} from "../../_feature/model";
+import { AttemptRunner, type SubmittedSummary } from "../../_feature/components/attempt-runner";
+import { useMyEnrollments } from "@/app/(app)/courses/_feature/hooks";
+import { AccessNotice } from "@/components/edu/access-notice";
+import { LoadError, buttonClass, surface } from "@/components/edu/ui";
+import { apiErrorCode, isAccessError } from "@/lib/api-error";
+import { deadlineVi, minutesVi, timeDateVi } from "@/lib/format-vi";
 import { cn } from "@/lib/utils";
+import type { AssessmentAttempt } from "@/types/models";
 
-type AnswerValue = string | string[];
-type AnswerMap = Record<string, AnswerValue>;
+// STU-05 Assessment Attempt (design: Desktop - Student 7e; mobile 4a/4f for
+// the start and submitted states). Focus mode — no app sidebar.
 
-function formatRemaining(totalSeconds: number) {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
-function isAnswered(question: MockAssessmentQuestion, value: AnswerValue | undefined) {
-  if (question.type === "multiple_choice") {
-    return Array.isArray(value) && value.length > 0;
-  }
-
-  return typeof value === "string" && value.trim().length > 0;
-}
-
-function calculateAutoScore(questions: MockAssessmentQuestion[], answers: AnswerMap) {
-  return questions.reduce((total, question) => {
-    if (!question.correctOptionIds) return total;
-
-    const value = answers[question.id];
-    const selectedIds = Array.isArray(value) ? value : value ? [value] : [];
-    const correctIds = [...question.correctOptionIds].sort();
-    const normalizedSelectedIds = [...selectedIds].sort();
-    const isCorrect = JSON.stringify(correctIds) === JSON.stringify(normalizedSelectedIds);
-
-    return isCorrect ? total + question.points : total;
-  }, 0);
-}
-
-function QuestionBlock({
-  question,
-  index,
-  value,
-  flagged,
-  disabled,
-  onChange,
-  onToggleFlag,
-}: {
-  question: MockAssessmentQuestion;
-  index: number;
-  value: AnswerValue | undefined;
-  flagged: boolean;
-  disabled: boolean;
-  onChange: (value: AnswerValue) => void;
-  onToggleFlag: () => void;
-}) {
-  const answered = isAnswered(question, value);
-
+function FocusFrame({ children, back }: { children: React.ReactNode; back: string }) {
   return (
-    <section className="rounded-2xl border border-outline-variant/40 bg-white/90 p-5 shadow-[0_4px_18px_rgba(0,91,191,0.04)]">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge className="border-primary/15 bg-primary/10 text-primary">
-              Question {index + 1}
-            </Badge>
-            <Badge className="border-outline-variant bg-surface-container-low text-on-surface-variant">
-              {question.points} pts
-            </Badge>
-            {answered && (
-              <Badge className="border-secondary/15 bg-secondary/10 text-secondary">
-                <CheckCircle2 className="mr-2 h-3.5 w-3.5" />
-                Answered
-              </Badge>
-            )}
-          </div>
-          <h2 className="text-lg font-semibold leading-7 text-on-surface">{question.prompt}</h2>
-        </div>
-
-        <Button
-          type="button"
-          variant={flagged ? "secondary" : "outline"}
-          size="sm"
-          onClick={onToggleFlag}
-          disabled={disabled}
-        >
-          <Flag className="mr-2 h-4 w-4" />
-          {flagged ? "Flagged" : "Flag"}
-        </Button>
+    <div className="flex h-dvh flex-col bg-background">
+      <header className="flex h-16 shrink-0 items-center border-b border-line bg-white px-3 sm:px-5">
+        <Link href={back} className={cn(buttonClass("ghost", "sm"), "h-11")}>
+          <ChevronLeft aria-hidden className="h-5 w-5" />
+          Bài tập &amp; Kết quả
+        </Link>
+      </header>
+      <div className="flex-1 overflow-y-auto px-4 py-8">
+        <div className="mx-auto w-full max-w-[640px]">{children}</div>
       </div>
-
-      <div className="mt-5 space-y-3">
-        {question.type === "single_choice" &&
-          question.options?.map((option) => {
-            const selected = value === option.id;
-
-            return (
-              <button
-                key={option.id}
-                type="button"
-                disabled={disabled}
-                onClick={() => onChange(option.id)}
-                className={cn(
-                  "flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-colors",
-                  selected
-                    ? "border-primary bg-primary/10 text-on-surface"
-                    : "border-outline-variant/50 bg-surface-container-low text-on-surface-variant hover:border-primary/30 hover:bg-white",
-                )}
-              >
-                <span
-                  className={cn(
-                    "mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border",
-                    selected ? "border-primary bg-primary" : "border-outline-variant bg-white",
-                  )}
-                >
-                  {selected && <span className="h-2 w-2 rounded-full bg-white" />}
-                </span>
-                <span>{option.text}</span>
-              </button>
-            );
-          })}
-
-        {question.type === "multiple_choice" &&
-          question.options?.map((option) => {
-            const selectedIds = Array.isArray(value) ? value : [];
-            const selected = selectedIds.includes(option.id);
-
-            return (
-              <button
-                key={option.id}
-                type="button"
-                disabled={disabled}
-                onClick={() => {
-                  const next = selected
-                    ? selectedIds.filter((id) => id !== option.id)
-                    : [...selectedIds, option.id];
-                  onChange(next);
-                }}
-                className={cn(
-                  "flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-colors",
-                  selected
-                    ? "border-primary bg-primary/10 text-on-surface"
-                    : "border-outline-variant/50 bg-surface-container-low text-on-surface-variant hover:border-primary/30 hover:bg-white",
-                )}
-              >
-                <span
-                  className={cn(
-                    "mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border",
-                    selected ? "border-primary bg-primary" : "border-outline-variant bg-white",
-                  )}
-                >
-                  {selected && <CheckCircle2 className="h-3.5 w-3.5 text-white" />}
-                </span>
-                <span>{option.text}</span>
-              </button>
-            );
-          })}
-
-        {question.type === "short_answer" && (
-          <Textarea
-            value={typeof value === "string" ? value : ""}
-            disabled={disabled}
-            onChange={(event) => onChange(event.target.value)}
-            placeholder="Type your answer here"
-            className="min-h-28 resize-y bg-white"
-          />
-        )}
-
-        {question.type === "essay" && (
-          <Textarea
-            value={typeof value === "string" ? value : ""}
-            disabled={disabled}
-            onChange={(event) => onChange(event.target.value)}
-            placeholder="Write your response here"
-            className="min-h-44 resize-y bg-white"
-          />
-        )}
-      </div>
-    </section>
+    </div>
   );
 }
 
 export default function AssessmentAttemptPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const assessment = getMockAssessment(id);
-  const [answers, setAnswers] = useState<AnswerMap>({});
-  const [flaggedIds, setFlaggedIds] = useState<string[]>([]);
-  const [saveState, setSaveState] = useState<"saved" | "saving">("saved");
-  const [submitted, setSubmitted] = useState(false);
-  const [remainingSeconds, setRemainingSeconds] = useState(
-    () => (assessment?.durationMinutes ?? 0) * 60,
-  );
+  const assessmentId = Number(id);
 
-  const manualReviewRequired = assessment?.questions.some(
-    (question) => !question.correctOptionIds,
-  );
-  const answeredCount = useMemo(() => {
-    if (!assessment) return 0;
-    return assessment.questions.filter((question) => isAnswered(question, answers[question.id]))
-      .length;
-  }, [answers, assessment]);
-  const progress = assessment ? Math.round((answeredCount / assessment.questions.length) * 100) : 0;
-  const autoScore = assessment ? calculateAutoScore(assessment.questions, answers) : 0;
-  const timeWarning = remainingSeconds <= 300;
+  const assessmentQuery = useAssessment(assessmentId);
+  const { data: enrollments = [], isLoading: loadingEnrollments } = useMyEnrollments();
+  const assessment = assessmentQuery.data;
+  const enrollment = assessment ? enrollmentFor(assessment, enrollments) : undefined;
+  const attemptsQuery = useAssessmentAttempts(assessmentId, enrollment?.id);
+  const start = useStartAssessmentAttempt(assessmentId);
+  const [activeAttempt, setActiveAttempt] = useState<AssessmentAttempt | null>(null);
+  const [submitted, setSubmitted] = useState<SubmittedSummary | null>(null);
 
-  useEffect(() => {
-    if (!assessment || submitted) return undefined;
-
-    const timer = window.setInterval(() => {
-      setRemainingSeconds((current) => {
-        if (current <= 1) {
-          window.clearInterval(timer);
-          setSubmitted(true);
-          return 0;
-        }
-
-        return current - 1;
-      });
-    }, 1000);
-
-    return () => window.clearInterval(timer);
-  }, [assessment, submitted]);
-
-  useEffect(() => {
-    if (!assessment || submitted || saveState !== "saving") return undefined;
-
-    const saveTimer = window.setTimeout(() => setSaveState("saved"), 500);
-    return () => window.clearTimeout(saveTimer);
-  }, [answers, assessment, saveState, submitted]);
-
-  if (!assessment) {
+  if (assessmentQuery.isLoading || loadingEnrollments || (enrollment && attemptsQuery.isLoading)) {
     return (
-      <div className="space-y-4 pb-8">
-        <Button asChild variant="ghost" className="w-fit px-0 hover:bg-transparent">
-          <Link href="/assessments">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Assessments
-          </Link>
-        </Button>
-        <section className="rounded-3xl border border-white/70 bg-white/90 px-6 py-6 shadow-[0_4px_18px_rgba(0,91,191,0.05)]">
-          <h1 className="text-2xl font-bold text-on-surface">Assessment not found</h1>
-          <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-            This mock assessment is not available in the current queue.
-          </p>
-        </section>
-      </div>
+      <FocusFrame back="/assessments">
+        <div role="status" aria-label="Đang tải bài kiểm tra" className={cn(surface, "h-80 motion-safe:animate-pulse")} />
+      </FocusFrame>
     );
   }
 
-  const handleAnswerChange = (questionId: string, value: AnswerValue) => {
-    setSaveState("saving");
-    setAnswers((current) => ({ ...current, [questionId]: value }));
-  };
-
-  const handleToggleFlag = (questionId: string) => {
-    setFlaggedIds((current) =>
-      current.includes(questionId)
-        ? current.filter((id) => id !== questionId)
-        : [...current, questionId],
+  if (isAccessError(assessmentQuery.error) || (assessment && !enrollment)) {
+    return (
+      <AccessNotice
+        title="Bạn chưa có quyền làm bài kiểm tra này"
+        message="Bài kiểm tra có thể chưa được công bố, đã đóng hoặc không thuộc khoá học bạn đang học."
+        ctaLabel="Về Bài tập & Kết quả"
+        ctaHref="/assessments"
+      />
     );
-  };
+  }
+  if (assessmentQuery.isError || !assessment || !enrollment) {
+    return <LoadError title="Không tải được bài kiểm tra." onRetry={() => assessmentQuery.refetch()} />;
+  }
 
-  const handleSubmit = () => {
-    const unanswered = assessment.questions.length - answeredCount;
-    const confirmed =
-      unanswered === 0 ||
-      window.confirm(`You still have ${unanswered} unanswered question(s). Submit now?`);
+  if (submitted) {
+    return (
+      <FocusFrame back="/assessments">
+        <div className="flex flex-col gap-4 pt-6">
+          <div className="flex flex-col items-center gap-2.5 text-center">
+            <span
+              aria-hidden
+              className="grid h-20 w-20 place-items-center rounded-full bg-success text-white shadow-[0_0_0_8px_hsl(var(--success-soft))]"
+            >
+              <Check className="h-[38px] w-[38px]" strokeWidth={3} />
+            </span>
+            <h1 className="mt-2.5 font-display text-2xl font-bold">Đã nộp bài!</h1>
+            <p role="status" className="max-w-[320px] text-sm leading-normal text-ink-2">
+              {submitted.timedOut
+                ? "Hết giờ — bài làm đã được tự động nộp. Bạn sẽ nhận thông báo khi có kết quả."
+                : "Bài làm đã được gửi an toàn. Bạn sẽ nhận thông báo khi có kết quả."}
+            </p>
+          </div>
+          <dl className={cn(surface, "px-4 py-1 text-sm")}>
+            {[
+              ["Bài kiểm tra", assessment.title],
+              ["Nộp lúc", timeDateVi(submitted.at)],
+              ["Đã trả lời", `${submitted.answered} / ${submitted.total} câu`],
+              ["Lượt làm", `Lần ${submitted.attemptNumber} / ${maxAttempts(assessment)}`],
+            ].map(([label, value]) => (
+              <div key={label} className="flex justify-between gap-4 border-b border-line py-3 last:border-0">
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="text-right font-semibold">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <Link href={`/assessments/${assessment.id}/result`} className={buttonClass("primary", "lg")}>
+            Xem kết quả
+          </Link>
+          <Link href="/assessments" className={buttonClass("outline", "md")}>
+            Về Bài tập &amp; Kết quả
+          </Link>
+        </div>
+      </FocusFrame>
+    );
+  }
 
-    if (confirmed) {
-      setSubmitted(true);
-      setSaveState("saved");
+  if (activeAttempt) {
+    return (
+      <AttemptRunner
+        key={activeAttempt.id}
+        assessment={assessment}
+        attempt={activeAttempt}
+        onSubmitted={(summary) => {
+          setActiveAttempt(null);
+          setSubmitted(summary);
+        }}
+      />
+    );
+  }
+
+  // Start / resume (mobile 4a "Bắt đầu — hướng dẫn").
+  const attempts = attemptsQuery.data ?? [];
+  const latest = latestAttempt(attempts);
+  const resumable =
+    latest?.status === "in_progress" && (!latest.expired_at || new Date(latest.expired_at) > new Date());
+  const startable = canStartAttempt(assessment, attempts);
+  const used = attemptsUsed(attempts);
+  const questionCount = assessment.questions?.length ?? 0;
+  const notOpenYet = assessment.open_at && new Date(assessment.open_at) > new Date();
+
+  const handleStart = async () => {
+    try {
+      const attempt = await start.mutateAsync(enrollment.id);
+      setActiveAttempt(attempt);
+    } catch (error) {
+      const code = apiErrorCode(error);
+      toast.error(
+        code === "ASM_ERR_MAX_ATTEMPT"
+          ? "Bạn đã dùng hết lượt làm bài này."
+          : code === "ASM_ERR_CLOSED" || code === "ASM_ERR_NOT_OPEN"
+            ? "Bài kiểm tra hiện không mở."
+            : "Không bắt đầu được bài làm. Vui lòng thử lại.",
+      );
     }
   };
 
+  const instructions = [
+    assessment.time_limit_minutes
+      ? "Đồng hồ bắt đầu khi bạn nhấn “Bắt đầu làm bài” và không dừng khi thoát ra."
+      : null,
+    "Câu trả lời được lưu trên thiết bị này mỗi khi bạn chọn hoặc gõ — hãy nộp bài trên cùng thiết bị.",
+    `Dùng “Đánh dấu xem lại” cho câu muốn xem lại.${assessment.time_limit_minutes ? " Hết giờ, bài sẽ tự nộp." : ""}`,
+  ].filter((item): item is string => !!item);
+
   return (
-    <div className="space-y-6 pb-8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Button asChild variant="ghost" className="w-fit px-0 hover:bg-transparent">
-          <Link href="/assessments">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Assessments
-          </Link>
-        </Button>
-
-        <div
-          className={cn(
-            "flex w-fit items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold",
-            timeWarning
-              ? "border-destructive/15 bg-destructive/10 text-destructive"
-              : "border-primary/15 bg-primary/10 text-primary",
-          )}
-        >
-          <Clock3 className="h-4 w-4" />
-          {formatRemaining(remainingSeconds)}
-        </div>
-      </div>
-
-      <section className="rounded-3xl border border-white/70 bg-white/90 px-6 py-6 shadow-[0_4px_18px_rgba(0,91,191,0.05)]">
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge className="border-primary/15 bg-primary/10 text-primary">
-                Attempt {Math.max(assessment.attemptNumber, 1)}/{assessment.attemptLimit}
-              </Badge>
-              <Badge className="border-outline-variant bg-surface-container-low text-on-surface-variant">
-                {assessment.gradingMethod}
-              </Badge>
-              <Badge className="border-secondary/15 bg-secondary/10 text-secondary">
-                {saveState === "saving" ? (
-                  <Save className="mr-2 h-3.5 w-3.5" />
-                ) : (
-                  <CheckCircle2 className="mr-2 h-3.5 w-3.5" />
-                )}
-                {saveState === "saving" ? "Saving" : "Saved"}
-              </Badge>
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-on-surface">
-                {assessment.title}
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-on-surface-variant">
-                {assessment.courseTitle} / {assessment.lessonTitle}
-              </p>
-            </div>
+    <FocusFrame back="/assessments">
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-1.5">
+          <div className="text-xs font-semibold uppercase tracking-[.04em] text-muted-foreground">
+            {[assessmentCourseName(assessment), assessmentTypeLabel[assessment.assessment_type]].filter(Boolean).join(" · ")}
           </div>
+          <h1 className="text-balance text-2xl font-bold leading-tight">{assessment.title}</h1>
+          {assessment.description ? (
+            <p className="whitespace-pre-line text-sm leading-relaxed text-ink-2">{assessment.description}</p>
+          ) : null}
+        </div>
 
-          <div className="rounded-2xl bg-surface-container-low px-4 py-4">
-            <div className="mb-2 flex items-center justify-between text-sm font-semibold text-on-surface-variant">
-              <span>{answeredCount} answered</span>
-              <span>{assessment.questions.length - answeredCount} left</span>
+        <dl className={cn(surface, "grid grid-cols-2 overflow-hidden rounded-2xl")}>
+          {[
+            ["Thời gian làm", assessment.time_limit_minutes ? minutesVi(assessment.time_limit_minutes) : "Không giới hạn"],
+            ["Số câu", `${questionCount} câu`],
+            [
+              "Lượt làm",
+              attemptsLeft(assessment, attempts) || resumable
+                ? `Lần ${resumable ? latest!.attempt_number : used + 1} / ${maxAttempts(assessment)}`
+                : `Đã dùng hết ${maxAttempts(assessment)} lượt`,
+            ],
+            ["Hạn nộp", assessment.close_at ? deadlineVi(assessment.close_at) : "Không có hạn"],
+          ].map(([label, value], index) => (
+            <div
+              key={label}
+              className={cn("px-3.5 py-3", index % 2 === 0 && "border-r border-line", index < 2 && "border-b border-line")}
+            >
+              <dt className="text-xs text-muted-foreground">{label}</dt>
+              <dd className="mt-0.5 text-base font-bold">{value}</dd>
             </div>
-            <Progress value={progress} />
-            <p className="mt-2 text-xs font-semibold text-on-surface-variant">
-              {flaggedIds.length} flagged for review
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {submitted && (
-        <div className="rounded-2xl border border-secondary/15 bg-secondary/10 p-5 text-secondary">
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0" />
-            <div>
-              <p className="font-semibold">Submission received</p>
-              <p className="mt-1 text-sm leading-6">
-                {manualReviewRequired
-                  ? "This assessment is waiting for grading before results are released."
-                  : `Auto score: ${autoScore}/${assessment.maxScore}`}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!submitted && timeWarning && (
-        <div className="rounded-2xl border border-destructive/15 bg-destructive/10 p-4 text-destructive">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" />
-            <p className="text-sm font-semibold">Five minutes or less remain.</p>
-          </div>
-        </div>
-      )}
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="space-y-4">
-          {assessment.questions.map((question, index) => (
-            <QuestionBlock
-              key={question.id}
-              question={question}
-              index={index}
-              value={answers[question.id]}
-              flagged={flaggedIds.includes(question.id)}
-              disabled={submitted}
-              onChange={(value) => handleAnswerChange(question.id, value)}
-              onToggleFlag={() => handleToggleFlag(question.id)}
-            />
           ))}
+        </dl>
+
+        <div className="flex flex-col gap-3">
+          <h2 className="text-[15px] font-bold">Hướng dẫn</h2>
+          <ol className="grid gap-3">
+            {instructions.map((text, index) => (
+              <li key={text} className="flex gap-2.5 text-sm leading-normal text-ink-2">
+                <span aria-hidden className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-muted text-xs font-bold text-ink">
+                  {index + 1}
+                </span>
+                {text}
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div className="rounded-[14px] bg-muted px-3.5 py-3 text-[13px] leading-normal text-ink-2">
+          Cần kết nối mạng ổn định khi bắt đầu và khi nộp bài. Nếu mất mạng giữa chừng, câu trả lời vẫn được giữ trên máy.
         </div>
 
-        <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
-          <Card className="border-white/80 bg-white/90 shadow-[0_4px_18px_rgba(0,91,191,0.04)]">
-            <CardHeader>
-              <CardTitle className="text-xl">Review</CardTitle>
-              <CardDescription>
-                {assessment.questions.length} questions / {assessment.maxScore} pts
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-4 gap-2">
-                {assessment.questions.map((question, index) => {
-                  const answered = isAnswered(question, answers[question.id]);
-                  const flagged = flaggedIds.includes(question.id);
-
-                  return (
-                    <div
-                      key={question.id}
-                      className={cn(
-                        "flex h-10 items-center justify-center rounded-xl border text-sm font-bold",
-                        answered
-                          ? "border-secondary/20 bg-secondary/10 text-secondary"
-                          : "border-outline-variant bg-surface-container-low text-on-surface-variant",
-                        flagged && "border-tertiary bg-tertiary/10 text-tertiary",
-                      )}
-                    >
-                      {index + 1}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <Button
-                type="button"
-                className="w-full"
-                onClick={handleSubmit}
-                disabled={submitted}
-              >
-                <Send className="mr-2 h-4 w-4" />
-                Submit
-              </Button>
-            </CardContent>
-          </Card>
-        </aside>
+        {resumable || startable ? (
+          <button type="button" onClick={handleStart} disabled={start.isPending} className={buttonClass("primary", "lg")}>
+            {start.isPending ? "Đang mở bài…" : resumable ? "Tiếp tục làm bài" : "Bắt đầu làm bài"}
+          </button>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <span aria-disabled className={cn(buttonClass("outline", "lg"), "border-dashed bg-background text-muted-foreground")}>
+              {notOpenYet && assessment.open_at
+                ? `Mở lúc ${deadlineVi(assessment.open_at)}`
+                : used >= maxAttempts(assessment)
+                  ? "Đã dùng hết lượt làm bài"
+                  : "Bài kiểm tra đã đóng"}
+            </span>
+            {latest ? (
+              <Link href={`/assessments/${assessment.id}/result`} className={buttonClass("outline", "md")}>
+                Xem kết quả bài làm
+              </Link>
+            ) : null}
+          </div>
+        )}
       </div>
-    </div>
+    </FocusFrame>
   );
 }
